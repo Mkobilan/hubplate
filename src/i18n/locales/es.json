@@ -36,6 +36,8 @@
         "schedule": "Horarios",
         "inventory": "Inventario",
         "reports": "Reportes",
+        "payments": "Pagos",
+        "customers": "Clientes",
         "settings": "Ajustes"
     },
     "staff": {

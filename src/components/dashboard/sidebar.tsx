@@ -20,6 +20,7 @@ import {
     ChevronLeft,
     Users,
     CreditCard,
+    Heart,
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
@@ -82,6 +83,11 @@ export function DashboardSidebar() {
             href: "/dashboard/settings/payments",
             icon: <CreditCard className="h-5 w-5" />,
             label: t("nav.payments"),
+        },
+        {
+            href: "/dashboard/customers",
+            icon: <Heart className="h-5 w-5" />,
+            label: t("nav.customers"),
         },
         {
             href: "/dashboard/settings",
