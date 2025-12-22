@@ -33,8 +33,7 @@ export async function POST(request: NextRequest) {
                 created_by: user.id,
             }));
 
-            const { error } = await supabase
-                .from('menu_items')
+            const { error } = await (supabase.from('menu_items') as any)
                 .insert(itemsToInsert);
 
             if (error) {
