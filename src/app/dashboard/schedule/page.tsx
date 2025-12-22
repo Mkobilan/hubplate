@@ -84,7 +84,7 @@ export default function SchedulePage() {
                         </div>
                         <div>
                             <p className="text-slate-500 text-xs">Total Hours</p>
-                            <p className="font-bold">142h</p>
+                            <p className="font-bold">0h</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
@@ -93,7 +93,7 @@ export default function SchedulePage() {
                         </div>
                         <div>
                             <p className="text-slate-500 text-xs">Est. Labor Cost</p>
-                            <p className="font-bold">{formatCurrency(2840)}</p>
+                            <p className="font-bold">{formatCurrency(0)}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
@@ -102,7 +102,7 @@ export default function SchedulePage() {
                         </div>
                         <div>
                             <p className="text-slate-500 text-xs">Labor %</p>
-                            <p className="font-bold">18.4%</p>
+                            <p className="font-bold">0%</p>
                         </div>
                     </div>
                 </div>
@@ -169,15 +169,12 @@ export default function SchedulePage() {
             </div>
 
             {/* Warnings / Alerts */}
-            <div className="card border-amber-500/30 bg-amber-500/5">
+            <div className="card border-slate-800 bg-slate-900/20">
                 <div className="flex gap-3">
-                    <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+                    <AlertCircle className="h-5 w-5 text-slate-500 shrink-0" />
                     <div>
-                        <h4 className="font-semibold text-amber-500">Scheduling Alerts</h4>
-                        <ul className="text-sm text-slate-400 mt-1 list-disc list-inside space-y-1">
-                            <li>Jordan K. is approaching overtime (38h scheduled).</li>
-                            <li>Tuesday PM shift is understaffed (only 1 server for projected 40 guests).</li>
-                        </ul>
+                        <h4 className="font-semibold text-slate-300">Scheduling Alerts</h4>
+                        <p className="text-sm text-slate-500 mt-1">No alerts for this week.</p>
                     </div>
                 </div>
             </div>

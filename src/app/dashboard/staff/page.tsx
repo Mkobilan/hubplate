@@ -84,12 +84,12 @@ export default function StaffPage() {
                 />
                 <QuickStat
                     label="Daily Labor Cost"
-                    value={formatCurrency(450)}
+                    value={formatCurrency(0)}
                     icon={<DollarSign className="h-4 w-4" />}
                 />
                 <QuickStat
                     label="Avg Sales/Server"
-                    value={formatCurrency(1068)}
+                    value={formatCurrency(0)}
                     icon={<TrendingUp className="h-4 w-4" />}
                 />
             </div>
@@ -121,75 +121,83 @@ export default function StaffPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
-                            {filteredEmployees.map((emp) => (
-                                <tr key={emp.id} className="hover:bg-slate-900/40 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold border border-slate-700">
-                                                {emp.name.split(" ").map(n => n[0]).join("")}
+                            {filteredEmployees.length > 0 ? (
+                                filteredEmployees.map((emp) => (
+                                    <tr key={emp.id} className="hover:bg-slate-900/40 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold border border-slate-700">
+                                                    {emp.name.split(" ").map(n => n[0]).join("")}
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium">{emp.name}</p>
+                                                    <p className="text-xs text-slate-500">{emp.email}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-medium">{emp.name}</p>
-                                                <p className="text-xs text-slate-500">{emp.email}</p>
+                                        </td>
+                                        <td className="px-6 py-4 capitalize">
+                                            <div className="flex items-center gap-2">
+                                                <Shield className={cn(
+                                                    "h-3 w-3",
+                                                    emp.role === "manager" ? "text-orange-500" : "text-slate-400"
+                                                )} />
+                                                <span className="text-sm">{emp.role}</span>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 capitalize">
-                                        <div className="flex items-center gap-2">
-                                            <Shield className={cn(
-                                                "h-3 w-3",
-                                                emp.role === "manager" ? "text-orange-500" : "text-slate-400"
-                                            )} />
-                                            <span className="text-sm">{emp.role}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-1">
-                                            <span className={cn(
-                                                "badge text-[10px]",
-                                                emp.clocked_in ? "badge-success" : "badge-danger"
-                                            )}>
-                                                {emp.clocked_in ? "Clocked In" : "Clocked Out"}
-                                            </span>
-                                            {emp.clock_in_time && (
-                                                <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
-                                                    <Clock className="w-2 h-2" /> {emp.clock_in_time}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1">
+                                                <span className={cn(
+                                                    "badge text-[10px]",
+                                                    emp.clocked_in ? "badge-success" : "badge-danger"
+                                                )}>
+                                                    {emp.clocked_in ? "Clocked In" : "Clocked Out"}
                                                 </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {emp.sales_today > 0 ? (
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-bold text-green-400">{formatCurrency(emp.sales_today)} sales</p>
-                                                <p className="text-[10px] text-slate-500">{formatCurrency(emp.tips_today)} in tips</p>
+                                                {emp.clock_in_time && (
+                                                    <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+                                                        <Clock className="w-2 h-2" /> {emp.clock_in_time}
+                                                    </span>
+                                                )}
                                             </div>
-                                        ) : (
-                                            <span className="text-xs text-slate-600">No activity today</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 text-sm font-mono text-slate-300">
-                                        {formatCurrency(emp.hourly_rate)}/hr
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => setShowAvailability(emp.id)}
-                                                className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-orange-400"
-                                                title="Manage Availability"
-                                            >
-                                                <CalendarCheck className="h-4 w-4" />
-                                            </button>
-                                            <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-100">
-                                                <Edit2 className="h-4 w-4" />
-                                            </button>
-                                            <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-red-400">
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {emp.sales_today > 0 ? (
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-bold text-green-400">{formatCurrency(emp.sales_today)} sales</p>
+                                                    <p className="text-[10px] text-slate-500">{formatCurrency(emp.tips_today)} in tips</p>
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-slate-600">No activity today</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-mono text-slate-300">
+                                            {formatCurrency(emp.hourly_rate)}/hr
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setShowAvailability(emp.id)}
+                                                    className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-orange-400"
+                                                    title="Manage Availability"
+                                                >
+                                                    <CalendarCheck className="h-4 w-4" />
+                                                </button>
+                                                <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-100">
+                                                    <Edit2 className="h-4 w-4" />
+                                                </button>
+                                                <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-red-400">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                        No employees found
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>

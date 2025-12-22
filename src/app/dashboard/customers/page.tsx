@@ -55,12 +55,7 @@ const quickLinks = [
 ];
 
 // Top customers
-const topCustomers = [
-    { name: "Sarah Mitchell", visits: 24, spent: 1240.50, tier: "Gold" },
-    { name: "Mike Johnson", visits: 18, spent: 892.00, tier: "Silver" },
-    { name: "Emily Chen", visits: 15, spent: 675.25, tier: "Silver" },
-    { name: "David Wilson", visits: 12, spent: 520.00, tier: "Bronze" },
-];
+const topCustomers: { name: string; visits: number; spent: number; tier: string }[] = [];
 
 export default function CustomersPage() {
     const { t } = useTranslation();
@@ -142,28 +137,36 @@ export default function CustomersPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
-                            {topCustomers.map((customer, i) => (
-                                <tr key={i} className="hover:bg-slate-900/40 transition-colors">
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold">
-                                                {customer.name.split(" ").map(n => n[0]).join("")}
+                            {topCustomers.length > 0 ? (
+                                topCustomers.map((customer, i) => (
+                                    <tr key={i} className="hover:bg-slate-900/40 transition-colors">
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold">
+                                                    {customer.name.split(" ").map(n => n[0]).join("")}
+                                                </div>
+                                                <span className="font-medium">{customer.name}</span>
                                             </div>
-                                            <span className="font-medium">{customer.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3 font-mono">{customer.visits}</td>
-                                    <td className="px-4 py-3 font-mono text-green-400">{formatCurrency(customer.spent)}</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`badge text-xs ${customer.tier === "Gold" ? "bg-yellow-500/20 text-yellow-400" :
+                                        </td>
+                                        <td className="px-4 py-3 font-mono">{customer.visits}</td>
+                                        <td className="px-4 py-3 font-mono text-green-400">{formatCurrency(customer.spent)}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`badge text-xs ${customer.tier === "Gold" ? "bg-yellow-500/20 text-yellow-400" :
                                                 customer.tier === "Silver" ? "bg-slate-400/20 text-slate-300" :
                                                     "bg-amber-700/20 text-amber-500"
-                                            }`}>
-                                            {customer.tier}
-                                        </span>
+                                                }`}>
+                                                {customer.tier}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={4} className="px-4 py-12 text-center text-slate-500">
+                                        No customer data available
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>

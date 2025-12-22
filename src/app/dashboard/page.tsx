@@ -9,6 +9,7 @@ import {
     Clock,
     AlertTriangle,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 export default function DashboardPage() {
     const { t } = useTranslation();
@@ -28,28 +29,28 @@ export default function DashboardPage() {
                 <StatCard
                     icon={<ClipboardList className="h-5 w-5" />}
                     label="Today's Orders"
-                    value="47"
-                    trend="+12%"
+                    value="0"
+                    trend="0%"
                     trendUp
                 />
                 <StatCard
                     icon={<DollarSign className="h-5 w-5" />}
                     label="Today's Revenue"
-                    value="$2,847"
-                    trend="+8%"
+                    value={formatCurrency(0)}
+                    trend="0%"
                     trendUp
                 />
                 <StatCard
                     icon={<Users className="h-5 w-5" />}
                     label="Active Tables"
-                    value="12/24"
-                    subtext="50% capacity"
+                    value="0/0"
+                    subtext="0% capacity"
                 />
                 <StatCard
                     icon={<Clock className="h-5 w-5" />}
                     label="Avg. Ticket Time"
-                    value="14 min"
-                    trend="-2 min"
+                    value="0 min"
+                    trend="0 min"
                     trendUp
                 />
             </div>
@@ -60,13 +61,11 @@ export default function DashboardPage() {
                 <div className="lg:col-span-2 card">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold">Active Orders</h2>
-                        <span className="badge badge-info">12 open</span>
+                        <span className="badge badge-info text-[10px]">0 open</span>
                     </div>
-                    <div className="space-y-3">
-                        <OrderRow table="Table 5" items={3} time="8 min" status="preparing" />
-                        <OrderRow table="Table 12" items={5} time="3 min" status="sent" />
-                        <OrderRow table="Table 8" items={2} time="12 min" status="ready" />
-                        <OrderRow table="Takeout #47" items={4} time="5 min" status="preparing" />
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                        <ClipboardList className="h-8 w-8 mb-2 opacity-20" />
+                        <p className="text-sm">No active orders</p>
                     </div>
                     <button className="btn-ghost w-full mt-4 text-sm">
                         View All Orders →
@@ -76,18 +75,18 @@ export default function DashboardPage() {
                 {/* Alerts & Quick Actions */}
                 <div className="space-y-4">
                     {/* 86'd Items Alert */}
-                    <div className="card border-amber-500/50 bg-amber-500/5">
+                    <div className="card border-slate-800 bg-slate-900/20">
                         <div className="flex items-start gap-3">
-                            <div className="p-2 bg-amber-500/20 rounded-lg">
-                                <AlertTriangle className="h-5 w-5 text-amber-400" />
+                            <div className="p-2 bg-slate-800 rounded-lg">
+                                <AlertTriangle className="h-5 w-5 text-slate-500" />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-amber-400">86&apos;d Items</h3>
-                                <p className="text-sm text-slate-400 mt-1">
-                                    2 items are currently unavailable
+                                <h3 className="font-semibold text-slate-300">86&apos;d Items</h3>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    All items are currently available
                                 </p>
-                                <button className="text-sm text-amber-400 hover:underline mt-2">
-                                    Manage 86&apos;d Items →
+                                <button className="text-sm text-orange-500 hover:underline mt-2">
+                                    Manage Menu →
                                 </button>
                             </div>
                         </div>
@@ -106,11 +105,12 @@ export default function DashboardPage() {
 
                     {/* Top Servers */}
                     <div className="card">
-                        <h3 className="font-semibold mb-4">Top Servers Today</h3>
-                        <div className="space-y-3">
-                            <ServerRow name="Alex M." sales="$892" orders={18} />
-                            <ServerRow name="Jordan K." sales="$756" orders={15} />
-                            <ServerRow name="Sam T." sales="$623" orders={12} />
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold">Top Servers Today</h3>
+                            <Users className="h-4 w-4 text-slate-500" />
+                        </div>
+                        <div className="text-center py-6 text-slate-500 text-sm">
+                            <p>No activity yet</p>
                         </div>
                     </div>
                 </div>

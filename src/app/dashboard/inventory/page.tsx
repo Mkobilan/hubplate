@@ -19,20 +19,25 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { useState } from "react";
 import Link from "next/link";
 
-// Mock data
-const mockInventory = [
-    { id: "1", name: "Ground Beef 80/20", unit: "lb", stock: 45, par: 100, status: "critical", reorderQty: 55 },
-    { id: "2", name: "Brioche Buns", unit: "pack", stock: 12, par: 20, status: "low", reorderQty: 10 },
-    { id: "3", name: "Chicken Wings", unit: "lb", stock: 85, par: 50, status: "good" },
-    { id: "4", name: "Iceberg Lettuce", unit: "head", stock: 8, par: 15, status: "low", reorderQty: 10 },
-    { id: "5", name: "IPA Beer Keg", unit: "keg", stock: 3, par: 2, status: "good" },
-];
+// Types for Supabase integration
+interface InventoryItem {
+    id: string;
+    name: string;
+    unit: string;
+    stock: number;
+    par: number;
+    status: "good" | "low" | "critical";
+    reorderQty?: number;
+}
+
+// TODO: Replace with Supabase query
+const inventory: InventoryItem[] = [];
 
 export default function InventoryPage() {
     const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState("");
 
-    const filtered = mockInventory.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const filtered = inventory.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return (
         <div className="space-y-6">
@@ -55,25 +60,26 @@ export default function InventoryPage() {
                 </div>
             </div>
 
-            {/* AI Alert Banner */}
-            <div className="card border-orange-500/30 bg-orange-500/5 p-4 lg:p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex gap-4">
-                    <div className="p-3 bg-orange-500/20 rounded-2xl h-fit">
-                        <TrendingDown className="h-6 w-6 text-orange-400" />
+            {/* AI Alert Banner - Only show if there is an alert */}
+            {inventory.some(i => i.status !== 'good') && (
+                <div className="card border-orange-500/30 bg-orange-500/5 p-4 lg:p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex gap-4">
+                        <div className="p-3 bg-orange-500/20 rounded-2xl h-fit">
+                            <TrendingDown className="h-6 w-6 text-orange-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-orange-100">Low Stock Alert</h3>
+                            <p className="text-sm text-orange-200/60 max-w-lg mt-1">
+                                Some essential items are reaching critical levels. Reorder now to avoid disruptions.
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-orange-100">Low Stock Prediction</h3>
-                        <p className="text-sm text-orange-200/60 max-w-lg mt-1">
-                            Based on sales patterns, you will run out of **Ground Beef** by Wednesday.
-                            Suggest ordering **55 lbs** today to maintain stock through peak weekend hours.
-                        </p>
-                    </div>
+                    <button className="btn-primary whitespace-nowrap bg-orange-500 hover:bg-orange-600 border-none shadow-lg shadow-orange-500/20">
+                        Manage Orders
+                        <ArrowRight className="h-4 w-4" />
+                    </button>
                 </div>
-                <button className="btn-primary whitespace-nowrap bg-orange-500 hover:bg-orange-600 border-none shadow-lg shadow-orange-500/20">
-                    Create Purchase Order
-                    <ArrowRight className="h-4 w-4" />
-                </button>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Inventory List */}
@@ -101,29 +107,37 @@ export default function InventoryPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800">
-                                    {filtered.map((item) => (
-                                        <tr key={item.id} className="hover:bg-slate-900/40 transition-colors cursor-pointer group">
-                                            <td className="px-4 py-3 font-medium text-sm group-hover:text-orange-400 transition-colors">
-                                                {item.name}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm font-mono">
-                                                {item.stock} <span className="text-slate-500">{item.unit}</span>
-                                            </td>
-                                            <td className="px-4 py-3 text-sm font-mono text-slate-500">
-                                                {item.par} {item.unit}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={cn(
-                                                    "badge text-[10px]",
-                                                    item.status === "critical" && "badge-danger",
-                                                    item.status === "low" && "badge-warning",
-                                                    item.status === "good" && "badge-success"
-                                                )}>
-                                                    {item.status}
-                                                </span>
+                                    {filtered.length > 0 ? (
+                                        filtered.map((item) => (
+                                            <tr key={item.id} className="hover:bg-slate-900/40 transition-colors cursor-pointer group">
+                                                <td className="px-4 py-3 font-medium text-sm group-hover:text-orange-400 transition-colors">
+                                                    {item.name}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm font-mono">
+                                                    {item.stock} <span className="text-slate-500">{item.unit}</span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm font-mono text-slate-500">
+                                                    {item.par} {item.unit}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={cn(
+                                                        "badge text-[10px]",
+                                                        item.status === "critical" && "badge-danger",
+                                                        item.status === "low" && "badge-warning",
+                                                        item.status === "good" && "badge-success"
+                                                    )}>
+                                                        {item.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={4} className="px-4 py-12 text-center text-slate-500">
+                                                No inventory items found
                                             </td>
                                         </tr>
-                                    ))}
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -137,13 +151,13 @@ export default function InventoryPage() {
                         <div className="space-y-4">
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-slate-500">Total Asset Value</span>
-                                <span className="font-bold text-lg">{formatCurrency(4125.40)}</span>
+                                <span className="font-bold text-lg">{formatCurrency(0)}</span>
                             </div>
                             <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                                <div className="h-full bg-orange-500 w-[65%]" />
+                                <div className="h-full bg-orange-500 w-[0%]" />
                             </div>
                             <p className="text-[10px] text-slate-500">
-                                You currently have **$1,200** tied up in overstock items (Drinks category).
+                                Stock value is calculated based on current inventory levels and unit costs.
                             </p>
                         </div>
                     </div>
