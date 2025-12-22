@@ -21,6 +21,8 @@ import {
     Users,
     CreditCard,
     Heart,
+    Building2,
+    Activity,
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
@@ -88,6 +90,16 @@ export function DashboardSidebar() {
             href: "/dashboard/customers",
             icon: <Heart className="h-5 w-5" />,
             label: t("nav.customers"),
+        },
+        {
+            href: "/dashboard/analytics",
+            icon: <Activity className="h-5 w-5" />,
+            label: t("nav.analytics"),
+        },
+        {
+            href: "/dashboard/locations",
+            icon: <Building2 className="h-5 w-5" />,
+            label: t("nav.locations"),
         },
         {
             href: "/dashboard/settings",

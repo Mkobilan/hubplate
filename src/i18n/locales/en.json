@@ -38,6 +38,8 @@
         "reports": "Reports",
         "payments": "Payments",
         "customers": "Customers",
+        "analytics": "Analytics",
+        "locations": "Locations",
         "settings": "Settings"
     },
     "staff": {
