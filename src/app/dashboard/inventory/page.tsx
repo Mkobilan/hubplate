@@ -9,17 +9,22 @@ import {
     ArrowRight,
     RefreshCw,
     TrendingDown,
-    ChevronRight
+    ChevronRight,
+    Sparkles,
+    Trash2,
+    ShoppingCart,
+    Link2
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useState } from "react";
+import Link from "next/link";
 
 // Mock data
 const mockInventory = [
-    { id: "1", name: "Ground Beef 80/20", unit: "lb", stock: 45, par: 100, status: "critical" },
-    { id: "2", name: "Brioche Buns", unit: "pack", stock: 12, par: 20, status: "low" },
+    { id: "1", name: "Ground Beef 80/20", unit: "lb", stock: 45, par: 100, status: "critical", reorderQty: 55 },
+    { id: "2", name: "Brioche Buns", unit: "pack", stock: 12, par: 20, status: "low", reorderQty: 10 },
     { id: "3", name: "Chicken Wings", unit: "lb", stock: 85, par: 50, status: "good" },
-    { id: "4", name: "Iceberg Lettuce", unit: "head", stock: 8, par: 15, status: "low" },
+    { id: "4", name: "Iceberg Lettuce", unit: "head", stock: 8, par: 15, status: "low", reorderQty: 10 },
     { id: "5", name: "IPA Beer Keg", unit: "keg", stock: 3, par: 2, status: "good" },
 ];
 
@@ -146,18 +151,36 @@ export default function InventoryPage() {
                     <div className="card">
                         <h3 className="font-bold mb-4">Quick Links</h3>
                         <div className="space-y-2">
-                            <button className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm">
-                                <span>Ingredient Linker</span>
+                            <Link
+                                href="/dashboard/inventory/linker"
+                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Link2 className="h-4 w-4 text-blue-400" />
+                                    <span>Ingredient Linker</span>
+                                </div>
                                 <ChevronRight className="h-4 w-4 text-slate-600" />
-                            </button>
-                            <button className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm">
-                                <span>Waste Logs</span>
+                            </Link>
+                            <Link
+                                href="/dashboard/inventory/waste"
+                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Trash2 className="h-4 w-4 text-red-400" />
+                                    <span>Waste Logs</span>
+                                </div>
                                 <ChevronRight className="h-4 w-4 text-slate-600" />
-                            </button>
-                            <button className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-blue-400 font-medium">
-                                <span>Setup AI Vendors</span>
+                            </Link>
+                            <Link
+                                href="/dashboard/menu/suggestions"
+                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-orange-400 font-medium"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="h-4 w-4" />
+                                    <span>AI Menu Suggestions</span>
+                                </div>
                                 <ChevronRight className="h-4 w-4" />
-                            </button>
+                            </Link>
                         </div>
                     </div>
                 </div>

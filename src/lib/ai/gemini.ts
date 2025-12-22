@@ -147,23 +147,60 @@ JSON:`;
     return JSON.parse(jsonMatch[0]);
 }
 
-// Suggest ingredient substitutions
-export async function suggestSubstitutions(
-    itemName: string,
-    originalIngredient: string,
-    dietaryRestriction?: string,
-    availableIngredients?: string[]
-): Promise<{ substitute: string; notes: string }[]> {
+// AI Reorder Suggestions based on sales velocity and stock levels
+export async function generateReorderSuggestions(
+    inventoryItems: { name: string; stock: number; parLevel: number; unit: string; avgDailyUsage: number }[]
+): Promise<{ itemName: string; reorderQty: number; urgency: "critical" | "moderate" | "low"; reasoning: string }[]> {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const prompt = `Suggest 3 substitutes for "${originalIngredient}" in "${itemName}".
+    const prompt = `You are an inventory management AI. Analyze stock levels and suggest reorder quantities.
 
-${dietaryRestriction ? `Dietary requirement: ${dietaryRestriction}` : ""}
-${availableIngredients ? `Available ingredients: ${availableIngredients.join(", ")}` : ""}
+Current Inventory:
+${inventoryItems.map((i) => `- ${i.name}: ${i.stock} ${i.unit} (Par: ${i.parLevel}, Daily Usage: ${i.avgDailyUsage})`).join("\n")}
+
+For items running low:
+1. Calculate days until stockout
+2. Suggest reorder quantity to reach par + 3 days buffer
+3. Assign urgency: "critical" (< 2 days), "moderate" (2-5 days), "low" (> 5 days)
+
+Return ONLY a JSON array for items needing reorder:
+[
+  {"itemName": "Item Name", "reorderQty": 50, "urgency": "critical", "reasoning": "Will run out in 1.5 days based on current usage"}
+]
+
+JSON:`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+        return [];
+    }
+
+    return JSON.parse(jsonMatch[0]);
+}
+
+// AI Waste Reduction Insights
+export async function generateWasteReductionInsights(
+    wasteData: { item: string; quantity: number; reason: string; cost: number }[]
+): Promise<{ insight: string; recommendation: string; potentialSavings: number }[]> {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `You are a food waste reduction expert. Analyze waste patterns and provide actionable insights.
+
+Recent Waste Logs:
+${wasteData.map((w) => `- ${w.item}: ${w.quantity} units, Reason: ${w.reason}, Cost: $${w.cost}`).join("\n")}
+
+Provide 3 specific, actionable insights to reduce waste. Consider:
+- Par level adjustments
+- FIFO improvements
+- Prep timing optimization
+- Menu engineering changes
 
 Return ONLY a JSON array:
 [
-  {"substitute": "Ingredient Name", "notes": "Brief cooking adjustment note"}
+  {"insight": "Brief observation", "recommendation": "Specific action to take", "potentialSavings": 150.00}
 ]
 
 JSON:`;
