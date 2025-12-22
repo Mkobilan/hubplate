@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
             .from('locations')
             .select('stripe_account_id')
             .eq('owner_id', user.id)
-            .single();
+            .single() as { data: { stripe_account_id: string | null } | null };
 
         let accountId = profile?.stripe_account_id;
 
@@ -34,8 +34,7 @@ export async function POST(request: NextRequest) {
             accountId = account.id;
 
             // Save the account ID to the database
-            await supabase
-                .from('locations')
+            await (supabase.from('locations') as any)
                 .update({ stripe_account_id: accountId })
                 .eq('owner_id', user.id);
         }

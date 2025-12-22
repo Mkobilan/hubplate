@@ -22,13 +22,13 @@ export async function POST(request: NextRequest) {
         const { data: inventory } = await supabase
             .from('inventory_items')
             .select('name, stock_quantity, par_level, unit, avg_daily_usage')
-            .eq('location_id', locationId);
+            .eq('location_id', locationId) as { data: { name: string; stock_quantity: number; par_level: number; unit: string; avg_daily_usage: number | null }[] | null };
 
         if (!inventory || inventory.length === 0) {
             return NextResponse.json({ suggestions: [] });
         }
 
-        const inventoryItems = inventory.map(item => ({
+        const inventoryItems = inventory.map((item: { name: string; stock_quantity: number; par_level: number; unit: string; avg_daily_usage: number | null }) => ({
             name: item.name,
             stock: item.stock_quantity,
             parLevel: item.par_level,

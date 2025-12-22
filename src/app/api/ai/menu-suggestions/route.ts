@@ -22,17 +22,17 @@ export async function POST(request: NextRequest) {
         const { data: menuItems } = await supabase
             .from('menu_items')
             .select('name')
-            .eq('location_id', locationId);
+            .eq('location_id', locationId) as { data: { name: string }[] | null };
 
         // Get available inventory items as ingredients
         const { data: inventory } = await supabase
             .from('inventory_items')
             .select('name')
             .eq('location_id', locationId)
-            .gt('stock_quantity', 0);
+            .gt('stock_quantity', 0) as { data: { name: string }[] | null };
 
-        const existingMenu = menuItems?.map(i => i.name) || [];
-        const availableIngredients = inventory?.map(i => i.name) || [];
+        const existingMenu = menuItems?.map((i: { name: string }) => i.name) || [];
+        const availableIngredients = inventory?.map((i: { name: string }) => i.name) || [];
 
         // Generate AI suggestions
         const suggestions = await suggestNewMenuItems(

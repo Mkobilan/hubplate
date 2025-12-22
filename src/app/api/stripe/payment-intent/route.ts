@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
             .from('orders')
             .select('*, locations(stripe_account_id)')
             .eq('id', orderId)
-            .single();
+            .single() as { data: { locations: { stripe_account_id: string } | null } | null; error: any };
 
         if (error || !order) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -45,8 +45,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Update order with payment intent ID
-        await supabase
-            .from('orders')
+        await (supabase.from('orders') as any)
             .update({
                 stripe_payment_intent_id: paymentIntent.id,
                 payment_status: 'pending'

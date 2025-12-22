@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
             .from('menu_items')
             .select('name, category, price')
             .eq('location_id', locationId)
-            .eq('available', true);
+            .eq('available', true) as { data: { name: string; category: string; price: number }[] | null };
 
         if (!menuItems || menuItems.length === 0) {
             return NextResponse.json({ suggestions: [] });
