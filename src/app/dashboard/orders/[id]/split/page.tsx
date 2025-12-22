@@ -17,21 +17,21 @@ import {
     Minus
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import Link from "next/link";
 
-// Mock order for bill splitting demo
-const mockOrder = {
-    id: "ORD-1234",
-    table: "Table 8",
-    items: [
-        { id: "1", name: "Classic Burger", price: 16.99, quantity: 2 },
-        { id: "2", name: "Caesar Salad", price: 12.99, quantity: 1 },
-        { id: "3", name: "Buffalo Wings", price: 14.99, quantity: 1 },
-        { id: "4", name: "Craft IPA (Pint)", price: 8.00, quantity: 3 },
-    ],
-    subtotal: 69.96,
-    tax: 5.60,
-    total: 75.56
+// Order type for Supabase integration (bill split)
+type OrderItemSplit = { id: string; name: string; price: number; quantity: number };
+type OrderSplit = {
+    id: string;
+    table: string;
+    items: OrderItemSplit[];
+    subtotal: number;
+    tax: number;
+    total: number;
 };
+
+// TODO: Fetch from Supabase based on order id param
+const order: OrderSplit | null = null;
 
 type SplitMethod = "equal" | "by-item" | "custom";
 
@@ -43,7 +43,18 @@ export default function BillSplitPage() {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [payingGuest, setPayingGuest] = useState<number | null>(null);
 
-    const perPersonAmount = mockOrder.total / numberOfGuests;
+    if (!order) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)] space-y-4">
+                <Receipt className="h-12 w-12 text-slate-700" />
+                <h2 className="text-xl font-bold">Order Not Found</h2>
+                <p className="text-slate-500 text-sm">This order might have been closed or the ID is incorrect.</p>
+                <Link href="/dashboard/orders" className="btn-primary">Back to Orders</Link>
+            </div>
+        );
+    }
+
+    const perPersonAmount = order.total / numberOfGuests;
 
     const handlePayGuest = (guestIndex: number) => {
         setPayingGuest(guestIndex);
@@ -56,10 +67,10 @@ export default function BillSplitPage() {
                 <div>
                     <h1 className="text-3xl font-bold flex items-center gap-3">
                         <Receipt className="h-8 w-8 text-orange-500" />
-                        Bill Split - {mockOrder.table}
+                        Bill Split - {order.table}
                     </h1>
                     <p className="text-slate-400 mt-1">
-                        Order #{mockOrder.id} • {formatCurrency(mockOrder.total)} total
+                        Order #{order.id} • {formatCurrency(order.total)} total
                     </p>
                 </div>
                 <button className="btn-secondary">
@@ -173,7 +184,7 @@ export default function BillSplitPage() {
                     <div className="card">
                         <h3 className="font-bold mb-4">Order Items</h3>
                         <div className="space-y-3">
-                            {mockOrder.items.map((item) => (
+                            {order.items.map((item) => (
                                 <div
                                     key={item.id}
                                     className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800"
@@ -190,7 +201,7 @@ export default function BillSplitPage() {
                         </div>
                         <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
                             <span className="text-slate-500">Total (incl. tax)</span>
-                            <span className="text-xl font-bold">{formatCurrency(mockOrder.total)}</span>
+                            <span className="text-xl font-bold">{formatCurrency(order.total)}</span>
                         </div>
                     </div>
 
@@ -249,7 +260,7 @@ export default function BillSplitPage() {
                     </div>
                     <div className="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center">
                         <span className="text-slate-500">Remaining</span>
-                        <span className="text-xl font-bold text-orange-400">{formatCurrency(mockOrder.total)}</span>
+                        <span className="text-xl font-bold text-orange-400">{formatCurrency(order.total)}</span>
                     </div>
                 </div>
             )}

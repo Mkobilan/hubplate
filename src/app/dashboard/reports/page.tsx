@@ -35,28 +35,26 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <ReportCard
                     label="Gross Sales"
-                    value={formatCurrency(12847.50)}
-                    trend="+14%"
+                    value={formatCurrency(0)}
+                    trend="0%"
                     trendDesc="vs last week"
                 />
                 <ReportCard
                     label="Labor Cost %"
-                    value="18.2%"
-                    trend="-2%"
+                    value="0%"
+                    trend="0%"
                     trendDesc="Optimal < 20%"
-                    variant="success"
                 />
                 <ReportCard
                     label="COGS %"
-                    value="24.5%"
-                    trend="+1%"
+                    value="0%"
+                    trend="0%"
                     trendDesc="Target 25-30%"
-                    variant="success"
                 />
                 <ReportCard
                     label="Net Profit"
-                    value={formatCurrency(4892.20)}
-                    trend="+8%"
+                    value={formatCurrency(0)}
+                    trend="0%"
                     trendDesc="After labor & tax"
                 />
             </div>
@@ -73,13 +71,7 @@ export default function ReportsPage() {
                         </select>
                     </div>
                     <div className="flex-1 bg-slate-950/50 rounded-xl border border-dashed border-slate-800 flex items-center justify-center relative overflow-hidden group">
-                        {/* Mock chart lines */}
-                        <div className="absolute inset-0 flex items-end gap-2 px-8 pb-8 opacity-20 group-hover:opacity-40 transition-opacity">
-                            {[40, 60, 45, 90, 80, 55, 100].map((h, i) => (
-                                <div key={i} className="flex-1 bg-orange-500 rounded-t-lg transition-all" style={{ height: `${h}%` }} />
-                            ))}
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium">Sales Chart Visualization</p>
+                        <p className="text-slate-500 text-sm font-medium">Connect Supabase to visualize sales data</p>
                     </div>
                 </div>
 
@@ -91,30 +83,19 @@ export default function ReportsPage() {
                             <h3 className="font-bold text-blue-400">Labor Efficiency</h3>
                         </div>
                         <div className="space-y-4">
-                            <EfficiencyRow label="Peak Hours" value="94%" color="bg-green-500" />
-                            <EfficiencyRow label="Slow Hours" value="45%" color="bg-red-500" />
-                            <EfficiencyRow label="Overall" value="82%" color="bg-blue-500" />
+                            <EfficiencyRow label="Peak Hours" value="0%" color="bg-green-500" />
+                            <EfficiencyRow label="Slow Hours" value="0%" color="bg-red-500" />
+                            <EfficiencyRow label="Overall" value="0%" color="bg-blue-500" />
                         </div>
                         <p className="text-[10px] text-slate-500 mt-6 leading-relaxed">
-                            AI Suggestion: You are overstaffed on Tuesdays between 2-4 PM. Reducing 1 host could save **$450/month**.
+                            AI suggestions will appear here once shift data is populated.
                         </p>
                     </div>
 
                     <div className="card">
-                        <h3 className="font-bold mb-4">Top 3 Categories</h3>
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm">Main Entrees</span>
-                                <span className="font-bold text-orange-400">{formatCurrency(6840)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm">Craft Beverages</span>
-                                <span className="font-bold text-orange-400">{formatCurrency(3120)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm">Appetizers</span>
-                                <span className="font-bold text-orange-400">{formatCurrency(2887)}</span>
-                            </div>
+                        <h3 className="font-bold mb-4">Top Categories</h3>
+                        <div className="text-center py-4">
+                            <p className="text-sm text-slate-500">No data available</p>
                         </div>
                     </div>
                 </div>

@@ -16,19 +16,19 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
-// Mock order for pay-at-table demo
-const mockOrder = {
-    id: "ORD-8765",
-    table: "Table 12",
-    items: [
-        { name: "Grilled Salmon", price: 28.99, quantity: 1 },
-        { name: "House Salad", price: 9.99, quantity: 1 },
-        { name: "Glass of Chardonnay", price: 12.00, quantity: 2 },
-    ],
-    subtotal: 62.98,
-    tax: 5.04,
-    total: 68.02
+// Order type for Supabase integration
+type OrderItem = { name: string; price: number; quantity: number };
+type Order = {
+    id: string;
+    table: string;
+    items: OrderItem[];
+    subtotal: number;
+    tax: number;
+    total: number;
 };
+
+// TODO: Fetch from Supabase based on orderId param
+const order: Order | null = null;
 
 const tipOptions = [15, 18, 20, 25];
 
@@ -41,8 +41,18 @@ export default function PayAtTablePage() {
     const [showFeedback, setShowFeedback] = useState(false);
     const [rating, setRating] = useState<number | null>(null);
 
-    const tipAmount = selectedTip ? (mockOrder.subtotal * selectedTip) / 100 : parseFloat(customTip) || 0;
-    const grandTotal = mockOrder.total + tipAmount;
+    if (!order) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center space-y-4">
+                <QrCode className="h-12 w-12 text-slate-700" />
+                <h2 className="text-xl font-bold">Order Not Found</h2>
+                <p className="text-slate-500">We couldn&apos;t find this order. Please ask your server for assistance.</p>
+            </div>
+        );
+    }
+
+    const tipAmount = selectedTip ? (order.subtotal * selectedTip) / 100 : parseFloat(customTip) || 0;
+    const grandTotal = order.total + tipAmount;
 
     const handlePay = () => {
         setIsPaid(true);
@@ -91,7 +101,7 @@ export default function PayAtTablePage() {
                     </div>
 
                     <p className="text-xs text-slate-500">
-                        Receipt #PAY-{mockOrder.id.split("-")[1]} • {new Date().toLocaleDateString()}
+                        Receipt #PAY-{order.id.split("-")[1]} • {new Date().toLocaleDateString()}
                     </p>
                 </div>
             </div>
@@ -120,15 +130,15 @@ export default function PayAtTablePage() {
                     <div className="w-16 h-16 bg-orange-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <QrCode className="h-8 w-8 text-orange-400" />
                     </div>
-                    <h1 className="text-2xl font-bold">{mockOrder.table}</h1>
-                    <p className="text-slate-400">Order #{mockOrder.id}</p>
+                    <h1 className="text-2xl font-bold">{order.table}</h1>
+                    <p className="text-slate-400">Order #{order.id}</p>
                 </div>
 
                 {/* Order Summary */}
                 <div className="card">
                     <h3 className="font-bold mb-4">Your Order</h3>
                     <div className="space-y-3">
-                        {mockOrder.items.map((item, i) => (
+                        {order.items.map((item, i) => (
                             <div key={i} className="flex justify-between text-sm">
                                 <span className="text-slate-400">
                                     {item.quantity}x {item.name}
@@ -140,11 +150,11 @@ export default function PayAtTablePage() {
                     <div className="mt-4 pt-4 border-t border-slate-800 space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Subtotal</span>
-                            <span>{formatCurrency(mockOrder.subtotal)}</span>
+                            <span>{formatCurrency(order.subtotal)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Tax</span>
-                            <span>{formatCurrency(mockOrder.tax)}</span>
+                            <span>{formatCurrency(order.tax)}</span>
                         </div>
                     </div>
                 </div>

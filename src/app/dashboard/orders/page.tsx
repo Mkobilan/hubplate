@@ -14,34 +14,25 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
-// Mock data
-const mockCategories = ["Appetizers", "Entrees", "Sides", "Drinks", "Desserts"];
+// Types for Supabase integration
+interface MenuItemType {
+    id: string;
+    name: string;
+    category: string;
+    price: number;
+    is_86d: boolean;
+}
 
-const mockMenuItems = [
-    { id: "1", name: "Buffalo Wings", category: "Appetizers", price: 14.99, is_86d: false },
-    { id: "2", name: "Loaded Nachos", category: "Appetizers", price: 12.99, is_86d: true },
-    { id: "3", name: "Classic Burger", category: "Entrees", price: 16.99, is_86d: false },
-    { id: "4", name: "Grilled Salmon", category: "Entrees", price: 24.99, is_86d: false },
-    { id: "5", name: "Caesar Salad", category: "Entrees", price: 11.99, is_86d: false },
-    { id: "6", name: "French Fries", category: "Sides", price: 5.99, is_86d: false },
-    { id: "7", name: "Onion Rings", category: "Sides", price: 6.99, is_86d: false },
-    { id: "8", name: "Craft Beer", category: "Drinks", price: 7.99, is_86d: false },
-    { id: "9", name: "Soda", category: "Drinks", price: 2.99, is_86d: false },
-    { id: "10", name: "Chocolate Cake", category: "Desserts", price: 8.99, is_86d: false },
-];
+interface UpsellType {
+    name: string;
+    price: number;
+    reason: string;
+}
 
-// Mock upsell suggestions
-const mockUpsells: Record<string, { name: string; price: number; reason: string }[]> = {
-    "Classic Burger": [
-        { name: "French Fries", price: 5.99, reason: "Perfect combo!" },
-        { name: "Craft Beer", price: 7.99, reason: "Popular pairing" },
-        { name: "Onion Rings", price: 6.99, reason: "Upgrade side" },
-    ],
-    "Grilled Salmon": [
-        { name: "Caesar Salad", price: 11.99, reason: "Light starter" },
-        { name: "Craft Beer", price: 7.99, reason: "Pairs well" },
-    ],
-};
+// TODO: Fetch from Supabase
+const categories: string[] = [];
+const menuItems: MenuItemType[] = [];
+const upsells: Record<string, UpsellType[]> = {};
 
 interface OrderItem {
     id: string;
@@ -55,17 +46,17 @@ interface OrderItem {
 
 export default function OrdersPage() {
     const { t } = useTranslation();
-    const [selectedCategory, setSelectedCategory] = useState("Appetizers");
+    const [selectedCategory, setSelectedCategory] = useState("");
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [tableNumber, setTableNumber] = useState("5");
-    const [upsellSuggestions, setUpsellSuggestions] = useState<typeof mockUpsells["Classic Burger"]>([]);
+    const [upsellSuggestions, setUpsellSuggestions] = useState<UpsellType[]>([]);
     const [showUpsells, setShowUpsells] = useState(false);
 
-    const availableItems = mockMenuItems.filter(
+    const availableItems = menuItems.filter(
         (item) => item.category === selectedCategory && !item.is_86d
     );
 
-    const addToOrder = (item: typeof mockMenuItems[0]) => {
+    const addToOrder = (item: MenuItemType) => {
         const existing = orderItems.find((o) => o.menuItemId === item.id);
 
         if (existing) {
@@ -88,15 +79,15 @@ export default function OrdersPage() {
         }
 
         // Show upsell suggestions
-        const suggestions = mockUpsells[item.name];
-        if (suggestions) {
-            setUpsellSuggestions(suggestions);
+        const suggestionsList = upsells[item.name];
+        if (suggestionsList) {
+            setUpsellSuggestions(suggestionsList);
             setShowUpsells(true);
         }
     };
 
     const addUpsell = (upsell: { name: string; price: number }) => {
-        const menuItem = mockMenuItems.find((i) => i.name === upsell.name);
+        const menuItem = menuItems.find((i) => i.name === upsell.name);
         if (menuItem) {
             const existing = orderItems.find((o) => o.menuItemId === menuItem.id);
             if (existing) {
@@ -155,7 +146,7 @@ export default function OrdersPage() {
             <div className="flex-1 flex flex-col">
                 {/* Category Tabs */}
                 <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 md:mx-0 md:px-0">
-                    {mockCategories.map((cat) => (
+                    {categories.map((cat) => (
                         <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}

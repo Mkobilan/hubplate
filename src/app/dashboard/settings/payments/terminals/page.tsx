@@ -17,12 +17,11 @@ import {
 import { cn, formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
-// Mock terminals
-const mockTerminals = [
-    { id: "1", name: "Counter Terminal", type: "Stripe Reader S700", status: "online", lastSeen: "Just now", battery: 85 },
-    { id: "2", name: "Bar Terminal", type: "Stripe Reader M2", status: "online", lastSeen: "2 min ago", battery: 62 },
-    { id: "3", name: "Patio Terminal", type: "BBPOS WisePOS E", status: "offline", lastSeen: "3 hours ago", battery: 15 },
-];
+// Type definition for Stripe Terminal integration
+type Terminal = { id: string; name: string; type: string; status: "online" | "offline"; lastSeen: string; battery: number };
+
+// TODO: Replace with Stripe Terminal API query
+const terminals: Terminal[] = [];
 
 export default function TerminalsPage() {
     const { t } = useTranslation();
@@ -68,11 +67,11 @@ export default function TerminalsPage() {
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="card text-center">
-                    <p className="text-3xl font-bold text-green-400">{mockTerminals.filter(t => t.status === "online").length}</p>
+                    <p className="text-3xl font-bold text-green-400">{terminals.filter(t => t.status === "online").length}</p>
                     <p className="text-sm text-slate-500 mt-1">Online</p>
                 </div>
                 <div className="card text-center">
-                    <p className="text-3xl font-bold text-red-400">{mockTerminals.filter(t => t.status === "offline").length}</p>
+                    <p className="text-3xl font-bold text-red-400">{terminals.filter(t => t.status === "offline").length}</p>
                     <p className="text-sm text-slate-500 mt-1">Offline</p>
                 </div>
                 <div className="card text-center">
@@ -83,7 +82,7 @@ export default function TerminalsPage() {
 
             {/* Terminal List */}
             <div className="space-y-4">
-                {mockTerminals.map((terminal) => (
+                {terminals.map((terminal) => (
                     <div
                         key={terminal.id}
                         className={cn(

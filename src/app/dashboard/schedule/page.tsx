@@ -16,21 +16,13 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
-// Mock data
-const mockStaff = [
-    { id: "1", name: "Alex M.", role: "Manager", color: "bg-orange-500" },
-    { id: "2", name: "Jordan K.", role: "Server", color: "bg-blue-500" },
-    { id: "3", name: "Sam T.", role: "Cook", color: "bg-green-500" },
-    { id: "4", name: "Elena R.", role: "Host", color: "bg-purple-500" },
-];
+// Type definitions for Supabase integration
+type StaffMember = { id: string; name: string; role: string; color: string };
+type Shift = { id: string; staffId: string; day: number; start: string; end: string; role: string };
 
-const mockShifts = [
-    { id: "1", staffId: "1", day: 1, start: "08:00", end: "16:00", role: "Manager" },
-    { id: "2", staffId: "2", day: 1, start: "11:00", end: "20:00", role: "Server" },
-    { id: "3", staffId: "3", day: 1, start: "09:00", end: "17:00", role: "Cook" },
-    { id: "4", staffId: "2", day: 2, start: "11:00", end: "20:00", role: "Server" },
-    { id: "5", staffId: "4", day: 2, start: "17:00", end: "22:00", role: "Host" },
-];
+// TODO: Replace with Supabase queries
+const staff: StaffMember[] = [];
+const shifts: Shift[] = [];
 
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -133,7 +125,7 @@ export default function SchedulePage() {
 
                         {/* Calendar Rows */}
                         <div className="divide-y divide-slate-800">
-                            {mockStaff.map((person) => (
+                            {staff.map((person) => (
                                 <div key={person.id} className="grid grid-cols-8 group">
                                     <div className="p-4 border-r border-slate-800 bg-slate-900/20">
                                         <div className="flex items-center gap-2">
@@ -144,7 +136,7 @@ export default function SchedulePage() {
                                     </div>
 
                                     {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
-                                        const shift = mockShifts.find(s => s.staffId === person.id && s.day === dayIdx);
+                                        const shift = shifts.find(s => s.staffId === person.id && s.day === dayIdx);
                                         return (
                                             <div key={dayIdx} className="p-2 border-r border-slate-800 last:border-0 relative min-h-[100px] hover:bg-slate-800/20 transition-colors">
                                                 {shift ? (

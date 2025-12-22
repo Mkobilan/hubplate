@@ -17,28 +17,29 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 // Mock data
-const mockMenuItems = [
-    { id: "1", name: "Classic Burger", ingredients: ["Ground Beef", "Brioche Buns", "Lettuce", "Tomato"] },
-    { id: "2", name: "Grilled Salmon", ingredients: ["Salmon Fillet", "Lemon", "Herbs"] },
-    { id: "3", name: "Caesar Salad", ingredients: ["Romaine Lettuce", "Parmesan", "Croutons"] },
-    { id: "4", name: "Buffalo Wings", ingredients: ["Chicken Wings", "Buffalo Sauce", "Celery"] },
-];
+// Types for Supabase integration
+interface MenuItemType {
+    id: string;
+    name: string;
+    ingredients: string[];
+}
 
-const mockInventoryItems = [
-    { id: "1", name: "Ground Beef 80/20", linkedTo: ["Classic Burger"] },
-    { id: "2", name: "Brioche Buns", linkedTo: ["Classic Burger"] },
-    { id: "3", name: "Chicken Wings", linkedTo: ["Buffalo Wings"] },
-    { id: "4", name: "Salmon Fillet", linkedTo: ["Grilled Salmon"] },
-    { id: "5", name: "Romaine Lettuce", linkedTo: ["Caesar Salad"] },
-    { id: "6", name: "Iceberg Lettuce", linkedTo: [] },
-];
+interface InventoryItemType {
+    id: string;
+    name: string;
+    linkedTo: string[];
+}
+
+// TODO: Replace with Supabase queries
+const menuItems: MenuItemType[] = [];
+const inventoryItems: InventoryItemType[] = [];
 
 export default function IngredientLinkerPage() {
     const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
-    const filteredInventory = mockInventoryItems.filter(item =>
+    const filteredInventory = inventoryItems.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -143,7 +144,7 @@ export default function IngredientLinkerPage() {
                     </p>
 
                     <div className="space-y-2">
-                        {mockMenuItems.map((item) => (
+                        {menuItems.map((item) => (
                             <div
                                 key={item.id}
                                 className={cn(

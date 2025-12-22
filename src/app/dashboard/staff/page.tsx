@@ -24,66 +24,30 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
-// Mock data
-const mockEmployees = [
-    {
-        id: "1",
-        name: "Alex Martinez",
-        role: "manager",
-        email: "alex@hubplate.com",
-        phone: "(555) 123-4567",
-        hourly_rate: 25.00,
-        status: "active",
-        sales_today: 1245.50,
-        tips_today: 186.00,
-        clocked_in: true,
-        clock_in_time: "08:00 AM"
-    },
-    {
-        id: "2",
-        name: "Jordan Kim",
-        role: "server",
-        email: "jordan@hubplate.com",
-        phone: "(555) 987-6543",
-        hourly_rate: 15.00,
-        status: "active",
-        sales_today: 892.40,
-        tips_today: 134.00,
-        clocked_in: true,
-        clock_in_time: "11:30 AM"
-    },
-    {
-        id: "3",
-        name: "Sam Taylor",
-        role: "cook",
-        email: "sam@hubplate.com",
-        phone: "(555) 456-7890",
-        hourly_rate: 20.00,
-        status: "active",
-        sales_today: 0,
-        tips_today: 0,
-        clocked_in: true,
-        clock_in_time: "09:00 AM"
-    },
-    {
-        id: "4",
-        name: "Elena Rodriguez",
-        role: "host",
-        email: "elena@hubplate.com",
-        status: "inactive",
-        sales_today: 0,
-        tips_today: 0,
-        clocked_in: false,
-        hourly_rate: 14.00
-    },
-];
+// Employee type definition for Supabase integration
+type Employee = {
+    id: string;
+    name: string;
+    role: string;
+    email: string;
+    phone?: string;
+    hourly_rate: number;
+    status: string;
+    sales_today: number;
+    tips_today: number;
+    clocked_in: boolean;
+    clock_in_time?: string;
+};
+
+// TODO: Replace with Supabase query
+const employees: Employee[] = [];
 
 export default function StaffPage() {
     const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
 
-    const filteredEmployees = mockEmployees.filter(emp =>
+    const filteredEmployees = employees.filter(emp =>
         emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         emp.role.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -109,12 +73,12 @@ export default function StaffPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <QuickStat
                     label="Total Staff"
-                    value={mockEmployees.length.toString()}
+                    value={employees.length.toString()}
                     icon={<Users className="h-4 w-4" />}
                 />
                 <QuickStat
                     label="Clocked In"
-                    value={mockEmployees.filter(e => e.clocked_in).length.toString()}
+                    value={employees.filter(e => e.clocked_in).length.toString()}
                     icon={<Clock className="h-4 w-4" />}
                     variant="success"
                 />
@@ -248,7 +212,7 @@ export default function StaffPage() {
 
                         <div className="space-y-6">
                             <p className="text-sm text-slate-400">
-                                Set preferred working days and core hours for **{mockEmployees.find(e => e.id === showAvailability)?.name || "Staff Member"}**.
+                                Set preferred working days and core hours for **{employees.find(e => e.id === showAvailability)?.name || "Staff Member"}**.
                             </p>
 
                             <div className="space-y-4">

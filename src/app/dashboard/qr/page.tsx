@@ -15,7 +15,11 @@ import { cn } from "@/lib/utils";
 export default function QRPage() {
     const { t } = useTranslation();
     const [copied, setCopied] = useState(false);
-    const restaurantUrl = "https://hubplate.app/m/cznamqic"; // Mock unique URL
+    // TODO: Fetch restaurant ID from Supabase profile
+    const restaurantId = "cznamqic";
+    const restaurantUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/m/${restaurantId}`
+        : `https://hubplate.app/m/${restaurantId}`;
 
     const handleCopy = () => {
         navigator.clipboard.writeText(restaurantUrl);

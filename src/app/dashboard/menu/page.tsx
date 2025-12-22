@@ -16,25 +16,13 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
-// Mock data - will be replaced with Supabase queries
-const mockCategories = [
-    { id: "1", name: "Appetizers" },
-    { id: "2", name: "Entrees" },
-    { id: "3", name: "Sides" },
-    { id: "4", name: "Drinks" },
-    { id: "5", name: "Desserts" },
-];
+// Type definitions for Supabase integration
+type Category = { id: string; name: string };
+type MenuItemType = { id: string; name: string; category: string; price: number; is_86d: boolean };
 
-const mockMenuItems = [
-    { id: "1", name: "Buffalo Wings", category: "Appetizers", price: 14.99, is_86d: false },
-    { id: "2", name: "Loaded Nachos", category: "Appetizers", price: 12.99, is_86d: true },
-    { id: "3", name: "Classic Burger", category: "Entrees", price: 16.99, is_86d: false },
-    { id: "4", name: "Grilled Salmon", category: "Entrees", price: 24.99, is_86d: false },
-    { id: "5", name: "Caesar Salad", category: "Entrees", price: 11.99, is_86d: false },
-    { id: "6", name: "French Fries", category: "Sides", price: 5.99, is_86d: false },
-    { id: "7", name: "Craft Beer", category: "Drinks", price: 7.99, is_86d: false },
-    { id: "8", name: "Chocolate Cake", category: "Desserts", price: 8.99, is_86d: false },
-];
+// TODO: Replace with Supabase queries
+const categories: Category[] = [];
+const menuItems: MenuItemType[] = [];
 
 export default function MenuPage() {
     const { t } = useTranslation();
@@ -43,7 +31,7 @@ export default function MenuPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showScanModal, setShowScanModal] = useState(false);
 
-    const filteredItems = mockMenuItems.filter((item) => {
+    const filteredItems = menuItems.filter((item) => {
         const matchesCategory = !selectedCategory || item.category === selectedCategory;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
@@ -53,7 +41,7 @@ export default function MenuPage() {
         if (!acc[item.category]) acc[item.category] = [];
         acc[item.category].push(item);
         return acc;
-    }, {} as Record<string, typeof mockMenuItems>);
+    }, {} as Record<string, typeof menuItems>);
 
     return (
         <div className="space-y-6">
@@ -112,7 +100,7 @@ export default function MenuPage() {
                     >
                         All
                     </button>
-                    {mockCategories.map((cat) => (
+                    {categories.map((cat) => (
                         <button
                             key={cat.id}
                             onClick={() => setSelectedCategory(cat.name)}
@@ -128,12 +116,12 @@ export default function MenuPage() {
             </div>
 
             {/* 86'd Items Alert */}
-            {mockMenuItems.some((i) => i.is_86d) && (
+            {menuItems.some((i) => i.is_86d) && (
                 <div className="card border-amber-500/50 bg-amber-500/5">
                     <div className="flex items-center gap-3">
                         <AlertCircle className="h-5 w-5 text-amber-400" />
                         <p className="text-amber-400 font-medium">
-                            {mockMenuItems.filter((i) => i.is_86d).length} items are currently 86&apos;d
+                            {menuItems.filter((i) => i.is_86d).length} items are currently 86&apos;d
                         </p>
                     </div>
                 </div>
@@ -171,7 +159,7 @@ export default function MenuPage() {
     );
 }
 
-function MenuItemCard({ item }: { item: typeof mockMenuItems[0] }) {
+function MenuItemCard({ item }: { item: typeof menuItems[0] }) {
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
@@ -283,7 +271,7 @@ function AddMenuItemModal({ onClose }: { onClose: () => void }) {
                     <div>
                         <label className="label">Category</label>
                         <select className="input">
-                            {mockCategories.map((cat) => (
+                            {categories.map((cat) => (
                                 <option key={cat.id} value={cat.id}>
                                     {cat.name}
                                 </option>

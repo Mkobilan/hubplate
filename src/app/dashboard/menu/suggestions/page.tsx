@@ -17,39 +17,20 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
-// Mock AI suggestions
-const mockSuggestions = [
-    {
-        id: "1",
-        name: "Spicy Korean BBQ Burger",
-        description: "Wagyu beef patty with gochujang glaze, kimchi slaw, and sesame brioche bun",
-        reasoning: "Korean flavors are trending +45% in your area. Your beef inventory is strong, and this aligns with your existing burger expertise.",
-        estimatedProfit: 8.50,
-        popularity: "High",
-        difficulty: "Medium",
-        prepTime: "12 min"
-    },
-    {
-        id: "2",
-        name: "Loaded Sweet Potato Fries",
-        description: "Crispy sweet potato fries topped with pulled pork, cheese sauce, and jalapeños",
-        reasoning: "Loaded appetizers have 32% higher margins. Sweet potatoes are currently at low cost from your vendor.",
-        estimatedProfit: 5.75,
-        popularity: "Very High",
-        difficulty: "Easy",
-        prepTime: "8 min"
-    },
-    {
-        id: "3",
-        name: "Mango Habanero Wings",
-        description: "Crispy wings glazed with house-made mango habanero sauce",
-        reasoning: "Your wing sales are strong. This sweet-heat profile fills a gap in your current wing offerings.",
-        estimatedProfit: 6.20,
-        popularity: "High",
-        difficulty: "Easy",
-        prepTime: "15 min"
-    },
-];
+// Type definition for AI menu suggestions
+type MenuSuggestion = {
+    id: string;
+    name: string;
+    description: string;
+    reasoning: string;
+    estimatedProfit: number;
+    popularity: string;
+    difficulty: string;
+    prepTime: string;
+};
+
+// TODO: Fetch from Gemini AI API
+const suggestions: MenuSuggestion[] = [];
 
 export default function AISuggestionsPage() {
     const { t } = useTranslation();
@@ -106,7 +87,7 @@ export default function AISuggestionsPage() {
 
             {/* Suggestions Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {mockSuggestions.map((suggestion) => (
+                {suggestions.map((suggestion) => (
                     <div
                         key={suggestion.id}
                         className="card group hover:border-orange-500/50 transition-all duration-300"

@@ -13,14 +13,11 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
-// Mock data
-const mockMenu = [
-    { id: "1", name: "Buffalo Wings", category: "Appetizers", price: 14.99, description: "Spicy and delicious wings with celery." },
-    { id: "2", name: "Classic Burger", category: "Entrees", price: 16.99, description: "Juicy beef patty with lettuce, tomato, and cheese." },
-    { id: "3", name: "Grilled Salmon", category: "Entrees", price: 24.99, description: "Fresh Atlantic salmon with lemon butter." },
-    { id: "4", name: "French Fries", category: "Sides", price: 5.99, description: "Golden and crispy fries." },
-    { id: "5", name: "Craft Beer", category: "Drinks", price: 7.99, description: "Local brewed IPA." },
-];
+// Menu item type for Supabase integration
+type MenuItem = { id: string; name: string; category: string; price: number; description: string };
+
+// TODO: Fetch from Supabase based on restaurantId param
+const menuItems: MenuItem[] = [];
 
 const categories = ["All", "Appetizers", "Entrees", "Sides", "Drinks"];
 
@@ -30,7 +27,7 @@ export default function PublicMenuPage() {
     const [cart, setCart] = useState<{ id: string, name: string, price: number, quantity: number }[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
 
-    const filteredItems = mockMenu.filter(item => {
+    const filteredItems = menuItems.filter(item => {
         const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
@@ -39,7 +36,7 @@ export default function PublicMenuPage() {
     const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
     const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    const addToCart = (item: typeof mockMenu[0]) => {
+    const addToCart = (item: typeof menuItems[0]) => {
         const existing = cart.find(c => c.id === item.id);
         if (existing) {
             setCart(cart.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c));

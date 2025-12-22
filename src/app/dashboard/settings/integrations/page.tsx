@@ -14,105 +14,20 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Mock integrations data
-const integrations = [
-    {
-        id: "pos-square",
-        name: "Square POS",
-        description: "Sync transactions and inventory with Square",
-        category: "POS",
-        logo: "🟧",
-        connected: false,
-        popular: true
-    },
-    {
-        id: "accounting-qb",
-        name: "QuickBooks",
-        description: "Auto-sync sales data to your accounting software",
-        category: "Accounting",
-        logo: "📊",
-        connected: true,
-        lastSync: "2 hours ago",
-        popular: true
-    },
-    {
-        id: "delivery-doordash",
-        name: "DoorDash",
-        description: "Receive and manage DoorDash orders directly",
-        category: "Delivery",
-        logo: "🚗",
-        connected: true,
-        lastSync: "5 min ago",
-        popular: true
-    },
-    {
-        id: "delivery-ubereats",
-        name: "Uber Eats",
-        description: "Integrate Uber Eats orders into your workflow",
-        category: "Delivery",
-        logo: "🍔",
-        connected: false,
-        popular: true
-    },
-    {
-        id: "delivery-grubhub",
-        name: "Grubhub",
-        description: "Manage Grubhub orders from HubPlate",
-        category: "Delivery",
-        logo: "🥡",
-        connected: false,
-        popular: false
-    },
-    {
-        id: "reservations-opentable",
-        name: "OpenTable",
-        description: "Sync reservations and guest data",
-        category: "Reservations",
-        logo: "📅",
-        connected: true,
-        lastSync: "1 hour ago",
-        popular: true
-    },
-    {
-        id: "reservations-resy",
-        name: "Resy",
-        description: "Import Resy reservations automatically",
-        category: "Reservations",
-        logo: "🪑",
-        connected: false,
-        popular: false
-    },
-    {
-        id: "hr-gusto",
-        name: "Gusto",
-        description: "Sync employee hours for payroll processing",
-        category: "HR & Payroll",
-        logo: "💰",
-        connected: false,
-        popular: true
-    },
-    {
-        id: "marketing-mailchimp",
-        name: "Mailchimp",
-        description: "Sync customer data for email marketing",
-        category: "Marketing",
-        logo: "📧",
-        connected: true,
-        lastSync: "6 hours ago",
-        popular: true
-    },
-    {
-        id: "reviews-google",
-        name: "Google Reviews",
-        description: "Monitor and respond to Google reviews",
-        category: "Reviews",
-        logo: "⭐",
-        connected: true,
-        lastSync: "30 min ago",
-        popular: true
-    },
-];
+// Types for Supabase integration
+interface IntegrationType {
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    logo: string;
+    connected: boolean;
+    popular: boolean;
+    lastSync?: string;
+}
 
+// TODO: Replace with Supabase queries
+const integrations: IntegrationType[] = [];
 const categories = ["All", "POS", "Delivery", "Reservations", "Accounting", "HR & Payroll", "Marketing", "Reviews"];
 
 export default function IntegrationsPage() {
