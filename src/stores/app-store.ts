@@ -74,7 +74,7 @@ export const useAppStore = create<AppState>()(
         {
             name: "hubplate-storage",
             storage: createJSONStorage(() => localStorage),
-            partialState: (state) => ({
+            partialize: (state) => ({
                 language: state.language,
                 sidebarOpen: state.sidebarOpen,
             }),
