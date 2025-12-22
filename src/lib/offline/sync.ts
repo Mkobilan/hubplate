@@ -36,7 +36,9 @@ export class SyncManager {
 
     onStatusChange(listener: (online: boolean) => void) {
         this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
+        return () => {
+            this.listeners.delete(listener);
+        };
     }
 
     getStatus() {
@@ -56,18 +58,18 @@ export class SyncManager {
                 try {
                     switch (item.type) {
                         case "create":
-                            await supabase.from(item.table).insert(item.data as Record<string, unknown>);
+                            await supabase.from(item.table as any).insert(item.data as any);
                             break;
                         case "update":
                             const updateData = item.data as { id: string;[key: string]: unknown };
-                            await supabase
-                                .from(item.table)
-                                .update(updateData)
+                            await (supabase
+                                .from(item.table as any) as any)
+                                .update(updateData as any)
                                 .eq("id", updateData.id);
                             break;
                         case "delete":
                             const deleteData = item.data as { id: string };
-                            await supabase.from(item.table).delete().eq("id", deleteData.id);
+                            await supabase.from(item.table as any).delete().eq("id", deleteData.id);
                             break;
                     }
                     await removeFromSyncQueue(item.id);

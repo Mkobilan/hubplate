@@ -29,15 +29,62 @@
     },
     "nav": {
         "dashboard": "Panel",
-        "orders": "Órdenes",
+        "staff": "Personal",
+        "orders": "Pedidos",
         "menu": "Menú",
         "kitchen": "Cocina",
-        "tables": "Mesas",
-        "staff": "Personal",
-        "schedule": "Horario",
+        "schedule": "Horarios",
         "inventory": "Inventario",
         "reports": "Reportes",
-        "settings": "Configuración"
+        "settings": "Ajustes"
+    },
+    "staff": {
+        "management": "Gestión de Personal",
+        "addEmployee": "Agregar Empleado",
+        "clockIn": "Fichar Entrada",
+        "clockOut": "Fichar Salida",
+        "performance": "Desempeño del Personal",
+        "shifts": "Turnos",
+        "availability": "Disponibilidad",
+        "swapRequests": "Solicitudes de Cambio"
+    },
+    "schedule": {
+        "calendar": "Calendario de Turnos",
+        "lastWeek": "Semana Anterior",
+        "nextWeek": "Semana Siguiente",
+        "copyLast": "Copiar Semana Anterior",
+        "addShift": "Agregar Turno",
+        "laborCost": "Costo Laboral",
+        "laborPercentage": "% Laboral",
+        "alerts": "Alertas de Programación"
+    },
+    "inventory": {
+        "currentStock": "Inventario actual",
+        "lowStock": "Stock bajo",
+        "reorderSuggestions": "Sugerencias de reorden",
+        "addInventory": "Agregar inventario",
+        "waste": "Registrar desperdicio"
+    },
+    "reports": {
+        "sales": "Ventas",
+        "labor": "Mano de Obra",
+        "inventory": "Inventario",
+        "payments": "Pagos",
+        "discounts": "Descuentos",
+        "voids": "Anulaciones",
+        "dailySummary": "Resumen Diario",
+        "weeklySummary": "Resumen Semanal"
+    },
+    "settings": {
+        "storeInfo": "Información de la Tienda",
+        "printers": "Impresoras",
+        "taxes": "Impuestos",
+        "paymentMethods": "Métodos de Pago",
+        "users": "Usuarios",
+        "roles": "Roles",
+        "integrations": "Integraciones",
+        "receiptOptions": "Opciones de Recibo",
+        "kitchenDisplay": "Pantalla de Cocina"
     },
     "pos": {
         "newOrder": "Nueva Orden",
@@ -83,22 +130,5 @@
         "unavailable": "No disponible",
         "scanMenu": "Escanear foto del menú",
         "processingMenu": "La IA está procesando tu menú..."
-    },
-    "schedule": {
-        "thisWeek": "Esta semana",
-        "addShift": "Agregar turno",
-        "requestOff": "Solicitar día libre",
-        "swapShift": "Intercambiar turno",
-        "clockIn": "Registrar entrada",
-        "clockOut": "Registrar salida",
-        "hoursThisWeek": "Horas esta semana",
-        "laborCost": "Costo de mano de obra"
-    },
-    "inventory": {
-        "currentStock": "Inventario actual",
-        "lowStock": "Stock bajo",
-        "reorderSuggestions": "Sugerencias de reorden",
-        "addInventory": "Agregar inventario",
-        "waste": "Registrar desperdicio"
     }
 }

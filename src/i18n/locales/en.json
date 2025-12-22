@@ -29,15 +29,24 @@
     },
     "nav": {
         "dashboard": "Dashboard",
+        "staff": "Staff",
         "orders": "Orders",
         "menu": "Menu",
         "kitchen": "Kitchen",
-        "tables": "Tables",
-        "staff": "Staff",
         "schedule": "Schedule",
         "inventory": "Inventory",
         "reports": "Reports",
         "settings": "Settings"
+    },
+    "staff": {
+        "management": "Staff Management",
+        "addEmployee": "Add Employee",
+        "clockIn": "Clock In",
+        "clockOut": "Clock Out",
+        "performance": "Staff Performance",
+        "shifts": "Shifts",
+        "availability": "Availability",
+        "swapRequests": "Swap Requests"
     },
     "pos": {
         "newOrder": "New Order",
