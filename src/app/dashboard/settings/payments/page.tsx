@@ -9,10 +9,14 @@ import {
     Building2,
     Info,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    MonitorSmartphone,
+    Nfc,
+    ChevronRight
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useState } from "react";
+import Link from "next/link";
 
 export default function PaymentsPage() {
     const { t } = useTranslation();
@@ -128,6 +132,33 @@ export default function PaymentsPage() {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Quick Links */}
+                    <div className="card">
+                        <h3 className="font-bold mb-4">Quick Links</h3>
+                        <div className="space-y-2">
+                            <Link
+                                href="/dashboard/settings/payments/terminals"
+                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <MonitorSmartphone className="h-4 w-4 text-blue-400" />
+                                    <span>Manage Terminals</span>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-slate-600" />
+                            </Link>
+                            <Link
+                                href="/dashboard/settings/payments/tap-to-pay"
+                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-orange-400 font-medium"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Nfc className="h-4 w-4" />
+                                    <span>Setup Tap-to-Pay</span>
+                                </div>
+                                <ChevronRight className="h-4 w-4" />
+                            </Link>
                         </div>
                     </div>
                 </div>
