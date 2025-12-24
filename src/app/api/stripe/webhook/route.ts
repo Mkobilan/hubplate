@@ -38,13 +38,20 @@ export async function POST(request: NextRequest) {
 
             // Update order status in database
             if (paymentIntent.metadata?.order_id) {
-                await supabaseAdmin
+                const { error: updateError } = await supabaseAdmin
                     .from('orders')
                     .update({
                         payment_status: 'paid',
-                        stripe_payment_id: paymentIntent.id
+                        stripe_payment_intent_id: paymentIntent.id,
+                        paid_at: new Date().toISOString()
                     })
                     .eq('id', paymentIntent.metadata.order_id);
+
+                if (updateError) {
+                    console.error('Failed to update order payment status:', updateError);
+                } else {
+                    console.log('Order marked as paid:', paymentIntent.metadata.order_id);
+                }
             }
             break;
 
