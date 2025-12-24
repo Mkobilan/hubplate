@@ -20,6 +20,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Email or phone is required' }, { status: 400 });
         }
 
+        // Standardize phone number
+        if (phone) phone = phone.replace(/\D/g, '');
+
         // Upsert customer record based on email or phone
         // We'll try to find an existing customer first
         let customerData: any = null;

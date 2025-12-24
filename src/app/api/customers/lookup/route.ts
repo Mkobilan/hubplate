@@ -9,12 +9,15 @@ const supabaseAdmin = createClient(
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        const phone = searchParams.get('phone');
+        let phone = searchParams.get('phone');
         const locationId = searchParams.get('locationId');
 
         if (!phone || !locationId) {
             return NextResponse.json({ error: 'Phone and Location ID are required' }, { status: 400 });
         }
+
+        // Standardize phone number: strip all non-numeric characters
+        phone = phone.replace(/\D/g, '');
 
         // Search for customer by phone at this location
         const { data: customer, error } = await (supabaseAdmin

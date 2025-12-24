@@ -59,10 +59,12 @@ export async function POST(request: NextRequest) {
                         .eq('id', orderId);
 
                     // Loyalty Points Logic
-                    const customerPhone = order.customer_phone;
+                    let customerPhone = order.customer_phone;
                     const customerEmail = order.customer_email;
 
                     if (customerPhone || customerEmail) {
+                        // Standardize phone
+                        if (customerPhone) customerPhone = customerPhone.replace(/\D/g, '');
                         // 1. Get Earning Rate
                         const { data: program } = await (supabaseAdmin
                             .from('loyalty_programs') as any)

@@ -366,6 +366,7 @@ export default function PaymentPage() {
                             total={(order?.total || 0) + tip - (appliedReward?.reward_value || 0)}
                             reward={appliedReward}
                             customerPhone={loyaltyCustomer?.phone || loyaltyPhone}
+                            loyaltyCustomer={loyaltyCustomer}
                         />
                     </Elements>
                 )}
@@ -378,12 +379,13 @@ export default function PaymentPage() {
     );
 }
 
-function PaymentForm({ orderId, locationId, total, reward, customerPhone }: {
+function PaymentForm({ orderId, locationId, total, reward, customerPhone, loyaltyCustomer }: {
     orderId: string;
     locationId: string;
     total: number;
     reward?: any;
     customerPhone?: string;
+    loyaltyCustomer?: any;
 }) {
     const stripe = useStripe();
     const elements = useElements();
@@ -395,6 +397,15 @@ function PaymentForm({ orderId, locationId, total, reward, customerPhone }: {
     const [phone, setPhone] = useState(customerPhone || "");
     const [name, setName] = useState("");
     const [joinLoyalty, setJoinLoyalty] = useState(true);
+
+    // Sync state when loyalty customer or phone prop changes
+    useEffect(() => {
+        if (customerPhone) setPhone(customerPhone);
+        if (loyaltyCustomer?.email) setEmail(loyaltyCustomer.email);
+        if (loyaltyCustomer?.first_name || loyaltyCustomer?.last_name) {
+            setName(`${loyaltyCustomer.first_name || ""} ${loyaltyCustomer.last_name || ""}`.trim());
+        }
+    }, [customerPhone, loyaltyCustomer]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
