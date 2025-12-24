@@ -55,6 +55,9 @@ DROP POLICY IF EXISTS "Loyalty rewards access" ON public.loyalty_rewards;
 
 DROP POLICY IF EXISTS "Location access for customers" ON public.customers;
 DROP POLICY IF EXISTS "Customers location access" ON public.customers;
+DROP POLICY IF EXISTS "Allow public select for enrollment" ON public.customers;
+DROP POLICY IF EXISTS "Allow public insert for enrollment" ON public.customers;
+DROP POLICY IF EXISTS "Allow public update for enrollment" ON public.customers;
 
 -- Program Policies
 CREATE POLICY "Loyalty programs access" ON public.loyalty_programs
@@ -77,12 +80,22 @@ CREATE POLICY "Loyalty rewards access" ON public.loyalty_rewards
         location_id IN (SELECT location_id FROM public.employees WHERE user_id = auth.uid())
     );
 
--- Customers Policy
+-- Customers Policy (Dashboard Access)
 CREATE POLICY "Customers location access" ON public.customers
     FOR ALL USING (
         location_id IN (SELECT id FROM public.locations WHERE owner_id = auth.uid()) OR
         location_id IN (SELECT location_id FROM public.employees WHERE user_id = auth.uid())
     );
+
+-- Public Enrollment Policies (Allow anonymous users to join)
+CREATE POLICY "Allow public select for enrollment" ON public.customers
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow public insert for enrollment" ON public.customers
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow public update for enrollment" ON public.customers
+    FOR UPDATE USING (true) WITH CHECK (true);
 
 -- 5. Re-initialize default data
 INSERT INTO public.loyalty_programs (location_id)

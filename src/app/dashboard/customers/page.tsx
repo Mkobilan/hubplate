@@ -67,6 +67,9 @@ export default function CustomersPage() {
     const [tableNumber, setTableNumber] = useState("");
     const [showQr, setShowQr] = useState(false);
     const [enrollmentUrl, setEnrollmentUrl] = useState("");
+    const [showAllModal, setShowAllModal] = useState(false);
+    const [allCustomers, setAllCustomers] = useState<any[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const fetchData = async () => {
         if (!currentLocation) return;
@@ -85,7 +88,7 @@ export default function CustomersPage() {
                 .from("customers")
                 .select("*", { count: 'exact', head: true })
                 .eq("location_id", currentLocation.id)
-                .not("loyalty_points", "is", null);
+                .eq("is_loyalty_member", true);
 
             // 2. Fetch Avg Rating
             const { data: feedback, error: feedbackError } = await supabase
@@ -116,11 +119,27 @@ export default function CustomersPage() {
                 repeatRate: totalCount ? Math.round((loyaltyCount || 0) / totalCount * 100) : 0
             });
             setTopCustomers(topCust || []);
+            setAllCustomers(topCust || []); // Initial load
 
         } catch (err) {
             console.error("Error fetching customers:", err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchAllCustomers = async () => {
+        if (!currentLocation) return;
+        try {
+            const supabase = createClient();
+            const { data } = await supabase
+                .from("customers")
+                .select("*")
+                .eq("location_id", currentLocation.id)
+                .order("total_spent", { ascending: false });
+            setAllCustomers(data || []);
+        } catch (err) {
+            console.error("Error fetching all customers:", err);
         }
     };
 
@@ -215,7 +234,15 @@ export default function CustomersPage() {
             <div className="card">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="font-bold">Top Customers</h3>
-                    <button className="text-sm text-orange-400 hover:underline">View All</button>
+                    <button
+                        onClick={() => {
+                            fetchAllCustomers();
+                            setShowAllModal(true);
+                        }}
+                        className="text-sm text-orange-400 hover:underline"
+                    >
+                        View All
+                    </button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -240,16 +267,18 @@ export default function CustomersPage() {
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold">
-                                                    {(customer.name || "U").split(" ").map((n: string) => n[0]).join("")}
+                                                    {(customer.first_name?.[0] || "") + (customer.last_name?.[0] || "") || "U"}
                                                 </div>
-                                                <span className="font-medium">{customer.name}</span>
+                                                <span className="font-medium">
+                                                    {customer.first_name} {customer.last_name}
+                                                </span>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 font-mono">{customer.visit_count || 0}</td>
+                                        <td className="px-4 py-3 font-mono">{customer.total_visits || 0}</td>
                                         <td className="px-4 py-3 font-mono text-green-400">{formatCurrency(customer.total_spent)}</td>
                                         <td className="px-4 py-3">
-                                            <span className={`badge text-xs ${customer.loyalty_tier === "Gold" ? "bg-yellow-500/20 text-yellow-400" :
-                                                customer.loyalty_tier === "Silver" ? "bg-slate-400/20 text-slate-300" :
+                                            <span className={`badge text-xs ${customer.loyalty_tier?.toLowerCase() === "gold" ? "bg-yellow-500/20 text-yellow-400" :
+                                                customer.loyalty_tier?.toLowerCase() === "silver" ? "bg-slate-400/20 text-slate-300" :
                                                     "bg-amber-700/20 text-amber-500"
                                                 }`}>
                                                 {customer.loyalty_tier || "Bronze"}
@@ -331,6 +360,72 @@ export default function CustomersPage() {
                                 </button>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* View All Customers Modal */}
+            {showAllModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => setShowAllModal(false)} />
+                    <div className="relative card w-full max-w-4xl max-h-[80vh] flex flex-col">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold">All Customers</h2>
+                            <button onClick={() => setShowAllModal(false)} className="p-2 hover:bg-slate-800 rounded-lg">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="mb-6">
+                            <input
+                                type="text"
+                                className="input"
+                                placeholder="Search by name or email..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="flex-1 overflow-auto">
+                            <table className="w-full text-left">
+                                <thead className="sticky top-0 bg-slate-900">
+                                    <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                        <th className="px-4 py-3">Customer</th>
+                                        <th className="px-4 py-3">Visits</th>
+                                        <th className="px-4 py-3">Total Spent</th>
+                                        <th className="px-4 py-3">Points</th>
+                                        <th className="px-4 py-3">Tier</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800">
+                                    {allCustomers
+                                        .filter(c =>
+                                            `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(searchQuery.toLowerCase())
+                                        )
+                                        .map((customer, i) => (
+                                            <tr key={i} className="hover:bg-slate-900/40 transition-colors">
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold">
+                                                            {(customer.first_name?.[0] || "") + (customer.last_name?.[0] || "") || "U"}
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-medium">{customer.first_name} {customer.last_name}</div>
+                                                            <div className="text-xs text-slate-500">{customer.email}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 font-mono">{customer.total_visits || 0}</td>
+                                                <td className="px-4 py-3 font-mono text-green-400">{formatCurrency(customer.total_spent)}</td>
+                                                <td className="px-4 py-3 font-mono">{customer.loyalty_points || 0}</td>
+                                                <td className="px-4 py-3 uppercase text-xs font-bold text-slate-400">
+                                                    {customer.loyalty_tier || 'bronze'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}

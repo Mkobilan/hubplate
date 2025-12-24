@@ -82,7 +82,25 @@ export default function EnrollmentPage() {
                         .eq('id', (customer as any).id);
 
                     setPointsEarned(earned);
+                } else {
+                    // Even if no points earned, mark this as a visit
+                    await (supabase
+                        .from('customers') as any)
+                        .update({
+                            total_visits: (customer as any).total_visits + 1,
+                            last_visit_at: new Date().toISOString()
+                        })
+                        .eq('id', (customer as any).id);
                 }
+            } else {
+                // No order found, but we still count the enrollment as a visit
+                await (supabase
+                    .from('customers') as any)
+                    .update({
+                        total_visits: (customer as any).total_visits + 1,
+                        last_visit_at: new Date().toISOString()
+                    })
+                    .eq('id', (customer as any).id);
             }
 
             setSuccess(true);
