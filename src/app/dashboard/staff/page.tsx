@@ -99,14 +99,27 @@ export default function StaffPage() {
             setLoading(true);
             const supabase = createClient();
 
-            const { data, error } = await supabase
+            const { data: employees, error: staffError } = await supabase
                 .from("employees")
                 .select("*")
                 .eq("location_id", currentLocation.id)
                 .order("first_name");
+            if (staffError) throw staffError;
 
-            if (error) throw error;
-            setStaff(data || []);
+            // 2. Fetch Active Time Entries
+            const { data: activeEntries, error: timeError } = await supabase
+                .from("time_entries")
+                .select("employee_id")
+                .eq("location_id", currentLocation.id)
+                .is("clock_out", null);
+            if (timeError) throw timeError;
+
+            const clockedInIds = new Set((activeEntries || []).map(entry => entry.employee_id));
+
+            setStaff((employees || []).map(emp => ({
+                ...emp,
+                clocked_in: clockedInIds.has(emp.id)
+            })));
         } catch (err) {
             console.error("Error fetching staff:", err);
         } finally {
@@ -162,11 +175,18 @@ export default function StaffPage() {
 
         if (!currentLocation) return;
         const supabase = createClient();
-        const sub = supabase.channel('staff_changes')
+        const subStaff = supabase.channel('staff_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => fetchStaff())
             .subscribe();
 
-        return () => { supabase.removeChannel(sub); };
+        const subTime = supabase.channel('time_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'time_entries' }, () => fetchStaff())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(subStaff);
+            supabase.removeChannel(subTime);
+        };
     }, [currentLocation?.id]);
 
     const handleDiscontinue = async () => {
@@ -304,7 +324,7 @@ export default function StaffPage() {
         (emp.role || "").toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const clockedInCount = staff.filter(e => e.is_active).length; // Using is_active as proxy if clocked_in not available
+    const clockedInCount = staff.filter(e => e.clocked_in).length;
 
     if (!currentLocation) {
         return (
@@ -427,9 +447,9 @@ export default function StaffPage() {
                                             <div className="flex flex-col gap-1">
                                                 <span className={cn(
                                                     "badge text-[10px]",
-                                                    emp.is_active ? "badge-success" : "badge-danger"
+                                                    emp.clocked_in ? "badge-success" : "badge-secondary"
                                                 )}>
-                                                    {emp.is_active ? "Clocked In" : "Clocked Out"}
+                                                    {emp.clocked_in ? "Clocked In" : "Clocked Out"}
                                                 </span>
                                             </div>
                                         </td>

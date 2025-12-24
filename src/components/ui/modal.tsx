@@ -59,7 +59,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
                 </div>
 
                 {/* Body */}
-                <div className="p-6">
+                <div className="p-6 max-h-[calc(100vh-16rem)] overflow-y-auto custom-scrollbar">
                     {children}
                 </div>
             </div>

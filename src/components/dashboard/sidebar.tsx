@@ -75,6 +75,7 @@ export function DashboardSidebar() {
             href: "/dashboard/settings/payments",
             icon: <CreditCard className="h-5 w-5" />,
             label: t("nav.payments"),
+            requiresManager: true,
         },
         {
             href: "/dashboard/customers",
@@ -85,6 +86,7 @@ export function DashboardSidebar() {
             href: "/dashboard/staff",
             icon: <Users className="h-5 w-5" />,
             label: t("nav.staff"),
+            requiresManager: true,
         },
         {
             href: "/dashboard/schedule",

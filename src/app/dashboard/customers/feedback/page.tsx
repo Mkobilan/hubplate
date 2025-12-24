@@ -12,9 +12,7 @@ import {
     Calendar,
     Filter,
     Search,
-    Reply,
-    Flag,
-    MoreVertical
+    Flag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +55,9 @@ export default function FeedbackPage() {
         totalReviews: 0,
         responseRate: 0
     });
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [initialLoad, setInitialLoad] = useState(true);
+
 
     const fetchFeedbackData = useCallback(async () => {
         if (!currentLocation) return;
@@ -72,6 +72,7 @@ export default function FeedbackPage() {
                 .eq('location_id', currentLocation.id)
                 .order('created_at', { ascending: false });
 
+
             if (error) throw error;
 
             const fbList = (data as any[]) || [];
@@ -84,7 +85,8 @@ export default function FeedbackPage() {
                 const neg = fbList.filter(f => (f.rating || 0) <= 2).length;
                 const neu = total - pos - neg;
                 const avg = fbList.reduce((sum, f) => sum + (f.rating || 0), 0) / total;
-                const replied = fbList.filter(f => f.is_replied).length;
+                const replied = fbList.filter(f => f.replied).length;
+
 
                 setStats({
                     positive: Math.round((pos / total) * 100),
@@ -99,7 +101,9 @@ export default function FeedbackPage() {
             console.error('Error fetching feedback:', error);
         } finally {
             setLoading(false);
+            setInitialLoad(false);
         }
+
     }, [currentLocation]);
 
     useEffect(() => {
@@ -112,6 +116,31 @@ export default function FeedbackPage() {
         if (searchQuery && !(fb.comment || "").toLowerCase().includes(searchQuery.toLowerCase())) return false;
         return true;
     });
+
+    if (!currentLocation) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <MessageSquare className="h-12 w-12 text-orange-500 mb-4" />
+                <h2 className="text-xl font-bold mb-2">No Location Selected</h2>
+                <p className="text-slate-400 mb-6">Please select a location to view customer feedback.</p>
+                <button
+                    onClick={() => window.location.href = "/dashboard/locations"}
+                    className="btn-primary"
+                >
+                    Go to Locations
+                </button>
+            </div>
+        );
+    }
+
+    if (initialLoad && loading) {
+        return (
+            <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+            </div>
+        );
+    }
+
 
     return (
         <div className="space-y-6">
@@ -128,7 +157,8 @@ export default function FeedbackPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+
                 <div className="card text-center">
                     <Star className="h-6 w-6 text-yellow-400 mx-auto mb-2" />
                     <p className="text-3xl font-bold">{stats.avgRating}</p>
@@ -143,11 +173,6 @@ export default function FeedbackPage() {
                     <ThumbsDown className="h-6 w-6 text-red-400 mx-auto mb-2" />
                     <p className="text-3xl font-bold text-red-400">{stats.negative}%</p>
                     <p className="text-xs text-slate-500 mt-1">Negative</p>
-                </div>
-                <div className="card text-center">
-                    <Reply className="h-6 w-6 text-blue-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">{stats.responseRate}%</p>
-                    <p className="text-xs text-slate-500 mt-1">Response Rate</p>
                 </div>
             </div>
 
@@ -217,21 +242,6 @@ export default function FeedbackPage() {
                                         <p className="text-slate-300">{fb.comment}</p>
                                         <p className="text-xs text-slate-500 mt-2">{fb.created_at && format(new Date(fb.created_at), 'MMM d, yyyy')}</p>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {fb.is_replied ? (
-                                        <span className="text-xs text-green-400 flex items-center gap-1">
-                                            <Reply className="h-3 w-3" /> Replied
-                                        </span>
-                                    ) : (
-                                        <button className="btn-secondary text-xs py-1">
-                                            <Reply className="h-3 w-3" />
-                                            Reply
-                                        </button>
-                                    )}
-                                    <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-500">
-                                        <MoreVertical className="h-4 w-4" />
-                                    </button>
                                 </div>
                             </div>
                         </div>

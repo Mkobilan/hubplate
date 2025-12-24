@@ -205,7 +205,7 @@ export default function DashboardPage() {
                     )}
 
                     <button
-                        onClick={() => window.location.href = "/dashboard/orders"}
+                        onClick={() => window.location.href = "/dashboard/orders/history"}
                         className="btn-ghost w-full mt-4 text-sm"
                     >
                         View All Orders →
