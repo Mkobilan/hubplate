@@ -1,17 +1,22 @@
 // Create payment intent for orders
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Use service role to bypass RLS (customers aren't logged in)
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: NextRequest) {
     try {
-        const supabase = await createClient();
         const { orderId, amount, tip } = await request.json();
 
         console.log('Payment intent request for order:', orderId, 'amount:', amount);
 
         // Get order details including existing payment intent
-        const { data: order, error } = await (supabase
+        const { data: order, error } = await (supabaseAdmin
             .from('orders') as any)
             .select('*, locations(stripe_account_id)')
             .eq('id', orderId)
@@ -45,7 +50,7 @@ export async function POST(request: NextRequest) {
 
                 // If it succeeded, mark order as paid
                 if (existingIntent.status === 'succeeded') {
-                    await (supabase.from('orders') as any)
+                    await (supabaseAdmin.from('orders') as any)
                         .update({ payment_status: 'paid', paid_at: new Date().toISOString() })
                         .eq('id', orderId);
                     return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
@@ -84,7 +89,7 @@ export async function POST(request: NextRequest) {
         console.log('Created new payment intent:', paymentIntent.id);
 
         // Update order with payment intent ID
-        await (supabase.from('orders') as any)
+        await (supabaseAdmin.from('orders') as any)
             .update({
                 stripe_payment_intent_id: paymentIntent.id,
                 payment_status: 'pending'
