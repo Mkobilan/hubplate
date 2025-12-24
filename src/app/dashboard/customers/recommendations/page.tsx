@@ -16,60 +16,64 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
-// Mock customer data for recommendations
-const mockCustomers = [
-    {
-        id: "1",
-        name: "Sarah Mitchell",
-        email: "sarah@email.com",
-        visits: 12,
-        avgSpend: 42.50,
-        favoriteItems: ["Grilled Salmon", "Chardonnay"],
-        recommendations: [
-            { item: "Lobster Risotto", reason: "Similar to your seafood favorites", confidence: 92 },
-            { item: "Sauvignon Blanc", reason: "Pairs well with your usual orders", confidence: 88 },
-        ],
-        lastVisit: "2 days ago"
-    },
-    {
-        id: "2",
-        name: "Mike Johnson",
-        email: "mike.j@email.com",
-        visits: 8,
-        avgSpend: 35.00,
-        favoriteItems: ["Classic Burger", "IPA Beer"],
-        recommendations: [
-            { item: "BBQ Bacon Burger", reason: "A twist on your go-to burger", confidence: 95 },
-            { item: "Loaded Fries", reason: "Perfect side for burger lovers", confidence: 87 },
-        ],
-        lastVisit: "1 week ago"
-    },
-    {
-        id: "3",
-        name: "Emily Chen",
-        email: "emily.c@email.com",
-        visits: 5,
-        avgSpend: 28.00,
-        favoriteItems: ["Caesar Salad", "Iced Tea"],
-        recommendations: [
-            { item: "Grilled Chicken Salad", reason: "Healthy option like your favorites", confidence: 90 },
-            { item: "Fresh Lemonade", reason: "Light and refreshing alternative", confidence: 85 },
-        ],
-        lastVisit: "3 days ago"
-    },
-];
+// TODO: Replace with Supabase query
+const mockCustomers: {
+    id: string;
+    name: string;
+    email: string;
+    visits: number;
+    avgSpend: number;
+    favoriteItems: string[];
+    recommendations: { item: string; reason: string; confidence: number }[];
+    lastVisit: string;
+}[] = [];
+
+import { useEffect, useCallback } from "react";
+import { useAppStore } from "@/stores";
+import { createClient } from "@/lib/supabase/client";
+import { format } from "date-fns";
 
 export default function RecommendationsPage() {
     const { t } = useTranslation();
+    const currentLocation = useAppStore((state) => state.currentLocation);
     const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [customers, setCustomers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        if (!currentLocation) return;
+
+        try {
+            setLoading(true);
+            const supabase = createClient();
+
+            const { data, error } = await supabase
+                .from('customers')
+                .select('*')
+                .eq('location_id', currentLocation.id)
+                .order('visits', { ascending: false })
+                .limit(10);
+
+            if (error) throw error;
+            setCustomers(data || []);
+        } catch (error) {
+            console.error('Error fetching recommendations data:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [currentLocation]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleRegenerate = () => {
         setIsGenerating(true);
         setTimeout(() => setIsGenerating(false), 2000);
     };
 
-    const customer = mockCustomers.find(c => c.id === selectedCustomer);
+    const customer = customers.find(c => c.id === selectedCustomer);
 
     return (
         <div className="space-y-6">
@@ -108,29 +112,37 @@ export default function RecommendationsPage() {
                     <h3 className="font-bold text-sm text-slate-500 uppercase tracking-wider">
                         Recent Customers
                     </h3>
-                    {mockCustomers.map((cust) => (
-                        <div
-                            key={cust.id}
-                            onClick={() => setSelectedCustomer(cust.id)}
-                            className={cn(
-                                "card cursor-pointer transition-all",
-                                selectedCustomer === cust.id
-                                    ? "border-orange-500 bg-orange-500/5"
-                                    : "hover:border-slate-700"
-                            )}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold">
-                                    {cust.name.split(" ").map(n => n[0]).join("")}
-                                </div>
-                                <div className="flex-1">
-                                    <p className="font-medium">{cust.name}</p>
-                                    <p className="text-xs text-slate-500">{cust.visits} visits • {cust.lastVisit}</p>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-slate-600" />
-                            </div>
+                    {loading ? (
+                        <div className="flex items-center justify-center py-10">
+                            <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
                         </div>
-                    ))}
+                    ) : customers.length > 0 ? (
+                        customers.map((cust) => (
+                            <div
+                                key={cust.id}
+                                onClick={() => setSelectedCustomer(cust.id)}
+                                className={cn(
+                                    "card cursor-pointer transition-all",
+                                    selectedCustomer === cust.id
+                                        ? "border-orange-500 bg-orange-500/5"
+                                        : "hover:border-slate-700"
+                                )}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold">
+                                        {(cust.name || "U").split(" ").map((n: string) => n[0]).join("")}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="font-medium">{cust.name}</p>
+                                        <p className="text-xs text-slate-500">{cust.visits} visits • {cust.last_visit ? format(new Date(cust.last_visit), 'MMM d') : 'Never'}</p>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-slate-600" />
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-sm text-slate-500 text-center py-6">No customers found</p>
+                    )}
                 </div>
 
                 {/* Customer Details & Recommendations */}
@@ -142,7 +154,7 @@ export default function RecommendationsPage() {
                                 <div className="flex items-start justify-between mb-6">
                                     <div className="flex items-center gap-4">
                                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center text-2xl font-bold">
-                                            {customer.name.split(" ").map(n => n[0]).join("")}
+                                            {(customer.name || "U").split(" ").map((n: string) => n[0]).join("")}
                                         </div>
                                         <div>
                                             <h2 className="text-xl font-bold">{customer.name}</h2>
@@ -150,7 +162,6 @@ export default function RecommendationsPage() {
                                         </div>
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-3 gap-4 mb-6">
                                     <div className="text-center p-3 bg-slate-900/50 rounded-xl">
                                         <ShoppingBag className="h-5 w-5 text-orange-400 mx-auto mb-1" />
@@ -159,12 +170,12 @@ export default function RecommendationsPage() {
                                     </div>
                                     <div className="text-center p-3 bg-slate-900/50 rounded-xl">
                                         <TrendingUp className="h-5 w-5 text-green-400 mx-auto mb-1" />
-                                        <p className="text-lg font-bold">{formatCurrency(customer.avgSpend)}</p>
+                                        <p className="text-lg font-bold">{formatCurrency(customer.total_spent / (customer.visits || 1))}</p>
                                         <p className="text-xs text-slate-500">Avg Spend</p>
                                     </div>
                                     <div className="text-center p-3 bg-slate-900/50 rounded-xl">
                                         <Clock className="h-5 w-5 text-blue-400 mx-auto mb-1" />
-                                        <p className="text-lg font-bold">{customer.lastVisit}</p>
+                                        <p className="text-lg font-bold">{customer.last_visit ? format(new Date(customer.last_visit), 'MMM d') : 'Never'}</p>
                                         <p className="text-xs text-slate-500">Last Visit</p>
                                     </div>
                                 </div>
@@ -172,7 +183,7 @@ export default function RecommendationsPage() {
                                 <div>
                                     <h4 className="text-sm font-bold text-slate-500 mb-2">Favorite Items</h4>
                                     <div className="flex flex-wrap gap-2">
-                                        {customer.favoriteItems.map((item) => (
+                                        {(customer.favorite_items as string[] || []).map((item: string) => (
                                             <span key={item} className="flex items-center gap-1 px-3 py-1 bg-orange-500/10 text-orange-400 rounded-full text-sm">
                                                 <Heart className="h-3 w-3" />
                                                 {item}
@@ -189,7 +200,7 @@ export default function RecommendationsPage() {
                                     <h3 className="font-bold">AI Recommendations</h3>
                                 </div>
                                 <div className="space-y-3">
-                                    {customer.recommendations.map((rec, i) => (
+                                    {(customer.recommendations as any[] || []).map((rec: any, i: number) => (
                                         <div
                                             key={i}
                                             className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800"

@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useAppStore } from "@/stores";
+import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "react-i18next";
 import {
     Users,
@@ -7,21 +10,12 @@ import {
     MessageSquare,
     Sparkles,
     Send,
-    TrendingUp,
     Star,
     Heart,
-    ChevronRight
+    ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
-
-// Quick stats
-const stats = {
-    totalCustomers: 4239,
-    loyaltyMembers: 1247,
-    avgRating: 4.3,
-    repeatRate: 67
-};
 
 const quickLinks = [
     {
@@ -54,11 +48,90 @@ const quickLinks = [
     },
 ];
 
-// Top customers
-const topCustomers: { name: string; visits: number; spent: number; tier: string }[] = [];
-
 export default function CustomersPage() {
     const { t } = useTranslation();
+    const currentLocation = useAppStore((state) => state.currentLocation);
+    const [customerStats, setCustomerStats] = useState({
+        totalCustomers: 0,
+        loyaltyMembers: 0,
+        avgRating: 0,
+        repeatRate: 0
+    });
+    const [topCustomers, setTopCustomers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = async () => {
+        if (!currentLocation) return;
+
+        try {
+            setLoading(true);
+            const supabase = createClient();
+
+            // 1. Fetch Customer Count & Loyalty Count
+            const { count: totalCount, error: totalError } = await supabase
+                .from("customers")
+                .select("*", { count: 'exact', head: true })
+                .eq("location_id", currentLocation.id);
+
+            const { count: loyaltyCount, error: loyaltyError } = await supabase
+                .from("customers")
+                .select("*", { count: 'exact', head: true })
+                .eq("location_id", currentLocation.id)
+                .not("loyalty_points", "is", null);
+
+            // 2. Fetch Avg Rating
+            const { data: feedback, error: feedbackError } = await supabase
+                .from("customer_feedback")
+                .select("rating")
+                .eq("location_id", currentLocation.id);
+
+            // 3. Fetch Top Customers
+            const { data: topCust, error: topError } = await supabase
+                .from("customers")
+                .select("*")
+                .eq("location_id", currentLocation.id)
+                .order("total_spent", { ascending: false })
+                .limit(5);
+
+            if (totalError || loyaltyError || feedbackError || topError) {
+                console.error("Error fetching customer data");
+            }
+
+            const avgRating = feedback && feedback.length > 0
+                ? (feedback as any[]).reduce((sum, f) => sum + (f.rating || 0), 0) / feedback.length
+                : 0;
+
+            setCustomerStats({
+                totalCustomers: totalCount || 0,
+                loyaltyMembers: loyaltyCount || 0,
+                avgRating: Math.round(avgRating * 10) / 10,
+                repeatRate: totalCount ? Math.round((loyaltyCount || 0) / totalCount * 100) : 0
+            });
+            setTopCustomers(topCust || []);
+
+        } catch (err) {
+            console.error("Error fetching customers:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, [currentLocation?.id]);
+
+    if (!currentLocation) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <Users className="h-12 w-12 text-orange-500 mb-4" />
+                <h2 className="text-xl font-bold mb-2">No Location Selected</h2>
+                <p className="text-slate-400 mb-6">Please select a location to view customers.</p>
+                <button onClick={() => window.location.href = "/dashboard/locations"} className="btn-primary">
+                    Go to Locations
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -68,7 +141,7 @@ export default function CustomersPage() {
                     Customers
                 </h1>
                 <p className="text-slate-400 mt-1">
-                    Build relationships, drive loyalty, and grow your customer base
+                    {currentLocation.name} - Build relationships and drive loyalty
                 </p>
             </div>
 
@@ -76,22 +149,22 @@ export default function CustomersPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="card text-center">
                     <Users className="h-6 w-6 text-blue-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">{stats.totalCustomers.toLocaleString()}</p>
+                    <p className="text-3xl font-bold">{customerStats.totalCustomers.toLocaleString()}</p>
                     <p className="text-xs text-slate-500 mt-1">Total Customers</p>
                 </div>
                 <div className="card text-center">
                     <Gift className="h-6 w-6 text-orange-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">{stats.loyaltyMembers.toLocaleString()}</p>
+                    <p className="text-3xl font-bold">{customerStats.loyaltyMembers.toLocaleString()}</p>
                     <p className="text-xs text-slate-500 mt-1">Loyalty Members</p>
                 </div>
                 <div className="card text-center">
                     <Star className="h-6 w-6 text-yellow-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">{stats.avgRating}</p>
+                    <p className="text-3xl font-bold">{customerStats.avgRating}</p>
                     <p className="text-xs text-slate-500 mt-1">Avg Rating</p>
                 </div>
                 <div className="card text-center">
                     <Heart className="h-6 w-6 text-pink-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">{stats.repeatRate}%</p>
+                    <p className="text-3xl font-bold">{customerStats.repeatRate}%</p>
                     <p className="text-xs text-slate-500 mt-1">Repeat Rate</p>
                 </div>
             </div>
@@ -137,25 +210,31 @@ export default function CustomersPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
-                            {topCustomers.length > 0 ? (
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={4} className="px-4 py-12 text-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+                                    </td>
+                                </tr>
+                            ) : topCustomers.length > 0 ? (
                                 topCustomers.map((customer, i) => (
                                     <tr key={i} className="hover:bg-slate-900/40 transition-colors">
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold">
-                                                    {customer.name.split(" ").map(n => n[0]).join("")}
+                                                    {(customer.name || "U").split(" ").map((n: string) => n[0]).join("")}
                                                 </div>
                                                 <span className="font-medium">{customer.name}</span>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 font-mono">{customer.visits}</td>
-                                        <td className="px-4 py-3 font-mono text-green-400">{formatCurrency(customer.spent)}</td>
+                                        <td className="px-4 py-3 font-mono">{customer.visit_count || 0}</td>
+                                        <td className="px-4 py-3 font-mono text-green-400">{formatCurrency(customer.total_spent)}</td>
                                         <td className="px-4 py-3">
-                                            <span className={`badge text-xs ${customer.tier === "Gold" ? "bg-yellow-500/20 text-yellow-400" :
-                                                customer.tier === "Silver" ? "bg-slate-400/20 text-slate-300" :
+                                            <span className={`badge text-xs ${customer.loyalty_tier === "Gold" ? "bg-yellow-500/20 text-yellow-400" :
+                                                customer.loyalty_tier === "Silver" ? "bg-slate-400/20 text-slate-300" :
                                                     "bg-amber-700/20 text-amber-500"
                                                 }`}>
-                                                {customer.tier}
+                                                {customer.loyalty_tier || "Bronze"}
                                             </span>
                                         </td>
                                     </tr>

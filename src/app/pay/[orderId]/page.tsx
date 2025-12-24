@@ -1,230 +1,273 @@
 "use client";
 
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import {
-    QrCode,
-    CreditCard,
-    Smartphone,
-    CheckCircle2,
-    Clock,
-    DollarSign,
-    Receipt,
-    Star,
-    Send,
-    X
-} from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Loader2, CheckCircle, AlertCircle, CreditCard, DollarSign, QrCode } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
-// Order type for Supabase integration
-type OrderItem = { name: string; price: number; quantity: number };
-type Order = {
+// Initialize Stripe
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+
+interface OrderDetails {
     id: string;
-    table: string;
-    items: OrderItem[];
+    table_number: string;
+    order_type: string;
     subtotal: number;
     tax: number;
     total: number;
-};
+    payment_status: string;
+    items: Array<{
+        name: string;
+        quantity: number;
+        price: number;
+    }>;
+}
 
-// TODO: Fetch from Supabase based on orderId param
-const order: Order | null = null;
+export default function PaymentPage() {
+    const params = useParams();
+    const orderId = params.orderId as string;
 
-const tipOptions = [15, 18, 20, 25];
+    const [order, setOrder] = useState<OrderDetails | null>(null);
+    const [clientSecret, setClientSecret] = useState<string | null>(null);
+    const [tip, setTip] = useState<number>(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-export default function PayAtTablePage() {
-    const { t } = useTranslation();
-    const [selectedTip, setSelectedTip] = useState<number | null>(18);
-    const [customTip, setCustomTip] = useState("");
-    const [paymentMethod, setPaymentMethod] = useState<"card" | "digital" | null>(null);
-    const [isPaid, setIsPaid] = useState(false);
-    const [showFeedback, setShowFeedback] = useState(false);
-    const [rating, setRating] = useState<number | null>(null);
+    useEffect(() => {
+        const fetchOrderAndCreatePayment = async () => {
+            try {
+                // Fetch order details
+                const orderRes = await fetch(`/api/orders/${orderId}`);
+                if (!orderRes.ok) throw new Error("Order not found");
+                const orderData = await orderRes.json();
 
-    if (!order) {
+                if (orderData.payment_status === "paid") {
+                    setOrder(orderData);
+                    setLoading(false);
+                    return;
+                }
+
+                setOrder(orderData);
+
+                // Create payment intent
+                const paymentRes = await fetch("/api/stripe/payment-intent", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        orderId,
+                        amount: orderData.total,
+                        tip: 0
+                    })
+                });
+
+                if (!paymentRes.ok) throw new Error("Failed to create payment");
+                const { clientSecret } = await paymentRes.json();
+                setClientSecret(clientSecret);
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchOrderAndCreatePayment();
+    }, [orderId]);
+
+    if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center space-y-4">
-                <QrCode className="h-12 w-12 text-slate-700" />
-                <h2 className="text-xl font-bold">Order Not Found</h2>
-                <p className="text-slate-500">We couldn&apos;t find this order. Please ask your server for assistance.</p>
-            </div>
-        );
-    }
-
-    const tipAmount = selectedTip ? (order.subtotal * selectedTip) / 100 : parseFloat(customTip) || 0;
-    const grandTotal = order.total + tipAmount;
-
-    const handlePay = () => {
-        setIsPaid(true);
-        setTimeout(() => setShowFeedback(true), 1500);
-    };
-
-    if (isPaid && showFeedback) {
-        return (
-            <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="card max-w-md w-full text-center space-y-6">
-                    <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto">
-                        <CheckCircle2 className="h-10 w-10 text-green-400" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold">Thank You!</h1>
-                        <p className="text-slate-400 mt-2">Your payment of {formatCurrency(grandTotal)} was successful.</p>
-                    </div>
-
-                    <div className="p-4 bg-slate-900/50 rounded-xl">
-                        <p className="text-sm text-slate-500 mb-3">How was your experience?</p>
-                        <div className="flex justify-center gap-2">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                    key={star}
-                                    onClick={() => setRating(star)}
-                                    className={cn(
-                                        "p-2 rounded-lg transition-all",
-                                        rating && star <= rating ? "text-yellow-400" : "text-slate-600 hover:text-yellow-400/50"
-                                    )}
-                                >
-                                    <Star className={cn("h-8 w-8", rating && star <= rating && "fill-yellow-400")} />
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                        <button className="btn-secondary w-full">
-                            <Receipt className="h-4 w-4" />
-                            Email Receipt
-                        </button>
-                        <button className="btn-primary w-full">
-                            <Send className="h-4 w-4" />
-                            Share Feedback
-                        </button>
-                    </div>
-
-                    <p className="text-xs text-slate-500">
-                        Receipt #PAY-{order.id.split("-")[1]} • {new Date().toLocaleDateString()}
-                    </p>
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-orange-500 mx-auto mb-4" />
+                    <p className="text-slate-400">Loading your bill...</p>
                 </div>
             </div>
         );
     }
 
-    if (isPaid) {
+    if (error) {
         return (
-            <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="text-center space-y-4">
-                    <div className="w-20 h-20 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
-                        <Clock className="h-10 w-10 text-orange-400" />
-                    </div>
-                    <h2 className="text-2xl font-bold">Processing Payment...</h2>
-                    <p className="text-slate-400">Please wait while we confirm your transaction.</p>
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+                <div className="text-center max-w-md">
+                    <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+                    <h1 className="text-2xl font-bold text-slate-100 mb-2">Oops!</h1>
+                    <p className="text-slate-400 mb-6">{error}</p>
+                    <a href="/" className="btn-primary">Go Home</a>
+                </div>
+            </div>
+        );
+    }
+
+    if (order?.payment_status === "paid") {
+        return (
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+                <div className="text-center max-w-md">
+                    <CheckCircle className="h-20 w-20 text-green-500 mx-auto mb-4" />
+                    <h1 className="text-3xl font-bold text-slate-100 mb-2">Thank You!</h1>
+                    <p className="text-slate-400 mb-2">Your payment has been received.</p>
+                    <p className="text-2xl font-bold text-orange-400">{formatCurrency(order.total)}</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen p-4 sm:p-8">
-            <div className="max-w-md mx-auto space-y-6">
+        <div className="min-h-screen bg-slate-950 py-8 px-4">
+            <div className="max-w-md mx-auto">
                 {/* Header */}
-                <div className="text-center">
+                <div className="text-center mb-8">
                     <div className="w-16 h-16 bg-orange-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <QrCode className="h-8 w-8 text-orange-400" />
                     </div>
-                    <h1 className="text-2xl font-bold">{order.table}</h1>
-                    <p className="text-slate-400">Order #{order.id}</p>
+                    <h1 className="text-2xl font-bold text-slate-100 mb-1">Your Bill</h1>
+                    <p className="text-slate-400">
+                        {order?.order_type === "dine_in" ? `Table ${order.table_number}` : order?.order_type?.toUpperCase()}
+                    </p>
                 </div>
 
-                {/* Order Summary */}
-                <div className="card">
-                    <h3 className="font-bold mb-4">Your Order</h3>
-                    <div className="space-y-3">
-                        {order.items.map((item, i) => (
-                            <div key={i} className="flex justify-between text-sm">
-                                <span className="text-slate-400">
+                {/* Order Items */}
+                <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-4 mb-6">
+                    <div className="space-y-3 mb-4">
+                        {order?.items?.map((item, i) => (
+                            <div key={i} className="flex justify-between">
+                                <span className="text-slate-300">
                                     {item.quantity}x {item.name}
                                 </span>
-                                <span>{formatCurrency(item.price * item.quantity)}</span>
+                                <span className="text-slate-400">
+                                    {formatCurrency(item.price * item.quantity)}
+                                </span>
                             </div>
                         ))}
                     </div>
-                    <div className="mt-4 pt-4 border-t border-slate-800 space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Subtotal</span>
-                            <span>{formatCurrency(order.subtotal)}</span>
+
+                    <div className="border-t border-slate-700 pt-3 space-y-2">
+                        <div className="flex justify-between text-slate-400">
+                            <span>Subtotal</span>
+                            <span>{formatCurrency(order?.subtotal || 0)}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Tax</span>
-                            <span>{formatCurrency(order.tax)}</span>
+                        <div className="flex justify-between text-slate-400">
+                            <span>Tax</span>
+                            <span>{formatCurrency(order?.tax || 0)}</span>
+                        </div>
+                        {tip > 0 && (
+                            <div className="flex justify-between text-slate-400">
+                                <span>Tip</span>
+                                <span>{formatCurrency(tip)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between text-xl font-bold text-slate-100 pt-2 border-t border-slate-700">
+                            <span>Total</span>
+                            <span className="text-orange-400">
+                                {formatCurrency((order?.total || 0) + tip)}
+                            </span>
                         </div>
                     </div>
                 </div>
 
                 {/* Tip Selection */}
-                <div className="card">
-                    <h3 className="font-bold mb-4">Add a Tip</h3>
-                    <div className="grid grid-cols-4 gap-2 mb-4">
-                        {tipOptions.map((tip) => (
-                            <button
-                                key={tip}
-                                onClick={() => { setSelectedTip(tip); setCustomTip(""); }}
-                                className={cn(
-                                    "py-3 rounded-xl font-bold transition-all",
-                                    selectedTip === tip
-                                        ? "bg-orange-500 text-white"
-                                        : "bg-slate-800 hover:bg-slate-700"
-                                )}
-                            >
-                                {tip}%
-                            </button>
-                        ))}
-                    </div>
-                    <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                        <input
-                            type="number"
-                            className="input pl-8"
-                            placeholder="Custom amount"
-                            value={customTip}
-                            onChange={(e) => { setCustomTip(e.target.value); setSelectedTip(null); }}
-                        />
-                    </div>
-                    {tipAmount > 0 && (
-                        <p className="text-center text-sm text-slate-500 mt-2">
-                            Tip: {formatCurrency(tipAmount)}
-                        </p>
-                    )}
-                </div>
-
-                {/* Total */}
-                <div className="card bg-orange-500/10 border-orange-500/30">
-                    <div className="flex justify-between items-center">
-                        <span className="font-bold">Total</span>
-                        <span className="text-3xl font-bold text-orange-400">{formatCurrency(grandTotal)}</span>
+                <div className="mb-6">
+                    <p className="text-sm text-slate-400 mb-3">Add a tip?</p>
+                    <div className="grid grid-cols-4 gap-2">
+                        {[0, 15, 18, 20].map(percent => {
+                            const tipAmount = percent === 0 ? 0 : Math.round((order?.subtotal || 0) * percent) / 100;
+                            const isSelected = tip === tipAmount;
+                            return (
+                                <button
+                                    key={percent}
+                                    onClick={() => setTip(tipAmount)}
+                                    className={`py-2 px-3 rounded-lg border text-sm font-medium transition-all ${isSelected
+                                            ? "bg-orange-500 border-orange-500 text-white"
+                                            : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
+                                        }`}
+                                >
+                                    {percent === 0 ? "No Tip" : `${percent}%`}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
-                {/* Payment Methods */}
-                <div className="space-y-3">
-                    <button
-                        onClick={() => { setPaymentMethod("card"); handlePay(); }}
-                        className="btn-primary w-full py-4"
+                {/* Payment Form */}
+                {clientSecret && (
+                    <Elements
+                        stripe={stripePromise}
+                        options={{
+                            clientSecret,
+                            appearance: {
+                                theme: "night",
+                                variables: {
+                                    colorPrimary: "#f97316",
+                                    colorBackground: "#0f172a",
+                                    colorText: "#f1f5f9",
+                                    colorDanger: "#ef4444",
+                                    borderRadius: "12px"
+                                }
+                            }
+                        }}
                     >
-                        <CreditCard className="h-5 w-5" />
-                        Pay with Card
-                    </button>
-                    <button
-                        onClick={() => { setPaymentMethod("digital"); handlePay(); }}
-                        className="btn-secondary w-full py-4"
-                    >
-                        <Smartphone className="h-5 w-5" />
-                        Apple Pay / Google Pay
-                    </button>
-                </div>
+                        <PaymentForm orderId={orderId} total={(order?.total || 0) + tip} />
+                    </Elements>
+                )}
 
-                <p className="text-center text-xs text-slate-500">
+                <p className="text-center text-xs text-slate-500 mt-6">
                     Payments powered by Stripe. Your card information is encrypted end-to-end.
                 </p>
             </div>
         </div>
+    );
+}
+
+function PaymentForm({ orderId, total }: { orderId: string; total: number }) {
+    const stripe = useStripe();
+    const elements = useElements();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!stripe || !elements) return;
+
+        setLoading(true);
+        setError(null);
+
+        const { error: paymentError } = await stripe.confirmPayment({
+            elements,
+            confirmParams: {
+                return_url: `${window.location.origin}/pay/${orderId}/success`
+            }
+        });
+
+        if (paymentError) {
+            setError(paymentError.message || "Payment failed");
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <PaymentElement className="mb-4" />
+
+            {error && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                    {error}
+                </div>
+            )}
+
+            <button
+                type="submit"
+                disabled={!stripe || loading}
+                className="btn-primary w-full py-4 text-lg font-bold"
+            >
+                {loading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                    <>
+                        <CreditCard className="h-5 w-5" />
+                        Pay {formatCurrency(total)}
+                    </>
+                )}
+            </button>
+        </form>
     );
 }

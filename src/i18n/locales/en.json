@@ -40,7 +40,8 @@
         "customers": "Customers",
         "analytics": "Analytics",
         "locations": "Locations",
-        "settings": "Settings"
+        "settings": "Settings",
+        "profile": "My Profile"
     },
     "staff": {
         "management": "Staff Management",
@@ -95,7 +96,8 @@
         "available": "Available",
         "unavailable": "Unavailable",
         "scanMenu": "Scan Menu Photo",
-        "processingMenu": "AI is processing your menu..."
+        "processingMenu": "AI is processing your menu...",
+        "happyHour": "Happy Hour"
     },
     "schedule": {
         "thisWeek": "This Week",

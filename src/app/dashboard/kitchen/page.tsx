@@ -2,56 +2,127 @@
 
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Clock, CheckCircle, ChefHat, Bell } from "lucide-react";
+import { Clock, CheckCircle, ChefHat, Bell, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { useAppStore } from "@/stores";
+import { toast } from "react-hot-toast";
 
-// Mock orders for Kitchen Display System
-const mockKitchenOrders = [
-    {
-        id: "1",
-        table: "Table 5",
-        items: [
-            { name: "Classic Burger", quantity: 2, notes: "No onions", status: "preparing" },
-            { name: "French Fries", quantity: 2, status: "preparing" },
-        ],
-        createdAt: new Date(Date.now() - 8 * 60 * 1000),
-        status: "preparing",
-    },
-    {
-        id: "2",
-        table: "Table 12",
-        items: [
-            { name: "Grilled Salmon", quantity: 1, status: "pending" },
-            { name: "Caesar Salad", quantity: 1, notes: "Dressing on side", status: "pending" },
-        ],
-        createdAt: new Date(Date.now() - 3 * 60 * 1000),
-        status: "sent",
-    },
-    {
-        id: "3",
-        table: "Takeout #47",
-        items: [
-            { name: "Buffalo Wings", quantity: 2, status: "ready" },
-            { name: "Loaded Nachos", quantity: 1, status: "ready" },
-        ],
-        createdAt: new Date(Date.now() - 15 * 60 * 1000),
-        status: "ready",
-    },
-    {
-        id: "4",
-        table: "Table 8",
-        items: [
-            { name: "Chocolate Cake", quantity: 2, status: "pending" },
-        ],
-        createdAt: new Date(Date.now() - 1 * 60 * 1000),
-        status: "sent",
-    },
-];
+interface KitchenOrderItem {
+    name: string;
+    quantity: number;
+    notes?: string;
+    status: string;
+    isEdited?: boolean;
+}
+
+interface KitchenOrder {
+    id: string;
+    table: string;
+    serverName: string;
+    orderType: string;
+    items: KitchenOrderItem[];
+    createdAt: Date;
+    status: string;
+    isEdited?: boolean;
+}
 
 export default function KitchenPage() {
     const { t } = useTranslation();
-    const [orders, setOrders] = useState(mockKitchenOrders);
+    const [orders, setOrders] = useState<KitchenOrder[]>([]);
+    const [loading, setLoading] = useState(true);
     const [now, setNow] = useState(new Date());
+
+    const currentLocation = useAppStore((state) => state.currentLocation);
+    const supabase = createClient();
+
+    const fetchOrders = async () => {
+        if (!currentLocation?.id) return;
+
+        try {
+            // Fetch active orders (not served)
+            const { data: ordersData, error: ordersError } = await supabase
+                .from("orders")
+                .select(`
+                    id,
+                    table_number,
+                    status,
+                    order_type,
+                    created_at,
+                    is_edited,
+                    server:employees(first_name, last_name),
+                    order_items (
+                        id,
+                        name,
+                        quantity,
+                        notes,
+                        is_edited
+                    )
+                `)
+                .eq("location_id", currentLocation.id)
+                .in("status", ["pending", "in_progress", "ready"])
+                .order("created_at", { ascending: true });
+
+            if (ordersError) throw ordersError;
+
+            const formattedOrders: KitchenOrder[] = (ordersData || []).map((o: any) => {
+                let title = `Table ${o.table_number}`;
+                if (o.order_type === 'takeout') title = 'Takeout';
+                if (o.order_type === 'delivery') title = 'Delivery';
+
+                return {
+                    id: o.id,
+                    table: title,
+                    orderType: o.order_type,
+                    serverName: o.server ? `${o.server.first_name} ${o.server.last_name.charAt(0)}.` : "System",
+                    status: o.status,
+                    createdAt: new Date(o.created_at),
+                    isEdited: o.is_edited,
+                    items: o.order_items.map((oi: any) => ({
+                        name: oi.name || "Unknown Item",
+                        quantity: oi.quantity,
+                        notes: oi.notes,
+                        status: o.status,
+                        isEdited: oi.is_edited
+                    }))
+                };
+            });
+
+            setOrders(formattedOrders);
+        } catch (error) {
+            console.error("Error fetching kitchen orders:", error);
+            toast.error("Failed to load kitchen orders");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Initial fetch and subscription
+    useEffect(() => {
+        if (!currentLocation?.id) return;
+
+        fetchOrders();
+
+        const channel = supabase
+            .channel("kitchen-orders")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "orders",
+                    filter: `location_id=eq.${currentLocation.id}`
+                },
+                () => {
+                    fetchOrders();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [currentLocation?.id]);
 
     // Update time every minute
     useEffect(() => {
@@ -70,23 +141,45 @@ export default function KitchenPage() {
         return "text-red-400";
     };
 
-    const markReady = (orderId: string) => {
-        setOrders(
-            orders.map((o) =>
-                o.id === orderId
-                    ? { ...o, status: "ready", items: o.items.map((i) => ({ ...i, status: "ready" })) }
-                    : o
-            )
-        );
+    const updateOrderStatus = async (orderId: string, newStatus: string) => {
+        try {
+            const updateData: any = { status: newStatus };
+
+            // Set completed_at when the kitchen marks the order as ready
+            if (newStatus === 'ready') {
+                updateData.completed_at = new Date().toISOString();
+            }
+
+            const { error } = await (supabase
+                .from("orders") as any)
+                .update(updateData)
+                .eq("id", orderId);
+
+            if (error) throw error;
+            toast.success(`Order ${newStatus}`);
+            fetchOrders();
+        } catch (error) {
+            console.error("Error updating order:", error);
+            toast.error("Failed to update status");
+        }
     };
 
     const markServed = (orderId: string) => {
-        setOrders(orders.filter((o) => o.id !== orderId));
+        updateOrderStatus(orderId, "served");
     };
 
-    const pendingOrders = orders.filter((o) => o.status === "sent");
-    const preparingOrders = orders.filter((o) => o.status === "preparing");
+    const pendingOrders = orders.filter((o) => o.status === "pending");
+    const preparingOrders = orders.filter((o) => o.status === "in_progress");
     const readyOrders = orders.filter((o) => o.status === "ready");
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)]">
+                <Loader2 className="h-12 w-12 animate-spin text-orange-500 mb-4" />
+                <p className="text-slate-400">Loading order queue...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -133,20 +226,32 @@ export default function KitchenPage() {
                             key={order.id}
                             className={cn(
                                 "card border-2 transition-all",
-                                order.status === "sent" && "border-blue-500/50 bg-blue-500/5",
-                                order.status === "preparing" && "border-amber-500/50 bg-amber-500/5",
+                                order.status === "pending" && "border-blue-500/50 bg-blue-500/5",
+                                order.status === "in_progress" && "border-amber-500/50 bg-amber-500/5",
                                 order.status === "ready" && "border-green-500/50 bg-green-500/5 animate-pulse"
                             )}
                         >
                             {/* Header */}
                             <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-700">
                                 <div>
-                                    <h3 className="font-bold text-lg">{order.table}</h3>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-lg">{order.table}</h3>
+                                        {order.serverName && (
+                                            <span className="text-xs text-slate-400 font-medium">
+                                                • {order.serverName}
+                                            </span>
+                                        )}
+                                        {order.isEdited && (
+                                            <span className="text-red-500 font-black text-xs animate-pulse ring-1 ring-red-500 px-1 rounded">
+                                                [EDITED]
+                                            </span>
+                                        )}
+                                    </div>
                                     <span
                                         className={cn(
                                             "badge",
-                                            order.status === "sent" && "badge-info",
-                                            order.status === "preparing" && "badge-warning",
+                                            order.status === "pending" && "badge-info",
+                                            order.status === "in_progress" && "badge-warning",
                                             order.status === "ready" && "badge-success"
                                         )}
                                     >
@@ -167,7 +272,12 @@ export default function KitchenPage() {
                                         <div className="flex-1">
                                             <p className="font-medium">{item.name}</p>
                                             {item.notes && (
-                                                <p className="text-sm text-amber-400">⚠ {item.notes}</p>
+                                                <p className="text-sm text-amber-400 font-medium">⚠ {item.notes}</p>
+                                            )}
+                                            {item.isEdited && (
+                                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-tight bg-red-500/10 px-1 rounded border border-red-500/20 w-fit">
+                                                    Modified
+                                                </span>
                                             )}
                                         </div>
                                     </div>
@@ -176,23 +286,17 @@ export default function KitchenPage() {
 
                             {/* Actions */}
                             <div className="flex gap-2">
-                                {order.status === "sent" && (
+                                {order.status === "pending" && (
                                     <button
-                                        onClick={() => {
-                                            setOrders(
-                                                orders.map((o) =>
-                                                    o.id === order.id ? { ...o, status: "preparing" } : o
-                                                )
-                                            );
-                                        }}
+                                        onClick={() => updateOrderStatus(order.id, "in_progress")}
                                         className="btn-secondary flex-1"
                                     >
                                         Start
                                     </button>
                                 )}
-                                {order.status === "preparing" && (
+                                {order.status === "in_progress" && (
                                     <button
-                                        onClick={() => markReady(order.id)}
+                                        onClick={() => updateOrderStatus(order.id, "ready")}
                                         className="btn-success flex-1"
                                     >
                                         <CheckCircle className="h-4 w-4" />

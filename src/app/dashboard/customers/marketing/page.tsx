@@ -16,46 +16,12 @@ import {
     Eye,
     MousePointerClick,
     Clock,
+    RefreshCw,
     CheckCircle2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Mock campaigns
-const mockCampaigns = [
-    {
-        id: "1",
-        name: "Weekend Special Promo",
-        type: "email",
-        status: "active",
-        audience: 1247,
-        sent: 1180,
-        opened: 456,
-        clicked: 89,
-        scheduledFor: null
-    },
-    {
-        id: "2",
-        name: "Happy Hour Reminder",
-        type: "sms",
-        status: "scheduled",
-        audience: 892,
-        sent: 0,
-        opened: 0,
-        clicked: 0,
-        scheduledFor: "Dec 23, 5:00 PM"
-    },
-    {
-        id: "3",
-        name: "New Menu Launch",
-        type: "push",
-        status: "completed",
-        audience: 2100,
-        sent: 2100,
-        opened: 1245,
-        clicked: 312,
-        scheduledFor: null
-    },
-];
+
 
 const quickActions = [
     { id: "birthday", label: "Birthday Offer", icon: "🎂", description: "Auto-send on customer birthdays" },
@@ -64,10 +30,79 @@ const quickActions = [
     { id: "review", label: "Review Request", icon: "⭐", description: "Ask for reviews after visits" },
 ];
 
+import { useEffect, useCallback } from "react";
+import { useAppStore } from "@/stores";
+import { createClient } from "@/lib/supabase/client";
+import { format } from "date-fns";
+
 export default function MarketingPage() {
     const { t } = useTranslation();
+    const currentLocation = useAppStore((state) => state.currentLocation);
+    const [campaigns, setCampaigns] = useState<any[]>([]);
+    const [stats, setStats] = useState({
+        subscribers: 0,
+        avgOpenRate: 0,
+        avgClickRate: 0,
+        campaignsThisMonth: 0
+    });
+    const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [campaignType, setCampaignType] = useState<"email" | "sms" | "push">("email");
+
+    const fetchData = useCallback(async () => {
+        if (!currentLocation) return;
+
+        try {
+            setLoading(true);
+            const supabase = createClient();
+
+            // 1. Fetch campaigns
+            const { data: campaignData, error: campaignError } = await supabase
+                .from('marketing_campaigns')
+                .select('*')
+                .eq('location_id', currentLocation.id)
+                .order('created_at', { ascending: false });
+
+            if (campaignError) throw campaignError;
+            setCampaigns(campaignData || []);
+
+            // 2. Fetch subscribers count
+            const { count: subscriberCount } = await supabase
+                .from('customers')
+                .select('*', { count: 'exact', head: true })
+                .eq('location_id', currentLocation.id)
+                .eq('is_loyalty_member', true); // Assuming loyalty members are subscribers
+
+            // 3. Process indicators
+            if (campaignData && campaignData.length > 0) {
+                const cList = campaignData as any[];
+                const totalSent = cList.reduce((sum, c) => sum + (c.sent_count || 0), 0);
+                const totalOpen = cList.reduce((sum, c) => sum + (c.open_count || 0), 0);
+                const totalClick = cList.reduce((sum, c) => sum + (c.click_count || 0), 0);
+
+                setStats({
+                    subscribers: subscriberCount || 0,
+                    avgOpenRate: totalSent > 0 ? Math.round((totalOpen / totalSent) * 100) : 0,
+                    avgClickRate: totalOpen > 0 ? Math.round((totalClick / totalOpen) * 100) : 0,
+                    campaignsThisMonth: cList.filter(c => {
+                        const date = new Date(c.created_at);
+                        const now = new Date();
+                        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+                    }).length
+                });
+            } else {
+                setStats(prev => ({ ...prev, subscribers: subscriberCount || 0 }));
+            }
+        } catch (error) {
+            console.error('Error fetching marketing data:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [currentLocation]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     return (
         <div className="space-y-6">
@@ -91,22 +126,22 @@ export default function MarketingPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="card text-center">
                     <Users className="h-6 w-6 text-blue-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">4,239</p>
+                    <p className="text-3xl font-bold">{stats.subscribers.toLocaleString()}</p>
                     <p className="text-xs text-slate-500 mt-1">Total Subscribers</p>
                 </div>
                 <div className="card text-center">
                     <Eye className="h-6 w-6 text-green-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">38.6%</p>
+                    <p className="text-3xl font-bold text-green-400">{stats.avgOpenRate}%</p>
                     <p className="text-xs text-slate-500 mt-1">Avg Open Rate</p>
                 </div>
                 <div className="card text-center">
                     <MousePointerClick className="h-6 w-6 text-orange-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">7.5%</p>
+                    <p className="text-3xl font-bold text-orange-400">{stats.avgClickRate}%</p>
                     <p className="text-xs text-slate-500 mt-1">Avg Click Rate</p>
                 </div>
                 <div className="card text-center">
                     <Send className="h-6 w-6 text-purple-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">12</p>
+                    <p className="text-3xl font-bold">{stats.campaignsThisMonth}</p>
                     <p className="text-xs text-slate-500 mt-1">Campaigns This Month</p>
                 </div>
             </div>
@@ -135,66 +170,74 @@ export default function MarketingPage() {
                     <button className="text-sm text-orange-400 hover:underline">View All</button>
                 </div>
                 <div className="space-y-3">
-                    {mockCampaigns.map((campaign) => (
-                        <div
-                            key={campaign.id}
-                            className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className={cn(
-                                    "p-3 rounded-xl",
-                                    campaign.type === "email" && "bg-blue-500/10",
-                                    campaign.type === "sms" && "bg-green-500/10",
-                                    campaign.type === "push" && "bg-purple-500/10"
-                                )}>
-                                    {campaign.type === "email" && <Mail className="h-5 w-5 text-blue-400" />}
-                                    {campaign.type === "sms" && <MessageSquare className="h-5 w-5 text-green-400" />}
-                                    {campaign.type === "push" && <Bell className="h-5 w-5 text-purple-400" />}
-                                </div>
-                                <div>
-                                    <p className="font-bold">{campaign.name}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className={cn(
-                                            "text-xs px-2 py-0.5 rounded-full",
-                                            campaign.status === "active" && "bg-green-500/20 text-green-400",
-                                            campaign.status === "scheduled" && "bg-amber-500/20 text-amber-400",
-                                            campaign.status === "completed" && "bg-slate-500/20 text-slate-400"
-                                        )}>
-                                            {campaign.status}
-                                        </span>
-                                        {campaign.scheduledFor && (
-                                            <span className="text-xs text-slate-500 flex items-center gap-1">
-                                                <Clock className="h-3 w-3" />
-                                                {campaign.scheduledFor}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-6">
-                                {campaign.status !== "scheduled" && (
-                                    <div className="hidden md:flex gap-4 text-sm">
-                                        <div className="text-center">
-                                            <p className="font-bold">{campaign.sent.toLocaleString()}</p>
-                                            <p className="text-xs text-slate-500">Sent</p>
-                                        </div>
-                                        <div className="text-center">
-                                            <p className="font-bold text-green-400">{campaign.opened.toLocaleString()}</p>
-                                            <p className="text-xs text-slate-500">Opened</p>
-                                        </div>
-                                        <div className="text-center">
-                                            <p className="font-bold text-orange-400">{campaign.clicked}</p>
-                                            <p className="text-xs text-slate-500">Clicked</p>
-                                        </div>
-                                    </div>
-                                )}
-                                <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-500">
-                                    <BarChart3 className="h-4 w-4" />
-                                </button>
-                            </div>
+                    {loading ? (
+                        <div className="flex items-center justify-center py-10">
+                            <RefreshCw className="h-6 w-6 animate-spin text-orange-500" />
                         </div>
-                    ))}
+                    ) : campaigns.length > 0 ? (
+                        campaigns.map((campaign) => (
+                            <div
+                                key={campaign.id}
+                                className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className={cn(
+                                        "p-3 rounded-xl",
+                                        campaign.type === "email" && "bg-blue-500/10",
+                                        campaign.type === "sms" && "bg-green-500/10",
+                                        campaign.type === "push" && "bg-purple-500/10"
+                                    )}>
+                                        {campaign.type === "email" && <Mail className="h-5 w-5 text-blue-400" />}
+                                        {campaign.type === "sms" && <MessageSquare className="h-5 w-5 text-green-400" />}
+                                        {campaign.type === "push" && <Bell className="h-5 w-5 text-purple-400" />}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold">{campaign.name}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className={cn(
+                                                "text-xs px-2 py-0.5 rounded-full",
+                                                (campaign.status === "active" || campaign.status === "running") && "bg-green-500/20 text-green-400",
+                                                campaign.status === "scheduled" && "bg-amber-500/20 text-amber-400",
+                                                campaign.status === "completed" && "bg-slate-500/20 text-slate-400"
+                                            )}>
+                                                {campaign.status}
+                                            </span>
+                                            {campaign.scheduled_at && (
+                                                <span className="text-xs text-slate-500 flex items-center gap-1">
+                                                    <Clock className="h-3 w-3" />
+                                                    {format(new Date(campaign.scheduled_at), 'MMM d, p')}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-6">
+                                    {campaign.status !== "scheduled" && (
+                                        <div className="hidden md:flex gap-4 text-sm">
+                                            <div className="text-center">
+                                                <p className="font-bold">{(campaign.sent_count as number)?.toLocaleString() || 0}</p>
+                                                <p className="text-xs text-slate-500">Sent</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="font-bold text-green-400">{(campaign.open_count as number)?.toLocaleString() || 0}</p>
+                                                <p className="text-xs text-slate-500">Opened</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="font-bold text-orange-400">{(campaign.click_count as number) || 0}</p>
+                                                <p className="text-xs text-slate-500">Clicked</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-500">
+                                        <BarChart3 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-sm text-slate-500 text-center py-6">No campaigns found</p>
+                    )}
                 </div>
             </div>
 
@@ -245,10 +288,10 @@ export default function MarketingPage() {
                             <div>
                                 <label className="label">Audience</label>
                                 <select className="input">
-                                    <option>All Subscribers (4,239)</option>
-                                    <option>Loyalty Members (1,247)</option>
-                                    <option>Inactive 30+ Days (523)</option>
-                                    <option>VIP Customers (89)</option>
+                                    <option>All Subscribers (0)</option>
+                                    <option>Loyalty Members (0)</option>
+                                    <option>Inactive 30+ Days (0)</option>
+                                    <option>VIP Customers (0)</option>
                                 </select>
                             </div>
                             <div className="flex gap-2 pt-4">

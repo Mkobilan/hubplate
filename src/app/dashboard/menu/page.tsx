@@ -13,16 +13,29 @@ import {
     AlertCircle,
     Loader2,
     Clock,
+    Check,
+    X,
+    Layers,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
+import { createClient } from "@/lib/supabase/client";
+import { useAppStore } from "@/stores";
+import { toast } from "react-hot-toast";
+import { useEffect } from "react";
+
 // Type definitions for Supabase integration
 type Category = { id: string; name: string };
-type MenuItemType = { id: string; name: string; category: string; price: number; is_86d: boolean };
-
-// TODO: Replace with Supabase queries
-const categories: Category[] = [];
-const menuItems: MenuItemType[] = [];
+type MenuItemType = {
+    id: string;
+    name: string;
+    description?: string | null;
+    category_id: string;
+    price: number;
+    cost?: number | null;
+    is_86d: boolean;
+    category?: { name: string }
+};
 
 export default function MenuPage() {
     const { t } = useTranslation();
@@ -30,16 +43,69 @@ export default function MenuPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [showAddModal, setShowAddModal] = useState(false);
     const [showScanModal, setShowScanModal] = useState(false);
+    const [editingItem, setEditingItem] = useState<MenuItemType | null>(null);
+
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
+    const currentLocation = useAppStore((state) => state.currentLocation);
+    const currentEmployee = useAppStore((state) => state.currentEmployee);
+    const isOrgOwner = useAppStore((state) => state.isOrgOwner);
+    const supabase = createClient();
+
+    const [isEditingMenu, setIsEditingMenu] = useState(false);
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+
+    const canEdit = isOrgOwner || currentEmployee?.role === "owner" || currentEmployee?.role === "manager";
+
+    const fetchMenuData = async () => {
+        if (!currentLocation?.id) return;
+
+        setLoading(true);
+        try {
+            // Fetch categories
+            const { data: cats } = await supabase
+                .from("menu_categories")
+                .select("id, name")
+                .eq("location_id", currentLocation.id)
+                .eq("is_active", true);
+
+            setCategories(cats || []);
+
+            // Fetch menu items with category names
+            const { data: items } = await supabase
+                .from("menu_items")
+                .select("*, category:menu_categories(name)")
+                .eq("location_id", currentLocation.id)
+                .order("name");
+
+            setMenuItems(items || []);
+        } catch (error) {
+            console.error("Error fetching menu data:", error);
+            toast.error("Failed to load menu");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchMenuData();
+    }, [currentLocation?.id]);
 
     const filteredItems = menuItems.filter((item) => {
-        const matchesCategory = !selectedCategory || item.category === selectedCategory;
+        const itemCategoryName = item.category?.name || "Uncategorized";
+        const matchesCategory = !selectedCategory || itemCategoryName === selectedCategory;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
     });
 
     const itemsByCategory = filteredItems.reduce((acc, item) => {
-        if (!acc[item.category]) acc[item.category] = [];
-        acc[item.category].push(item);
+        const catName = item.category?.name || "Uncategorized";
+        if (!acc[catName]) acc[catName] = [];
+        acc[catName].push(item);
         return acc;
     }, {} as Record<string, typeof menuItems>);
 
@@ -68,6 +134,30 @@ export default function MenuPage() {
                         <Camera className="h-4 w-4" />
                         {t("menu.scanMenu")}
                     </button>
+                    {canEdit && (
+                        <button
+                            onClick={() => {
+                                setIsEditingMenu(!isEditingMenu);
+                                setSelectedItems(new Set());
+                            }}
+                            className={cn(
+                                "btn",
+                                isEditingMenu ? "btn-primary" : "btn-secondary"
+                            )}
+                        >
+                            {isEditingMenu ? (
+                                <>
+                                    <Check className="h-4 w-4" />
+                                    Done Editing
+                                </>
+                            ) : (
+                                <>
+                                    <Edit2 className="h-4 w-4" />
+                                    Edit Menu
+                                </>
+                            )}
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowAddModal(true)}
                         className="btn-primary"
@@ -77,6 +167,22 @@ export default function MenuPage() {
                     </button>
                 </div>
             </div>
+
+            {isEditingMenu && (
+                <div className="flex items-center justify-between p-4 bg-orange-500/10 border border-orange-500/50 rounded-lg">
+                    <div className="flex items-center gap-2 text-orange-400">
+                        <AlertCircle className="h-5 w-5" />
+                        <p className="font-medium">Menu Edit Mode Active</p>
+                    </div>
+                    <button
+                        onClick={() => setShowAddCategoryModal(true)}
+                        className="btn-secondary btn-sm"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Add Category
+                    </button>
+                </div>
+            )}
 
             {/* Search & Filter */}
             <div className="flex flex-col sm:flex-row gap-4">
@@ -101,16 +207,29 @@ export default function MenuPage() {
                         All
                     </button>
                     {categories.map((cat) => (
-                        <button
-                            key={cat.id}
-                            onClick={() => setSelectedCategory(cat.name)}
-                            className={cn(
-                                "btn whitespace-nowrap",
-                                selectedCategory === cat.name ? "btn-primary" : "btn-secondary"
+                        <div key={cat.id} className="relative flex items-center">
+                            <button
+                                onClick={() => setSelectedCategory(cat.name)}
+                                className={cn(
+                                    "btn whitespace-nowrap",
+                                    selectedCategory === cat.name ? "btn-primary" : "btn-secondary",
+                                    isEditingMenu && "pr-8"
+                                )}
+                            >
+                                {cat.name}
+                            </button>
+                            {isEditingMenu && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingCategory(cat);
+                                    }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white bg-slate-800/50 rounded-md transition-colors"
+                                >
+                                    <Edit2 className="h-3 w-3" />
+                                </button>
                             )}
-                        >
-                            {cat.name}
-                        </button>
+                        </div>
                     ))}
                 </div>
             </div>
@@ -128,58 +247,164 @@ export default function MenuPage() {
             )}
 
             {/* Menu Items by Category */}
-            <div className="space-y-8">
-                {Object.entries(itemsByCategory).map(([category, items]) => (
-                    <div key={category}>
-                        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            {category}
-                            <span className="text-sm text-slate-400 font-normal">
-                                ({items.length} items)
-                            </span>
-                        </h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {items.map((item) => (
-                                <MenuItemCard key={item.id} item={item} />
-                            ))}
+            {loading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                    <p className="mt-4 text-slate-400">Loading menu...</p>
+                </div>
+            ) : Object.keys(itemsByCategory).length > 0 ? (
+                <div className="space-y-8">
+                    {Object.entries(itemsByCategory).map(([category, items]) => (
+                        <div key={category}>
+                            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                {category}
+                                <span className="text-sm text-slate-400 font-normal">
+                                    ({items.length} items)
+                                </span>
+                            </h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {items.map((item) => (
+                                    <MenuItemCard
+                                        key={item.id}
+                                        item={item}
+                                        onEdit={() => setEditingItem(item)}
+                                        isEditing={isEditingMenu}
+                                        isSelected={selectedItems.has(item.id)}
+                                        onSelect={(id) => {
+                                            const newSelected = new Set(selectedItems);
+                                            if (newSelected.has(id)) {
+                                                newSelected.delete(id);
+                                            } else {
+                                                newSelected.add(id);
+                                            }
+                                            setSelectedItems(newSelected);
+                                        }}
+                                    />
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="card py-12 text-center">
+                    <p className="text-slate-400">No menu items found. Add one or scan a menu to get started!</p>
+                </div>
+            )}
 
             {/* Add Item Modal */}
             {showAddModal && (
-                <AddMenuItemModal onClose={() => setShowAddModal(false)} />
+                <AddMenuItemModal
+                    categories={categories}
+                    onClose={() => setShowAddModal(false)}
+                    onSuccess={fetchMenuData}
+                />
             )}
 
             {/* Scan Menu Modal */}
             {showScanModal && (
-                <ScanMenuModal onClose={() => setShowScanModal(false)} />
+                <ScanMenuModal
+                    onClose={() => setShowScanModal(false)}
+                    onSuccess={fetchMenuData}
+                />
+            )}
+
+            {/* Edit Item Modal */}
+            {editingItem && (
+                <EditMenuItemModal
+                    item={editingItem}
+                    categories={categories}
+                    onClose={() => setEditingItem(null)}
+                    onSuccess={fetchMenuData}
+                />
+            )}
+
+            {/* Add Category Modal */}
+            {showAddCategoryModal && (
+                <AddCategoryModal
+                    onClose={() => setShowAddCategoryModal(false)}
+                    onSuccess={fetchMenuData}
+                />
+            )}
+
+            {/* Manage Category Modal */}
+            {editingCategory && (
+                <ManageCategoryModal
+                    category={editingCategory}
+                    onClose={() => setEditingCategory(null)}
+                    onSuccess={fetchMenuData}
+                />
+            )}
+
+            {/* Bulk Action Bar */}
+            {isEditingMenu && selectedItems.size > 0 && (
+                <BulkActionBar
+                    selectedCount={selectedItems.size}
+                    categories={categories}
+                    onClear={() => setSelectedItems(new Set())}
+                    onMove={async (categoryId) => {
+                        try {
+                            const { error } = await (supabase
+                                .from("menu_items") as any)
+                                .update({ category_id: categoryId })
+                                .in("id", Array.from(selectedItems));
+
+                            if (error) throw error;
+                            toast.success(`Moved ${selectedItems.size} items`);
+                            setSelectedItems(new Set());
+                            fetchMenuData();
+                        } catch (error) {
+                            console.error("Error moving items:", error);
+                            toast.error("Failed to move items");
+                        }
+                    }}
+                />
             )}
         </div>
     );
 }
 
-function MenuItemCard({ item }: { item: typeof menuItems[0] }) {
+function MenuItemCard({
+    item,
+    onEdit,
+    isEditing,
+    isSelected,
+    onSelect
+}: {
+    item: MenuItemType;
+    onEdit?: () => void;
+    isEditing?: boolean;
+    isSelected?: boolean;
+    onSelect?: (id: string) => void;
+}) {
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
         <div
+            onClick={() => isEditing && onSelect?.(item.id)}
             className={cn(
-                "card relative group",
-                item.is_86d && "opacity-60 border-amber-500/50"
+                "card relative group transition-all cursor-default",
+                item.is_86d && "opacity-60 border-amber-500/50",
+                isEditing && isSelected && "ring-2 ring-orange-500 bg-orange-500/5 border-orange-500/50",
+                isEditing && !isSelected && "hover:border-slate-600",
+                menuOpen && "z-30" // Prevent clipping
             )}
         >
-            {/* 86'd Badge */}
-            {item.is_86d && (
-                <div className="absolute top-2 right-2 badge badge-warning">
-                    86&apos;d
+            {/* Selection Checkbox */}
+            {isEditing && (
+                <div className="absolute top-2 right-2 z-10">
+                    <div className={cn(
+                        "w-5 h-5 rounded border flex items-center justify-center transition-colors",
+                        isSelected ? "bg-orange-500 border-orange-500" : "bg-slate-800 border-slate-600"
+                    )}>
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                    </div>
                 </div>
             )}
 
             <div className="flex justify-between items-start">
                 <div>
                     <h3 className="font-semibold">{item.name}</h3>
-                    <p className="text-sm text-slate-400">{item.category}</p>
+                    <p className="text-sm text-slate-400">{item.category?.name || "Uncategorized"}</p>
                 </div>
                 <button
                     onClick={() => setMenuOpen(!menuOpen)}
@@ -194,7 +419,10 @@ function MenuItemCard({ item }: { item: typeof menuItems[0] }) {
                     {formatCurrency(item.price)}
                 </span>
                 <div className="flex gap-1">
-                    <button className="btn-ghost p-2">
+                    <button
+                        onClick={() => onEdit?.()}
+                        className="btn-ghost p-2"
+                    >
                         <Edit2 className="h-4 w-4" />
                     </button>
                     <button className="btn-ghost p-2 hover:text-red-400">
@@ -211,7 +439,13 @@ function MenuItemCard({ item }: { item: typeof menuItems[0] }) {
                         onClick={() => setMenuOpen(false)}
                     />
                     <div className="absolute right-0 top-10 z-20 w-48 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1">
-                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800">
+                        <button
+                            onClick={() => {
+                                onEdit?.();
+                                setMenuOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800"
+                        >
                             Edit Item
                         </button>
                         <button className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800">
@@ -230,18 +464,51 @@ function MenuItemCard({ item }: { item: typeof menuItems[0] }) {
     );
 }
 
-function AddMenuItemModal({ onClose }: { onClose: () => void }) {
+function AddMenuItemModal({
+    categories,
+    onClose,
+    onSuccess
+}: {
+    categories: Category[];
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
+    const currentLocation = useAppStore((state) => state.currentLocation);
+    const supabase = createClient();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!currentLocation?.id) return;
+
+        const form = e.target as HTMLFormElement;
+        const formData = new FormData(form);
+
         setLoading(true);
-        // TODO: Submit to Supabase
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            const { error } = await (supabase
+                .from("menu_items") as any)
+                .insert({
+                    location_id: currentLocation.id,
+                    name: formData.get("name") as string,
+                    description: formData.get("description") as string,
+                    price: parseFloat(formData.get("price") as string),
+                    cost: formData.get("cost") ? parseFloat(formData.get("cost") as string) : null,
+                    category_id: formData.get("category_id") as string,
+                });
+
+            if (error) throw error;
+
+            toast.success("Item added successfully");
+            onSuccess();
             onClose();
-        }, 1000);
+        } catch (error) {
+            console.error("Error adding item:", error);
+            toast.error("Failed to add item");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -252,25 +519,26 @@ function AddMenuItemModal({ onClose }: { onClose: () => void }) {
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="label">{t("menu.itemName")}</label>
-                        <input type="text" className="input" required />
+                        <input name="name" type="text" className="input" required />
                     </div>
                     <div>
                         <label className="label">{t("menu.description")}</label>
-                        <textarea className="input" rows={2} />
+                        <textarea name="description" className="input" rows={2} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="label">{t("menu.price")}</label>
-                            <input type="number" step="0.01" className="input" required />
+                            <input name="price" type="number" step="0.01" className="input" required />
                         </div>
                         <div>
                             <label className="label">{t("menu.cost")}</label>
-                            <input type="number" step="0.01" className="input" />
+                            <input name="cost" type="number" step="0.01" className="input" />
                         </div>
                     </div>
                     <div>
                         <label className="label">Category</label>
-                        <select className="input">
+                        <select name="category_id" className="input" required>
+                            <option value="">Select a category</option>
                             {categories.map((cat) => (
                                 <option key={cat.id} value={cat.id}>
                                     {cat.name}
@@ -292,10 +560,17 @@ function AddMenuItemModal({ onClose }: { onClose: () => void }) {
     );
 }
 
-function ScanMenuModal({ onClose }: { onClose: () => void }) {
+function ScanMenuModal({
+    onClose,
+    onSuccess
+}: {
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
+    const currentLocation = useAppStore((state) => state.currentLocation);
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
@@ -313,16 +588,54 @@ function ScanMenuModal({ onClose }: { onClose: () => void }) {
         }
     };
 
+    const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const base64String = (reader.result as string).split(",")[1];
+                resolve(base64String);
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    };
+
     const processImage = async (file: File) => {
+        if (!currentLocation?.id) {
+            toast.error("Please select a location first");
+            return;
+        }
+
         setLoading(true);
-        // TODO: Convert to base64 and call Gemini API
-        // const base64 = await fileToBase64(file);
-        // const items = await parseMenuPhoto(base64);
-        setTimeout(() => {
-            setLoading(false);
-            alert("Menu parsed! (Demo - will integrate with Gemini)");
+        try {
+            const base64 = await fileToBase64(file);
+
+            const response = await fetch("/api/ai/parse-menu", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    imageBase64: base64,
+                    locationId: currentLocation.id,
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || "Failed to parse menu");
+            }
+
+            const result = await response.json();
+            toast.success(`Successfully parsed ${result.count} items!`);
+            onSuccess();
             onClose();
-        }, 2000);
+        } catch (error: any) {
+            console.error("Menu parsing error:", error);
+            toast.error(error.message || "Failed to parse menu. Please try a clearer photo.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -377,6 +690,389 @@ function ScanMenuModal({ onClose }: { onClose: () => void }) {
                 >
                     {t("common.cancel")}
                 </button>
+            </div>
+        </div>
+    );
+}
+
+function EditMenuItemModal({
+    item,
+    categories,
+    onClose,
+    onSuccess
+}: {
+    item: MenuItemType;
+    categories: Category[];
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const { t } = useTranslation();
+    const [loading, setLoading] = useState(false);
+    const supabase = createClient();
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const form = e.target as HTMLFormElement;
+        const formData = new FormData(form);
+
+        setLoading(true);
+        try {
+            const { error } = await (supabase
+                .from("menu_items") as any)
+                .update({
+                    name: formData.get("name") as string,
+                    description: formData.get("description") as string,
+                    price: parseFloat(formData.get("price") as string),
+                    category_id: formData.get("category_id") || null,
+                })
+                .eq("id", item.id);
+
+            if (error) throw error;
+
+            toast.success("Item updated successfully");
+            onSuccess();
+            onClose();
+        } catch (error) {
+            console.error("Error updating item:", error);
+            toast.error("Failed to update item");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+            <div className="relative card w-full max-w-md">
+                <h2 className="text-xl font-bold mb-4">Edit Item</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="label">{t("menu.itemName")}</label>
+                        <input name="name" type="text" className="input" defaultValue={item.name} required />
+                    </div>
+                    <div>
+                        <label className="label">{t("menu.description")}</label>
+                        <textarea name="description" className="input" rows={2} defaultValue={item.description || ""} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="label">{t("menu.price")}</label>
+                            <input name="price" type="number" step="0.01" className="input" defaultValue={item.price} required />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="label">Category</label>
+                        <select name="category_id" className="input" defaultValue={item.category_id || ""}>
+                            <option value="">Uncategorized</option>
+                            {categories.map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex gap-2 pt-4">
+                        <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                            {t("common.cancel")}
+                        </button>
+                        <button type="submit" disabled={loading} className="btn-primary flex-1">
+                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.save")}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+function AddCategoryModal({
+    onClose,
+    onSuccess
+}: {
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const { t } = useTranslation();
+    const [loading, setLoading] = useState(false);
+    const currentLocation = useAppStore((state) => state.currentLocation);
+    const supabase = createClient();
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentLocation?.id) return;
+
+        const form = e.target as HTMLFormElement;
+        const formData = new FormData(form);
+        const name = formData.get("name") as string;
+
+        setLoading(true);
+        try {
+            const { error } = await (supabase
+                .from("menu_categories") as any)
+                .insert({
+                    location_id: currentLocation.id,
+                    name,
+                    is_active: true
+                });
+
+            if (error) throw error;
+
+            toast.success("Category added successfully");
+            onSuccess();
+            onClose();
+        } catch (error) {
+            console.error("Error adding category:", error);
+            toast.error("Failed to add category");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+            <div className="relative card w-full max-w-sm">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-slate-100 font-display">Add Category</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-100">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="label">Category Name</label>
+                        <input
+                            name="name"
+                            type="text"
+                            placeholder="e.g. Appetizers, Desserts"
+                            className="input"
+                            required
+                            autoFocus
+                        />
+                        <p className="text-xs text-slate-500 mt-2">
+                            This will appear as a heading in your menu.
+                        </p>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                        <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                            Cancel
+                        </button>
+                        <button type="submit" disabled={loading} className="btn-primary flex-1">
+                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+function BulkActionBar({
+    selectedCount,
+    categories,
+    onClear,
+    onMove
+}: {
+    selectedCount: number;
+    categories: Category[];
+    onClear: () => void;
+    onMove: (categoryId: string) => Promise<void>;
+}) {
+    const [isMoving, setIsMoving] = useState(false);
+    const [showCategoryList, setShowCategoryList] = useState(false);
+
+    return (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+            <div className="bg-slate-900 border border-slate-700 rounded-full py-2 px-4 shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-4">
+                <div className="flex items-center gap-2 pr-4 border-r border-slate-700">
+                    <span className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        {selectedCount}
+                    </span>
+                    <span className="text-sm font-medium text-slate-300">Items Selected</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowCategoryList(!showCategoryList)}
+                            className="btn-primary btn-sm rounded-full"
+                        >
+                            <Layers className="h-4 w-4" />
+                            Move to Category
+                        </button>
+
+                        {showCategoryList && (
+                            <div className="absolute bottom-full mb-2 left-0 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden py-1">
+                                <div className="px-3 py-2 text-xs font-semibold text-slate-500 border-b border-slate-800">
+                                    SELECT CATEGORY
+                                </div>
+                                <div className="max-h-60 overflow-y-auto">
+                                    {categories.map((cat) => (
+                                        <button
+                                            key={cat.id}
+                                            onClick={async () => {
+                                                setIsMoving(true);
+                                                await onMove(cat.id);
+                                                setIsMoving(false);
+                                                setShowCategoryList(false);
+                                            }}
+                                            disabled={isMoving}
+                                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-800 transition-colors flex items-center justify-between"
+                                        >
+                                            {cat.name}
+                                            {isMoving && <Loader2 className="h-3 w-3 animate-spin" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={onClear}
+                        className="p-2 text-slate-400 hover:text-slate-100 transition-colors"
+                        title="Clear selection"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ManageCategoryModal({
+    category,
+    onClose,
+    onSuccess
+}: {
+    category: Category;
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const { t } = useTranslation();
+    const [loading, setLoading] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const supabase = createClient();
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const form = e.target as HTMLFormElement;
+        const formData = new FormData(form);
+        const name = formData.get("name") as string;
+
+        setLoading(true);
+        try {
+            const { error } = await (supabase
+                .from("menu_categories") as any)
+                .update({ name })
+                .eq("id", category.id);
+
+            if (error) throw error;
+
+            toast.success("Category updated successfully");
+            onSuccess();
+            onClose();
+        } catch (error) {
+            console.error("Error updating category:", error);
+            toast.error("Failed to update category");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        setLoading(true);
+        try {
+            // First, set all items in this category to uncategorized
+            const { error: updateError } = await (supabase
+                .from("menu_items") as any)
+                .update({ category_id: null })
+                .eq("category_id", category.id);
+
+            if (updateError) throw updateError;
+
+            // Then delete the category
+            const { error: deleteError } = await (supabase
+                .from("menu_categories") as any)
+                .delete()
+                .eq("id", category.id);
+
+            if (deleteError) throw deleteError;
+
+            toast.success("Category deleted");
+            onSuccess();
+            onClose();
+        } catch (error) {
+            console.error("Error deleting category:", error);
+            toast.error("Failed to delete category");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+            <div className="relative card w-full max-w-sm">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold">Manage Category</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-100">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {!showDeleteConfirm ? (
+                    <form onSubmit={handleUpdate} className="space-y-4">
+                        <div>
+                            <label className="label">Category Name</label>
+                            <input
+                                name="name"
+                                type="text"
+                                defaultValue={category.name}
+                                className="input"
+                                required
+                                autoFocus
+                            />
+                        </div>
+                        <div className="flex flex-col gap-2 pt-2">
+                            <button type="submit" disabled={loading} className="btn-primary w-full">
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Name"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="btn-ghost text-red-400 hover:text-red-300 w-full"
+                            >
+                                <Trash2 className="h-4 w-4 mr-2 inline" />
+                                Delete Category
+                            </button>
+                        </div>
+                    </form>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-sm text-red-200">
+                            <AlertCircle className="h-4 w-4 inline mr-2 mb-1" />
+                            Are you sure? Items in this category will become <strong>Uncategorized</strong>. This action cannot be undone.
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="btn-secondary flex-1"
+                                disabled={loading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                className="btn-primary bg-red-600 hover:bg-red-500 border-red-600 flex-1"
+                                disabled={loading}
+                            >
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Yes, Delete"}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

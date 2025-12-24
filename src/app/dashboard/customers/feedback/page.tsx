@@ -18,64 +18,98 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Mock feedback data
-const mockFeedback = [
-    {
-        id: "1",
-        customer: "Sarah M.",
-        rating: 5,
-        comment: "Amazing food and service! The grilled salmon was perfectly cooked. Will definitely be back!",
-        date: "2025-12-21",
-        source: "pay-at-table",
-        replied: true
-    },
-    {
-        id: "2",
-        customer: "John D.",
-        rating: 4,
-        comment: "Great burgers, but the wait was a bit long. Food made up for it though!",
-        date: "2025-12-20",
-        source: "google",
-        replied: false
-    },
-    {
-        id: "3",
-        customer: "Emily R.",
-        rating: 2,
-        comment: "Ordered wings and they came out cold. Server was nice about it but disappointed.",
-        date: "2025-12-19",
-        source: "yelp",
-        replied: true
-    },
-    {
-        id: "4",
-        customer: "Mike T.",
-        rating: 5,
-        comment: "Best happy hour in town! Love the $5 craft beers and the loaded nachos.",
-        date: "2025-12-18",
-        source: "pay-at-table",
-        replied: false
-    },
-];
+// TODO: Replace with Supabase query
+const mockFeedback: {
+    id: string;
+    customer: string;
+    rating: number;
+    comment: string;
+    date: string;
+    source: string;
+    replied: boolean;
+}[] = [];
 
 const sentimentStats = {
-    positive: 78,
-    neutral: 15,
-    negative: 7,
-    avgRating: 4.3,
-    totalReviews: 156,
-    responseRate: 82
+    positive: 0,
+    neutral: 0,
+    negative: 0,
+    avgRating: 0,
+    totalReviews: 0,
+    responseRate: 0
 };
+
+import { useEffect, useCallback } from "react";
+import { useAppStore } from "@/stores";
+import { createClient } from "@/lib/supabase/client";
+import { format } from "date-fns";
 
 export default function FeedbackPage() {
     const { t } = useTranslation();
+    const currentLocation = useAppStore((state) => state.currentLocation);
     const [filter, setFilter] = useState<"all" | "positive" | "negative">("all");
     const [searchQuery, setSearchQuery] = useState("");
+    const [feedback, setFeedback] = useState<any[]>([]);
+    const [stats, setStats] = useState({
+        positive: 0,
+        neutral: 0,
+        negative: 0,
+        avgRating: 0,
+        totalReviews: 0,
+        responseRate: 0
+    });
+    const [loading, setLoading] = useState(true);
 
-    const filteredFeedback = mockFeedback.filter(fb => {
+    const fetchFeedbackData = useCallback(async () => {
+        if (!currentLocation) return;
+
+        try {
+            setLoading(true);
+            const supabase = createClient();
+
+            const { data, error } = await supabase
+                .from('customer_feedback')
+                .select('*')
+                .eq('location_id', currentLocation.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const fbList = (data as any[]) || [];
+            setFeedback(fbList);
+
+            // Calculate stats
+            if (fbList.length > 0) {
+                const total = fbList.length;
+                const pos = fbList.filter(f => (f.rating || 0) >= 4).length;
+                const neg = fbList.filter(f => (f.rating || 0) <= 2).length;
+                const neu = total - pos - neg;
+                const avg = fbList.reduce((sum, f) => sum + (f.rating || 0), 0) / total;
+                const replied = fbList.filter(f => f.is_replied).length;
+
+                setStats({
+                    positive: Math.round((pos / total) * 100),
+                    negative: Math.round((neg / total) * 100),
+                    neutral: Math.round((neu / total) * 100),
+                    avgRating: Number(avg.toFixed(1)),
+                    totalReviews: total,
+                    responseRate: Math.round((replied / total) * 100)
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching feedback:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [currentLocation]);
+
+    useEffect(() => {
+        fetchFeedbackData();
+    }, [fetchFeedbackData]);
+
+    const filteredFeedback = feedback.filter(fb => {
         if (filter === "positive" && fb.rating < 4) return false;
         if (filter === "negative" && fb.rating >= 4) return false;
-        if (searchQuery && !fb.comment.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        if (searchQuery && !(fb.comment || "").toLowerCase().includes(searchQuery.toLowerCase())) return false;
         return true;
     });
 
@@ -97,22 +131,22 @@ export default function FeedbackPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="card text-center">
                     <Star className="h-6 w-6 text-yellow-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">{sentimentStats.avgRating}</p>
+                    <p className="text-3xl font-bold">{stats.avgRating}</p>
                     <p className="text-xs text-slate-500 mt-1">Average Rating</p>
                 </div>
                 <div className="card text-center">
                     <ThumbsUp className="h-6 w-6 text-green-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold text-green-400">{sentimentStats.positive}%</p>
+                    <p className="text-3xl font-bold text-green-400">{stats.positive}%</p>
                     <p className="text-xs text-slate-500 mt-1">Positive</p>
                 </div>
                 <div className="card text-center">
                     <ThumbsDown className="h-6 w-6 text-red-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold text-red-400">{sentimentStats.negative}%</p>
+                    <p className="text-3xl font-bold text-red-400">{stats.negative}%</p>
                     <p className="text-xs text-slate-500 mt-1">Negative</p>
                 </div>
                 <div className="card text-center">
                     <Reply className="h-6 w-6 text-blue-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold">{sentimentStats.responseRate}%</p>
+                    <p className="text-3xl font-bold">{stats.responseRate}%</p>
                     <p className="text-xs text-slate-500 mt-1">Response Rate</p>
                 </div>
             </div>
@@ -149,58 +183,68 @@ export default function FeedbackPage() {
 
             {/* Feedback List */}
             <div className="space-y-4">
-                {filteredFeedback.map((fb) => (
-                    <div key={fb.id} className="card">
-                        <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-start gap-4">
-                                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold shrink-0">
-                                    {fb.customer.charAt(0)}
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-3 mb-1">
-                                        <span className="font-bold">{fb.customer}</span>
-                                        <div className="flex gap-0.5">
-                                            {Array.from({ length: 5 }).map((_, i) => (
-                                                <Star
-                                                    key={i}
-                                                    className={cn(
-                                                        "h-4 w-4",
-                                                        i < fb.rating ? "text-yellow-400 fill-yellow-400" : "text-slate-700"
-                                                    )}
-                                                />
-                                            ))}
-                                        </div>
-                                        <span className={cn(
-                                            "text-xs px-2 py-0.5 rounded-full",
-                                            fb.source === "pay-at-table" && "bg-orange-500/20 text-orange-400",
-                                            fb.source === "google" && "bg-blue-500/20 text-blue-400",
-                                            fb.source === "yelp" && "bg-red-500/20 text-red-400"
-                                        )}>
-                                            {fb.source}
-                                        </span>
+                {filteredFeedback.length > 0 ? (
+                    filteredFeedback.map((fb) => (
+                        <div key={fb.id} className="card">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-bold shrink-0">
+                                        {(fb.customer_name || "A").charAt(0)}
                                     </div>
-                                    <p className="text-slate-300">{fb.comment}</p>
-                                    <p className="text-xs text-slate-500 mt-2">{fb.date}</p>
+                                    <div>
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <span className="font-bold">{fb.customer_name || "Anonymous"}</span>
+                                            <div className="flex gap-0.5">
+                                                {Array.from({ length: 5 }).map((_, i) => (
+                                                    <Star
+                                                        key={i}
+                                                        className={cn(
+                                                            "h-4 w-4",
+                                                            i < fb.rating ? "text-yellow-400 fill-yellow-400" : "text-slate-700"
+                                                        )}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <span className={cn(
+                                                "text-xs px-2 py-0.5 rounded-full",
+                                                fb.source === "pay-at-table" && "bg-orange-500/20 text-orange-400",
+                                                fb.source === "google" && "bg-blue-500/20 text-blue-400",
+                                                fb.source === "yelp" && "bg-red-500/20 text-red-400" || "bg-slate-800 text-slate-400"
+                                            )}>
+                                                {fb.source || "Web"}
+                                            </span>
+                                        </div>
+                                        <p className="text-slate-300">{fb.comment}</p>
+                                        <p className="text-xs text-slate-500 mt-2">{fb.created_at && format(new Date(fb.created_at), 'MMM d, yyyy')}</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {fb.replied ? (
-                                    <span className="text-xs text-green-400 flex items-center gap-1">
-                                        <Reply className="h-3 w-3" /> Replied
-                                    </span>
-                                ) : (
-                                    <button className="btn-secondary text-xs py-1">
-                                        <Reply className="h-3 w-3" />
-                                        Reply
+                                <div className="flex items-center gap-2">
+                                    {fb.is_replied ? (
+                                        <span className="text-xs text-green-400 flex items-center gap-1">
+                                            <Reply className="h-3 w-3" /> Replied
+                                        </span>
+                                    ) : (
+                                        <button className="btn-secondary text-xs py-1">
+                                            <Reply className="h-3 w-3" />
+                                            Reply
+                                        </button>
+                                    )}
+                                    <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-500">
+                                        <MoreVertical className="h-4 w-4" />
                                     </button>
-                                )}
-                                <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-500">
-                                    <MoreVertical className="h-4 w-4" />
-                                </button>
+                                </div>
                             </div>
                         </div>
+                    ))
+                ) : (
+                    <div className="card text-center py-12">
+                        <MessageSquare className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold mb-2">No feedback found</h3>
+                        <p className="text-slate-500">
+                            Customer reviews and feedback will appear here as they come in.
+                        </p>
                     </div>
-                ))}
+                )}
             </div>
         </div>
     );

@@ -40,7 +40,8 @@
         "customers": "Clientes",
         "analytics": "Análisis",
         "locations": "Ubicaciones",
-        "settings": "Ajustes"
+        "settings": "Ajustes",
+        "profile": "Mi Perfil"
     },
     "staff": {
         "management": "Gestión de Personal",

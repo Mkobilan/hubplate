@@ -7,6 +7,7 @@ interface AppState {
     // Current session
     currentLocation: Location | null;
     currentEmployee: Employee | null;
+    isOrgOwner: boolean;
     isOnline: boolean;
 
     // Cached data
@@ -16,6 +17,12 @@ interface AppState {
     // UI state
     language: string;
     sidebarOpen: boolean;
+
+    // Clock-in state
+    isClockedIn: boolean;
+    activeEntry: any | null;
+    isOnBreak: boolean;
+    breakType: string | null;
 
     // Actions
     setCurrentLocation: (location: Location | null) => void;
@@ -27,17 +34,25 @@ interface AppState {
     updateOrder: (orderId: string, updates: Partial<Order>) => void;
     setLanguage: (lang: string) => void;
     toggleSidebar: () => void;
+    setIsOrgOwner: (isOwner: boolean) => void;
+    setClockStatus: (status: { isClockedIn: boolean; activeEntry: any | null; isOnBreak: boolean; breakType: string | null }) => void;
+    refreshClockStatus: (supabase: any, employeeId: string) => Promise<void>;
     reset: () => void;
 }
 
 const initialState = {
     currentLocation: null,
     currentEmployee: null,
+    isOrgOwner: false,
     isOnline: true,
     menuItems: [],
     activeOrders: [],
     language: "en",
     sidebarOpen: true,
+    isClockedIn: false,
+    activeEntry: null,
+    isOnBreak: false,
+    breakType: null,
 };
 
 export const useAppStore = create<AppState>()(
@@ -55,6 +70,8 @@ export const useAppStore = create<AppState>()(
 
             setActiveOrders: (orders) => set({ activeOrders: orders }),
 
+            setIsOrgOwner: (isOwner) => set({ isOrgOwner: isOwner }),
+
             addOrder: (order) =>
                 set((state) => ({ activeOrders: [...state.activeOrders, order] })),
 
@@ -69,6 +86,35 @@ export const useAppStore = create<AppState>()(
 
             toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
+            setClockStatus: (status) => set({ ...status }),
+
+            refreshClockStatus: async (supabase, employeeId) => {
+                if (!employeeId) return;
+                const { data, error } = await supabase
+                    .from("time_entries")
+                    .select("*")
+                    .eq("employee_id", employeeId)
+                    .is("clock_out", null)
+                    .order("clock_in", { ascending: false })
+                    .limit(1);
+
+                if (data && data.length > 0) {
+                    set({
+                        isClockedIn: true,
+                        activeEntry: data[0],
+                        isOnBreak: !!(data[0] as any).current_break_start,
+                        breakType: (data[0] as any).current_break_type,
+                    });
+                } else {
+                    set({
+                        isClockedIn: false,
+                        activeEntry: null,
+                        isOnBreak: false,
+                        breakType: null,
+                    });
+                }
+            },
+
             reset: () => set(initialState),
         }),
         {
@@ -77,6 +123,8 @@ export const useAppStore = create<AppState>()(
             partialize: (state) => ({
                 language: state.language,
                 sidebarOpen: state.sidebarOpen,
+                currentLocation: state.currentLocation,
+                currentEmployee: state.currentEmployee,
             }),
         }
     )

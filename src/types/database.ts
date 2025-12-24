@@ -12,11 +12,13 @@ export type Json =
 export interface Database {
     public: {
         Tables: {
-            restaurants: {
+            organizations: {
                 Row: {
                     id: string;
                     name: string;
                     owner_id: string;
+                    subscription_plan: string;
+                    is_active: boolean;
                     created_at: string;
                     updated_at: string;
                 };
@@ -24,6 +26,8 @@ export interface Database {
                     id?: string;
                     name: string;
                     owner_id: string;
+                    subscription_plan?: string;
+                    is_active?: boolean;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -31,6 +35,8 @@ export interface Database {
                     id?: string;
                     name?: string;
                     owner_id?: string;
+                    subscription_plan?: string;
+                    is_active?: boolean;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -38,62 +44,88 @@ export interface Database {
             locations: {
                 Row: {
                     id: string;
-                    restaurant_id: string;
+                    organization_id: string | null;
+                    owner_id: string;
                     name: string;
                     address: string | null;
+                    phone: string | null;
+                    email: string | null;
                     timezone: string;
+                    currency: string;
+                    stripe_account_id: string | null;
+                    stripe_onboarding_complete: boolean;
                     is_active: boolean;
                     created_at: string;
+                    updated_at: string;
                 };
                 Insert: {
                     id?: string;
-                    restaurant_id: string;
+                    organization_id?: string | null;
+                    owner_id: string;
                     name: string;
                     address?: string | null;
+                    phone?: string | null;
+                    email?: string | null;
                     timezone?: string;
+                    currency?: string;
+                    stripe_account_id?: string | null;
+                    stripe_onboarding_complete?: boolean;
                     is_active?: boolean;
                     created_at?: string;
+                    updated_at?: string;
                 };
                 Update: {
                     id?: string;
-                    restaurant_id?: string;
+                    owner_id?: string;
                     name?: string;
                     address?: string | null;
+                    phone?: string | null;
+                    email?: string | null;
                     timezone?: string;
+                    currency?: string;
+                    stripe_account_id?: string | null;
+                    stripe_onboarding_complete?: boolean;
                     is_active?: boolean;
                     created_at?: string;
+                    updated_at?: string;
                 };
             };
             employees: {
                 Row: {
                     id: string;
+                    organization_id: string | null;
                     location_id: string;
                     user_id: string | null;
-                    name: string;
-                    role: "owner" | "manager" | "server" | "cook" | "host";
-                    pin: string | null;
+                    first_name: string;
+                    last_name: string;
+                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser";
+                    pin_code: string | null;
                     hourly_rate: number | null;
                     is_active: boolean;
                     created_at: string;
                 };
                 Insert: {
                     id?: string;
-                    location_id: string;
+                    organization_id?: string | null;
+                    location_id?: string | null;
                     user_id?: string | null;
-                    name: string;
-                    role: "owner" | "manager" | "server" | "cook" | "host";
-                    pin?: string | null;
+                    first_name: string;
+                    last_name: string;
+                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser";
+                    pin_code?: string | null;
                     hourly_rate?: number | null;
                     is_active?: boolean;
                     created_at?: string;
                 };
                 Update: {
                     id?: string;
-                    location_id?: string;
+                    organization_id?: string | null;
+                    location_id?: string | null;
                     user_id?: string | null;
-                    name?: string;
-                    role?: "owner" | "manager" | "server" | "cook" | "host";
-                    pin?: string | null;
+                    first_name?: string;
+                    last_name?: string;
+                    role?: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser";
+                    pin_code?: string | null;
                     hourly_rate?: number | null;
                     is_active?: boolean;
                     created_at?: string;
@@ -225,6 +257,45 @@ export interface Database {
                     created_at?: string;
                 };
             };
+            employee_invites: {
+                Row: {
+                    id: string;
+                    organization_id: string | null;
+                    location_id: string;
+                    token: string;
+                    email: string | null;
+                    role: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser";
+                    hourly_rate: number | null;
+                    status: "pending" | "accepted" | "expired";
+                    created_by: string;
+                    expires_at: string;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    organization_id?: string | null;
+                    location_id: string;
+                    token?: string;
+                    email?: string | null;
+                    role: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser";
+                    hourly_rate?: number | null;
+                    status?: "pending" | "accepted" | "expired";
+                    created_by: string;
+                    expires_at?: string;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    token?: string;
+                    email?: string | null;
+                    role?: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser";
+                    hourly_rate?: number | null;
+                    status?: "pending" | "accepted" | "expired";
+                    created_by?: string;
+                    expires_at?: string;
+                };
+            };
         };
         Views: {};
         Functions: {};
@@ -233,7 +304,7 @@ export interface Database {
 }
 
 // Convenience types
-export type Restaurant = Database["public"]["Tables"]["restaurants"]["Row"];
+export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 export type Location = Database["public"]["Tables"]["locations"]["Row"];
 export type Employee = Database["public"]["Tables"]["employees"]["Row"];
 export type MenuItem = Database["public"]["Tables"]["menu_items"]["Row"];

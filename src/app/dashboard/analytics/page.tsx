@@ -18,53 +18,114 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
-// Mock real-time data
-const realtimeStats = {
-    todaySales: 4285.50,
-    todaySalesChange: 12.5,
-    ordersToday: 86,
-    ordersChange: 8.2,
-    avgOrderValue: 49.83,
-    avgOrderChange: 3.8,
-    tablesTurnover: 4.2,
-    turnoverChange: -2.1,
-    activeOrders: 12,
-    kitchenAvgTime: "14 min"
-};
-
-const hourlyData = [
-    { hour: "11am", sales: 420, orders: 8 },
-    { hour: "12pm", sales: 890, orders: 18 },
-    { hour: "1pm", sales: 1120, orders: 24 },
-    { hour: "2pm", sales: 580, orders: 12 },
-    { hour: "3pm", sales: 320, orders: 6 },
-    { hour: "4pm", sales: 280, orders: 5 },
-    { hour: "5pm", sales: 450, orders: 9 },
-    { hour: "6pm", sales: 780, orders: 16 },
-];
-
-const topItems = [
-    { name: "Classic Burger", sold: 42, revenue: 713.58 },
-    { name: "Buffalo Wings", sold: 38, revenue: 569.62 },
-    { name: "Grilled Salmon", sold: 24, revenue: 695.76 },
-    { name: "Caesar Salad", sold: 31, revenue: 402.69 },
-    { name: "IPA Draft", sold: 56, revenue: 448.00 },
-];
-
-const laborEfficiency = {
-    laborCost: 1245.00,
-    laborPercent: 29.1,
-    targetPercent: 28,
-    staffOnDuty: 8,
-    coversPer: 10.75
-};
+import { useEffect } from "react";
+import { useAppStore } from "@/stores";
+import { createClient } from "@/lib/supabase/client";
+import { startOfDay, endOfDay, format } from "date-fns";
 
 export default function AnalyticsPage() {
     const { t } = useTranslation();
+    const currentLocation = useAppStore((state) => state.currentLocation);
     const [timeRange, setTimeRange] = useState<"today" | "week" | "month">("today");
     const [isLive, setIsLive] = useState(true);
+    const [stats, setStats] = useState<any>({
+        todaySales: 0,
+        ordersToday: 0,
+        avgOrderValue: 0,
+        activeOrders: 0,
+        hourlySales: []
+    });
+    const [loading, setLoading] = useState(true);
 
-    const maxSales = Math.max(...hourlyData.map(d => d.sales));
+    const fetchData = async () => {
+        if (!currentLocation) return;
+
+        try {
+            setLoading(true);
+            const supabase = createClient();
+            const today = new Date();
+            const start = startOfDay(today).toISOString();
+            const end = endOfDay(today).toISOString();
+
+            // 1. Fetch Orders for Today
+            const { data: orders, error: ordersError } = await supabase
+                .from("orders")
+                .select("total, status, created_at")
+                .eq("location_id", currentLocation.id)
+                .gte("created_at", start)
+                .lte("created_at", end);
+
+            if (ordersError) throw ordersError;
+
+            // 2. Fetch Active Orders
+            const { count: activeCount, error: activeError } = await supabase
+                .from("orders")
+                .select("*", { count: 'exact', head: true })
+                .eq("location_id", currentLocation.id)
+                .not("status", "in", '("completed","cancelled")');
+
+            if (activeError) throw activeError;
+
+            // Process Stats
+            const totalSales = (orders as any[])
+                ?.filter(o => o.status === "completed" || o.status === "served")
+                .reduce((sum, o) => sum + Number(o.total || 0), 0) || 0;
+
+            const totalOrders = orders?.length || 0;
+
+            // Hourly groups
+            const hourlyGroups = (orders || []).reduce((acc: any, o: any) => {
+                const hour = format(new Date(o.created_at), "HH:00");
+                if (!acc[hour]) acc[hour] = { hour, sales: 0, orders: 0 };
+                acc[hour].sales += Number(o.total || 0);
+                acc[hour].orders += 1;
+                return acc;
+            }, {});
+
+            const hourlyDataArray = Object.values(hourlyGroups)
+                .sort((a: any, b: any) => a.hour.localeCompare(b.hour));
+
+            setStats({
+                todaySales: totalSales,
+                ordersToday: totalOrders,
+                avgOrderValue: totalOrders > 0 ? totalSales / totalOrders : 0,
+                activeOrders: activeCount || 0,
+                hourlySales: hourlyDataArray
+            });
+
+        } catch (err) {
+            console.error("Error fetching analytics:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+
+        if (!currentLocation) return;
+        const supabase = createClient();
+        const sub = supabase.channel('analytics')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchData())
+            .subscribe();
+
+        return () => { supabase.removeChannel(sub); };
+    }, [currentLocation?.id, timeRange]);
+
+    if (!currentLocation) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <BarChart3 className="h-12 w-12 text-orange-500 mb-4" />
+                <h2 className="text-xl font-bold mb-2">No Location Selected</h2>
+                <p className="text-slate-400 mb-6">Please select a location to view analytics.</p>
+                <button onClick={() => window.location.href = "/dashboard/locations"} className="btn-primary">
+                    Go to Locations
+                </button>
+            </div>
+        );
+    }
+
+    const maxSales = Math.max(...stats.hourlySales.map((d: any) => d.sales), 1);
 
     return (
         <div className="space-y-6">
@@ -75,7 +136,7 @@ export default function AnalyticsPage() {
                         Real-Time Analytics
                     </h1>
                     <p className="text-slate-400 mt-1">
-                        Live performance metrics and business intelligence
+                        {currentLocation.name} - Live business intelligence
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -86,20 +147,6 @@ export default function AnalyticsPage() {
                         <span className={cn("w-2 h-2 rounded-full", isLive ? "bg-green-400 animate-pulse" : "bg-slate-500")} />
                         {isLive ? "Live" : "Paused"}
                     </div>
-                    <div className="flex bg-slate-800 rounded-lg p-1">
-                        {(["today", "week", "month"] as const).map((range) => (
-                            <button
-                                key={range}
-                                onClick={() => setTimeRange(range)}
-                                className={cn(
-                                    "px-3 py-1 rounded-md text-sm font-medium transition-colors",
-                                    timeRange === range ? "bg-orange-500 text-white" : "text-slate-400 hover:text-white"
-                                )}
-                            >
-                                {range.charAt(0).toUpperCase() + range.slice(1)}
-                            </button>
-                        ))}
-                    </div>
                 </div>
             </div>
 
@@ -108,38 +155,41 @@ export default function AnalyticsPage() {
                 <MetricCard
                     icon={<DollarSign className="h-5 w-5 text-green-400" />}
                     label="Today's Sales"
-                    value={formatCurrency(realtimeStats.todaySales)}
-                    change={realtimeStats.todaySalesChange}
+                    value={formatCurrency(stats.todaySales)}
+                    change={0}
                 />
                 <MetricCard
                     icon={<ShoppingBag className="h-5 w-5 text-blue-400" />}
                     label="Orders"
-                    value={realtimeStats.ordersToday.toString()}
-                    change={realtimeStats.ordersChange}
+                    value={stats.ordersToday.toString()}
+                    change={0}
                 />
                 <MetricCard
                     icon={<TrendingUp className="h-5 w-5 text-purple-400" />}
                     label="Avg Order"
-                    value={formatCurrency(realtimeStats.avgOrderValue)}
-                    change={realtimeStats.avgOrderChange}
+                    value={formatCurrency(stats.avgOrderValue)}
+                    change={0}
                 />
                 <MetricCard
-                    icon={<RefreshCw className="h-5 w-5 text-orange-400" />}
-                    label="Table Turnover"
-                    value={`${realtimeStats.tablesTurnover}x`}
-                    change={realtimeStats.turnoverChange}
+                    icon={<Users className="h-5 w-5 text-orange-400" />}
+                    label="Active Orders"
+                    value={stats.activeOrders.toString()}
+                    change={0}
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Hourly Sales Chart */}
-                <div className="lg:col-span-2 card">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-bold">Hourly Sales</h3>
-                        <span className="text-sm text-slate-500">Updated just now</span>
-                    </div>
-                    <div className="flex items-end gap-2 h-48">
-                        {hourlyData.map((data) => (
+            {/* Hourly Sales Chart */}
+            <div className="card">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-bold">Hourly Sales</h3>
+                    <button onClick={fetchData} className="text-sm text-slate-400 hover:text-white flex items-center gap-2">
+                        <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+                        Refresh
+                    </button>
+                </div>
+                <div className="flex items-end gap-2 h-48">
+                    {stats.hourlySales.length > 0 ? (
+                        stats.hourlySales.map((data: any) => (
                             <div key={data.hour} className="flex-1 flex flex-col items-center gap-2">
                                 <div className="w-full relative group">
                                     <div
@@ -155,112 +205,12 @@ export default function AnalyticsPage() {
                                 </div>
                                 <span className="text-xs text-slate-500">{data.hour}</span>
                             </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Live Activity */}
-                <div className="card">
-                    <h3 className="font-bold mb-4">Live Activity</h3>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                                    <ShoppingBag className="h-5 w-5 text-orange-400" />
-                                </div>
-                                <div>
-                                    <p className="font-medium">Active Orders</p>
-                                    <p className="text-xs text-slate-500">In kitchen now</p>
-                                </div>
-                            </div>
-                            <span className="text-2xl font-bold">{realtimeStats.activeOrders}</span>
+                        ))
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm border border-dashed border-slate-800 rounded-xl">
+                            No sales data for today yet
                         </div>
-                        <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                                    <Clock className="h-5 w-5 text-blue-400" />
-                                </div>
-                                <div>
-                                    <p className="font-medium">Avg Kitchen Time</p>
-                                    <p className="text-xs text-slate-500">Ticket to ready</p>
-                                </div>
-                            </div>
-                            <span className="text-2xl font-bold">{realtimeStats.kitchenAvgTime}</span>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                                    <Users className="h-5 w-5 text-green-400" />
-                                </div>
-                                <div>
-                                    <p className="font-medium">Staff On Duty</p>
-                                    <p className="text-xs text-slate-500">{laborEfficiency.coversPer} covers/staff</p>
-                                </div>
-                            </div>
-                            <span className="text-2xl font-bold">{laborEfficiency.staffOnDuty}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Top Selling Items */}
-                <div className="card">
-                    <h3 className="font-bold mb-4">Top Selling Items</h3>
-                    <div className="space-y-3">
-                        {topItems.map((item, i) => (
-                            <div key={item.name} className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <span className={cn(
-                                        "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                                        i === 0 ? "bg-yellow-500/20 text-yellow-400" :
-                                            i === 1 ? "bg-slate-400/20 text-slate-300" :
-                                                i === 2 ? "bg-amber-700/20 text-amber-500" :
-                                                    "bg-slate-800 text-slate-500"
-                                    )}>
-                                        {i + 1}
-                                    </span>
-                                    <span className="font-medium">{item.name}</span>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-bold">{formatCurrency(item.revenue)}</p>
-                                    <p className="text-xs text-slate-500">{item.sold} sold</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Labor Efficiency */}
-                <div className="card">
-                    <h3 className="font-bold mb-4">Labor Efficiency</h3>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-slate-400">Labor Cost Today</span>
-                            <span className="text-xl font-bold">{formatCurrency(laborEfficiency.laborCost)}</span>
-                        </div>
-                        <div>
-                            <div className="flex justify-between text-sm mb-2">
-                                <span>Labor %</span>
-                                <span className={cn(
-                                    "font-bold",
-                                    laborEfficiency.laborPercent <= laborEfficiency.targetPercent ? "text-green-400" : "text-amber-400"
-                                )}>
-                                    {laborEfficiency.laborPercent}%
-                                </span>
-                            </div>
-                            <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                    className={cn(
-                                        "h-full rounded-full transition-all",
-                                        laborEfficiency.laborPercent <= laborEfficiency.targetPercent ? "bg-green-500" : "bg-amber-500"
-                                    )}
-                                    style={{ width: `${Math.min(laborEfficiency.laborPercent / 40 * 100, 100)}%` }}
-                                />
-                            </div>
-                            <p className="text-xs text-slate-500 mt-2">Target: {laborEfficiency.targetPercent}%</p>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

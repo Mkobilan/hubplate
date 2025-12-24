@@ -23,6 +23,7 @@ import {
     Heart,
     Building2,
     Activity,
+    User
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
@@ -31,25 +32,29 @@ interface NavItem {
     href: string;
     icon: React.ReactNode;
     label: string;
+    requiresManager?: boolean; // If true, only owners/managers can see this item
 }
+
+// Roles that have management access
+const MANAGEMENT_ROLES = ["owner", "manager"];
 
 export function DashboardSidebar() {
     const { t } = useTranslation();
     const pathname = usePathname();
     const sidebarOpen = useAppStore((state) => state.sidebarOpen);
     const toggleSidebar = useAppStore((state) => state.toggleSidebar);
+    const currentEmployee = useAppStore((state) => state.currentEmployee);
+    const isOrgOwner = useAppStore((state) => state.isOrgOwner);
     const [mobileOpen, setMobileOpen] = useState(false);
 
-    const navItems: NavItem[] = [
+    // Check if current user has management access (employee with role OR organization owner)
+    const isManager = (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
+
+    const allNavItems: NavItem[] = [
         {
             href: "/dashboard",
             icon: <LayoutDashboard className="h-5 w-5" />,
             label: t("nav.dashboard"),
-        },
-        {
-            href: "/dashboard/staff",
-            icon: <Users className="h-5 w-5" />,
-            label: t("nav.staff"),
         },
         {
             href: "/dashboard/orders",
@@ -67,21 +72,6 @@ export function DashboardSidebar() {
             label: t("nav.kitchen"),
         },
         {
-            href: "/dashboard/schedule",
-            icon: <Calendar className="h-5 w-5" />,
-            label: t("nav.schedule"),
-        },
-        {
-            href: "/dashboard/inventory",
-            icon: <Package className="h-5 w-5" />,
-            label: t("nav.inventory"),
-        },
-        {
-            href: "/dashboard/reports",
-            icon: <BarChart3 className="h-5 w-5" />,
-            label: t("nav.reports"),
-        },
-        {
             href: "/dashboard/settings/payments",
             icon: <CreditCard className="h-5 w-5" />,
             label: t("nav.payments"),
@@ -92,14 +82,44 @@ export function DashboardSidebar() {
             label: t("nav.customers"),
         },
         {
+            href: "/dashboard/staff",
+            icon: <Users className="h-5 w-5" />,
+            label: t("nav.staff"),
+        },
+        {
+            href: "/dashboard/schedule",
+            icon: <Calendar className="h-5 w-5" />,
+            label: t("nav.schedule"),
+        },
+        {
+            href: "/dashboard/profile",
+            icon: <User className="h-5 w-5" />,
+            label: t("nav.profile"),
+        },
+        // Manager items
+        {
+            href: "/dashboard/reports",
+            icon: <BarChart3 className="h-5 w-5" />,
+            label: t("nav.reports"),
+            requiresManager: true,
+        },
+        {
             href: "/dashboard/analytics",
             icon: <Activity className="h-5 w-5" />,
             label: t("nav.analytics"),
+            requiresManager: true,
         },
         {
             href: "/dashboard/locations",
             icon: <Building2 className="h-5 w-5" />,
             label: t("nav.locations"),
+            requiresManager: true,
+        },
+        {
+            href: "/dashboard/inventory",
+            icon: <Package className="h-5 w-5" />,
+            label: t("nav.inventory"),
+            requiresManager: true,
         },
         {
             href: "/dashboard/settings",
@@ -107,6 +127,9 @@ export function DashboardSidebar() {
             label: t("nav.settings"),
         },
     ];
+
+    // Filter nav items based on management access
+    const navItems = allNavItems.filter(item => !item.requiresManager || isManager);
 
     const SidebarContent = () => (
         <>
@@ -119,7 +142,7 @@ export function DashboardSidebar() {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 px-2 py-4 space-y-1">
+            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto min-h-0">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (

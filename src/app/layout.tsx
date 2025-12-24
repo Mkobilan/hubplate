@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { I18nProvider, QueryProvider } from "@/components/providers";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
+import { Toaster } from "react-hot-toast";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -52,6 +53,10 @@ export default function RootLayout({
           <QueryProvider>
             {children}
             <OfflineIndicator />
+            <Toaster position="bottom-right" toastOptions={{
+              className: 'bg-slate-900 text-slate-50 border border-slate-800',
+              duration: 4000,
+            }} />
           </QueryProvider>
         </I18nProvider>
       </body>

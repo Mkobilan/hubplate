@@ -18,7 +18,7 @@ interface UpsellSuggestion {
 
 // Parse a menu photo into structured data
 export async function parseMenuPhoto(imageBase64: string): Promise<ParsedMenuItem[]> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `You are a restaurant menu parser. Analyze this menu image and extract all menu items.
 
@@ -43,18 +43,20 @@ JSON:`;
         prompt,
         {
             inlineData: {
-                mimeType: "image/jpeg",
-                data: imageBase64,
+                mimeType: imageBase64.startsWith('data:') ? imageBase64.split(';')[0].split(':')[1] : "image/jpeg",
+                data: imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64,
             },
         },
     ]);
 
     const text = result.response.text();
+    console.log('Gemini Raw Response:', text);
 
     // Extract JSON from response
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-        throw new Error("Failed to parse menu items from image");
+        console.error('No JSON array found in Gemini response:', text);
+        throw new Error("Failed to parse menu items from image. Gemini response was not in the expected format.");
     }
 
     return JSON.parse(jsonMatch[0]) as ParsedMenuItem[];
@@ -66,7 +68,7 @@ export async function generateUpsellSuggestions(
     menuItems: { name: string; category: string; price: number }[],
     orderContext?: { time: string; existingItems: string[] }
 ): Promise<UpsellSuggestion[]> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `You are a restaurant upsell expert. A customer ordered: "${itemName}"
 
@@ -108,7 +110,7 @@ export async function suggestNewMenuItems(
     availableIngredients: string[],
     cuisineStyle?: string
 ): Promise<{ name: string; description: string; ingredients: string[] }[]> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `You are a creative chef. Suggest 5 new menu items.
 
@@ -151,7 +153,7 @@ JSON:`;
 export async function generateReorderSuggestions(
     inventoryItems: { name: string; stock: number; parLevel: number; unit: string; avgDailyUsage: number }[]
 ): Promise<{ itemName: string; reorderQty: number; urgency: "critical" | "moderate" | "low"; reasoning: string }[]> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `You are an inventory management AI. Analyze stock levels and suggest reorder quantities.
 
@@ -185,7 +187,7 @@ JSON:`;
 export async function generateWasteReductionInsights(
     wasteData: { item: string; quantity: number; reason: string; cost: number }[]
 ): Promise<{ insight: string; recommendation: string; potentialSavings: number }[]> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `You are a food waste reduction expert. Analyze waste patterns and provide actionable insights.
 

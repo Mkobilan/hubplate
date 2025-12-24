@@ -3,12 +3,16 @@
 import { useAppStore } from "@/stores";
 import { cn } from "@/lib/utils";
 import { DashboardSidebar } from "./sidebar";
+import { InviteHandler } from "./InviteHandler";
+import { SessionHandler } from "./SessionHandler";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const sidebarOpen = useAppStore((state) => state.sidebarOpen);
 
     return (
         <div className="min-h-screen bg-slate-950">
+            <SessionHandler />
+            <InviteHandler />
             <DashboardSidebar />
             <main
                 className={cn(
@@ -23,3 +27,4 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 }
 
 export { DashboardSidebar } from "./sidebar";
+export { InviteHandler } from "./InviteHandler";
