@@ -245,15 +245,16 @@ function PaymentForm({ orderId, locationId, total }: { orderId: string; location
         // 1. Save customer / loyalty info first if provided
         if (email || phone || name) {
             try {
-                const [firstName, ...lastNameParts] = name.split(" ");
-                const lastName = lastNameParts.join(" ");
+                const nameParts = name.trim().split(/\s+/);
+                const firstName = nameParts[0] || "";
+                const lastName = nameParts.slice(1).join(" ");
 
-                await fetch("/api/customers", {
+                const customerRes = await fetch("/api/customers", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        email,
-                        phone,
+                        email: email.trim() || null,
+                        phone: phone.trim() || null,
                         firstName,
                         lastName,
                         locationId,
@@ -261,9 +262,15 @@ function PaymentForm({ orderId, locationId, total }: { orderId: string; location
                         marketingOptIn: joinLoyalty
                     })
                 });
+
+                if (!customerRes.ok) {
+                    const errorData = await customerRes.json();
+                    console.error("Customer API error response:", errorData);
+                } else {
+                    console.log("Customer info saved successfully");
+                }
             } catch (err) {
                 console.error("Failed to save customer info:", err);
-                // We don't block payment if this fails, but it's good to log
             }
         }
 

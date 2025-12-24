@@ -8,7 +8,13 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
     try {
-        const { email, phone, firstName, lastName, locationId, orderId, marketingOptIn } = await request.json();
+        const body = await request.json();
+        console.log('Customer API request:', body);
+        let { email, phone, firstName, lastName, locationId, orderId, marketingOptIn } = body;
+
+        // Standardize empty strings to null for UUIDs
+        if (!locationId || locationId === "") locationId = null;
+        if (!orderId || orderId === "") orderId = null;
 
         if (!email && !phone) {
             return NextResponse.json({ error: 'Email or phone is required' }, { status: 400 });
@@ -39,7 +45,6 @@ export async function POST(request: NextRequest) {
             last_name: lastName,
             location_id: locationId,
             marketing_opt_in: marketingOptIn ?? true,
-            is_loyalty_member: true, // Specifically for this request
             updated_at: new Date().toISOString()
         };
 
