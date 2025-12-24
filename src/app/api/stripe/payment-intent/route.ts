@@ -20,15 +20,12 @@ export async function POST(request: NextRequest) {
         }
 
         const stripeAccountId = order.locations?.stripe_account_id;
-        if (!stripeAccountId) {
-            return NextResponse.json({ error: 'Restaurant not set up for payments' }, { status: 400 });
-        }
 
         // Calculate total in cents
         const totalCents = Math.round((amount + (tip || 0)) * 100);
 
-        // Create payment intent
-        const paymentIntent = await stripe.paymentIntents.create({
+        // Create payment intent options
+        const paymentIntentOptions: any = {
             amount: totalCents,
             currency: 'usd',
             automatic_payment_methods: { enabled: true },
@@ -36,13 +33,22 @@ export async function POST(request: NextRequest) {
                 order_id: orderId,
                 tip_amount: tip?.toString() || '0',
             },
-            // For Stripe Connect, specify the connected account
-            transfer_data: {
+        };
+
+        // If restaurant has Stripe Connect set up, use it
+        // Otherwise, payments go directly to the platform account (for testing)
+        if (stripeAccountId) {
+            paymentIntentOptions.transfer_data = {
                 destination: stripeAccountId,
-            },
-            // Platform fee (optional - e.g., 2.5%)
-            application_fee_amount: Math.round(totalCents * 0.025),
-        });
+            };
+            // Platform fee (2.5%) when using Connect
+            paymentIntentOptions.application_fee_amount = Math.round(totalCents * 0.025);
+        }
+        // Note: In production, you may want to require stripeAccountId
+        // For now, we allow direct payments for testing
+
+        // Create payment intent
+        const paymentIntent = await stripe.paymentIntents.create(paymentIntentOptions);
 
         // Update order with payment intent ID
         await (supabase.from('orders') as any)
