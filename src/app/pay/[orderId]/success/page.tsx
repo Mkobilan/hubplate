@@ -63,26 +63,67 @@ export default function PaymentSuccessPage() {
                 {/* Rating */}
                 <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300">
                     <p className="text-sm text-slate-400 mb-4">How was your experience?</p>
-                    <div className="flex justify-center gap-2">
+                    <div className="flex justify-center gap-2 mb-6">
                         {[1, 2, 3, 4, 5].map((star) => (
                             <button
                                 key={star}
-                                onClick={() => setRating(star)}
+                                onClick={async () => {
+                                    setRating(star);
+                                    // Send rating immediately
+                                    try {
+                                        await fetch('/api/feedback', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                orderId,
+                                                rating: star,
+                                                customerName: order?.customer_name
+                                            })
+                                        });
+                                    } catch (err) {
+                                        console.error('Failed to send rating:', err);
+                                    }
+                                }}
                                 className="p-2 rounded-lg transition-all hover:scale-110"
                             >
                                 <Star
                                     className={`h-8 w-8 transition-colors ${rating && star <= rating
-                                            ? "text-yellow-400 fill-yellow-400"
-                                            : "text-slate-600 hover:text-yellow-400/50"
+                                        ? "text-yellow-400 fill-yellow-400"
+                                        : "text-slate-600 hover:text-yellow-400/50"
                                         }`}
                                 />
                             </button>
                         ))}
                     </div>
+
                     {rating && (
-                        <p className="text-green-400 text-sm mt-3 animate-in fade-in">
-                            Thank you for your feedback!
-                        </p>
+                        <div className="space-y-4 animate-in fade-in zoom-in-95">
+                            <textarea
+                                placeholder="Add a comment (optional)..."
+                                className="input min-h-[100px] text-sm"
+                                onBlur={async (e) => {
+                                    if (e.target.value) {
+                                        try {
+                                            await fetch('/api/feedback', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    orderId,
+                                                    rating: rating,
+                                                    comment: e.target.value,
+                                                    customerName: order?.customer_name
+                                                })
+                                            });
+                                        } catch (err) {
+                                            console.error('Failed to send comment:', err);
+                                        }
+                                    }
+                                }}
+                            />
+                            <p className="text-green-400 text-sm">
+                                Thank you for your feedback!
+                            </p>
+                        </div>
                     )}
                 </div>
 

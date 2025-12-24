@@ -12,6 +12,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 interface OrderDetails {
     id: string;
+    location_id: string;
     table_number: string;
     order_type: string;
     subtotal: number;
@@ -177,8 +178,8 @@ export default function PaymentPage() {
                                     key={percent}
                                     onClick={() => setTip(tipAmount)}
                                     className={`py-2 px-3 rounded-lg border text-sm font-medium transition-all ${isSelected
-                                            ? "bg-orange-500 border-orange-500 text-white"
-                                            : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
+                                        ? "bg-orange-500 border-orange-500 text-white"
+                                        : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
                                         }`}
                                 >
                                     {percent === 0 ? "No Tip" : `${percent}%`}
@@ -206,7 +207,11 @@ export default function PaymentPage() {
                             }
                         }}
                     >
-                        <PaymentForm orderId={orderId} total={(order?.total || 0) + tip} />
+                        <PaymentForm
+                            orderId={orderId}
+                            locationId={order?.location_id || ""}
+                            total={(order?.total || 0) + tip}
+                        />
                     </Elements>
                 )}
 
@@ -218,11 +223,17 @@ export default function PaymentPage() {
     );
 }
 
-function PaymentForm({ orderId, total }: { orderId: string; total: number }) {
+function PaymentForm({ orderId, locationId, total }: { orderId: string; locationId: string; total: number }) {
     const stripe = useStripe();
     const elements = useElements();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Customer info states
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
+    const [name, setName] = useState("");
+    const [joinLoyalty, setJoinLoyalty] = useState(true);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -231,10 +242,37 @@ function PaymentForm({ orderId, total }: { orderId: string; total: number }) {
         setLoading(true);
         setError(null);
 
+        // 1. Save customer / loyalty info first if provided
+        if (email || phone || name) {
+            try {
+                const [firstName, ...lastNameParts] = name.split(" ");
+                const lastName = lastNameParts.join(" ");
+
+                await fetch("/api/customers", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email,
+                        phone,
+                        firstName,
+                        lastName,
+                        locationId,
+                        orderId,
+                        marketingOptIn: joinLoyalty
+                    })
+                });
+            } catch (err) {
+                console.error("Failed to save customer info:", err);
+                // We don't block payment if this fails, but it's good to log
+            }
+        }
+
+        // 2. Confirm payment
         const { error: paymentError } = await stripe.confirmPayment({
             elements,
             confirmParams: {
-                return_url: `${window.location.origin}/pay/${orderId}/success`
+                return_url: `${window.location.origin}/pay/${orderId}/success`,
+                receipt_email: email || undefined,
             }
         });
 
@@ -245,11 +283,56 @@ function PaymentForm({ orderId, total }: { orderId: string; total: number }) {
     };
 
     return (
-        <form onSubmit={handleSubmit}>
-            <PaymentElement className="mb-4" />
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-4 space-y-4">
+                <p className="text-sm font-medium text-slate-100">Contact Information (Optional)</p>
+                <div className="grid gap-3">
+                    <input
+                        type="text"
+                        placeholder="Full Name"
+                        className="input text-sm"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                        <input
+                            type="email"
+                            placeholder="Email"
+                            className="input text-sm"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+                        <input
+                            type="tel"
+                            placeholder="Phone"
+                            className="input text-sm"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                    <input
+                        type="checkbox"
+                        id="loyalty"
+                        checked={joinLoyalty}
+                        onChange={(e) => setJoinLoyalty(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-orange-500 focus:ring-orange-500"
+                    />
+                    <label htmlFor="loyalty" className="text-xs text-slate-400">
+                        Join our loyalty program for rewards and faster checkout next time.
+                    </label>
+                </div>
+            </div>
+
+            <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-4">
+                <p className="text-sm font-medium text-slate-100 mb-4">Payment Details</p>
+                <PaymentElement />
+            </div>
 
             {error && (
-                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
                     {error}
                 </div>
             )}

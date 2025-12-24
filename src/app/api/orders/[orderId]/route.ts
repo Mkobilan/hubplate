@@ -20,6 +20,7 @@ export async function GET(
             .from('orders')
             .select(`
                 id,
+                location_id,
                 table_number,
                 order_type,
                 subtotal,
@@ -42,6 +43,7 @@ export async function GET(
         // Format response
         return NextResponse.json({
             id: order.id,
+            location_id: order.location_id,
             table_number: order.table_number,
             order_type: order.order_type,
             subtotal: order.subtotal,
