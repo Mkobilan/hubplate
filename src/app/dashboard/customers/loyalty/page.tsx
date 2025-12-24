@@ -58,22 +58,22 @@ export default function LoyaltyPage() {
             const supabase = createClient();
 
             // Fetch loyalty programs for this location
-            const { data: programData, error: progError } = await (supabase
-                .from('loyalty_programs')
+            const { data: programData, error: progError } = await ((supabase
+                .from('loyalty_programs') as any)
                 .select('*')
                 .eq('location_id', currentLocation.id)
-                .single() as any);
+                .single());
 
             if (progError && progError.code !== 'PGRST116') throw progError;
 
             const pd = programData as any;
 
             // Fetch members count
-            const { count: membersCount, error: countError } = await (supabase
-                .from('customers')
+            const { count: membersCount, error: countError } = await ((supabase
+                .from('customers') as any)
                 .select('*', { count: 'exact', head: true })
                 .eq('location_id', currentLocation.id)
-                .eq('is_loyalty_member', true) as any);
+                .eq('is_loyalty_member', true));
 
             if (countError) console.warn('Error fetching member count:', countError);
 
@@ -134,8 +134,8 @@ export default function LoyaltyPage() {
             const supabase = createClient();
             const rateValue = typeof newRate === 'string' ? parseInt(newRate) || 1 : newRate;
             const { error } = await (supabase
-                .from('loyalty_programs')
-                .update({ points_per_dollar: rateValue } as any) as any)
+                .from('loyalty_programs') as any)
+                .update({ points_per_dollar: rateValue })
                 .eq('location_id', currentLocation.id);
 
             if (error) throw error;
@@ -158,8 +158,8 @@ export default function LoyaltyPage() {
             setSavingSettings(true);
             const supabase = createClient();
             const { error } = await (supabase
-                .from('loyalty_programs')
-                .update({ name: program.name } as any) as any)
+                .from('loyalty_programs') as any)
+                .update({ name: program.name })
                 .eq('location_id', currentLocation.id);
 
             if (error) throw error;
@@ -193,14 +193,14 @@ export default function LoyaltyPage() {
             let error;
             if (editingReward) {
                 const { error: err } = await (supabase
-                    .from('loyalty_rewards')
-                    .update(rewardData as any) as any)
+                    .from('loyalty_rewards') as any)
+                    .update(rewardData)
                     .eq('id', editingReward.id);
                 error = err;
             } else {
                 const { error: err } = await (supabase
-                    .from('loyalty_rewards')
-                    .insert(rewardData as any) as any);
+                    .from('loyalty_rewards') as any)
+                    .insert(rewardData);
                 error = err;
             }
 
@@ -237,14 +237,14 @@ export default function LoyaltyPage() {
             let error;
             if (editingTier) {
                 const { error: err } = await (supabase
-                    .from('loyalty_tiers')
-                    .update(tierData as any) as any)
+                    .from('loyalty_tiers') as any)
+                    .update(tierData)
                     .eq('id', editingTier.id);
                 error = err;
             } else {
                 const { error: err } = await (supabase
-                    .from('loyalty_tiers')
-                    .insert(tierData as any) as any);
+                    .from('loyalty_tiers') as any)
+                    .insert(tierData);
                 error = err;
             }
 

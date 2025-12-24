@@ -1,4 +1,4 @@
--- Loyalty System Repair & Permissions Update (Final Version)
+-- Loyalty System Repair & Permissions Update (Final Version - Idempotent)
 
 -- 1. Ensure loyalty_programs table exists
 CREATE TABLE IF NOT EXISTS public.loyalty_programs (
@@ -32,10 +32,21 @@ ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS is_loyalty_member BOOLEAN 
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 
 -- 4. Update/Re-create RLS Policies to allow both Owners AND Employees
+-- Drop any potentially conflicting policy names before creating them
 DROP POLICY IF EXISTS "Location access for loyalty_programs" ON public.loyalty_programs;
+DROP POLICY IF EXISTS "Loyalty programs location access" ON public.loyalty_programs;
+DROP POLICY IF EXISTS "Loyalty programs access" ON public.loyalty_programs;
+
 DROP POLICY IF EXISTS "Location access for loyalty_tiers" ON public.loyalty_tiers;
+DROP POLICY IF EXISTS "Loyalty tiers location access" ON public.loyalty_tiers;
+DROP POLICY IF EXISTS "Loyalty tiers access" ON public.loyalty_tiers;
+
 DROP POLICY IF EXISTS "Location access for loyalty_rewards" ON public.loyalty_rewards;
+DROP POLICY IF EXISTS "Loyalty rewards location access" ON public.loyalty_rewards;
+DROP POLICY IF EXISTS "Loyalty rewards access" ON public.loyalty_rewards;
+
 DROP POLICY IF EXISTS "Location access for customers" ON public.customers;
+DROP POLICY IF EXISTS "Customers location access" ON public.customers;
 
 -- Program Policies
 CREATE POLICY "Loyalty programs access" ON public.loyalty_programs
