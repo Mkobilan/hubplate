@@ -13,7 +13,11 @@ import {
     Star,
     Heart,
     ChevronRight,
+    Plus,
+    X,
+    QrCode
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 
@@ -59,6 +63,10 @@ export default function CustomersPage() {
     });
     const [topCustomers, setTopCustomers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [tableNumber, setTableNumber] = useState("");
+    const [showQr, setShowQr] = useState(false);
+    const [enrollmentUrl, setEnrollmentUrl] = useState("");
 
     const fetchData = async () => {
         if (!currentLocation) return;
@@ -143,6 +151,16 @@ export default function CustomersPage() {
                 <p className="text-slate-400 mt-1">
                     {currentLocation.name} - Build relationships and drive loyalty
                 </p>
+            </div>
+
+            <div className="flex justify-end">
+                <button
+                    onClick={() => setShowAddModal(true)}
+                    className="btn-primary"
+                >
+                    <Plus className="h-4 w-4" />
+                    Add Customer
+                </button>
             </div>
 
             {/* Stats */}
@@ -250,6 +268,72 @@ export default function CustomersPage() {
                     </table>
                 </div>
             </div>
+
+            {/* Add Customer Modal */}
+            {showAddModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => { setShowAddModal(false); setShowQr(false); }} />
+                    <div className="relative card w-full max-w-md">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold">
+                                {showQr ? "Customer Enrollment QR" : "Add New Customer"}
+                            </h2>
+                            <button onClick={() => { setShowAddModal(false); setShowQr(false); }} className="p-2 hover:bg-slate-800 rounded-lg">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {!showQr ? (
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-400">
+                                    Enter the table number to generate an enrollment QR code for the customer.
+                                </p>
+                                <div>
+                                    <label className="label">Table Number</label>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        placeholder="e.g. 12"
+                                        value={tableNumber}
+                                        onChange={(e) => setTableNumber(e.target.value)}
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        if (!currentLocation) return;
+                                        const url = `${window.location.origin}/enroll/${currentLocation.id}/${useAppStore.getState().currentEmployee?.id}?table=${tableNumber}`;
+                                        setEnrollmentUrl(url);
+                                        setShowQr(true);
+                                    }}
+                                    className="btn-primary w-full"
+                                    disabled={!tableNumber}
+                                >
+                                    <QrCode className="h-4 w-4" />
+                                    Generate QR Code
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center gap-6 py-4">
+                                <div className="p-6 bg-white rounded-2xl shadow-xl">
+                                    <QRCodeSVG value={enrollmentUrl} size={256} />
+                                </div>
+                                <div className="text-center">
+                                    <p className="font-bold text-lg">Table {tableNumber}</p>
+                                    <p className="text-sm text-slate-400 mt-1">
+                                        Ask the customer to scan this code with their phone camera to join the loyalty program.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => { setShowAddModal(false); setShowQr(false); }}
+                                    className="btn-secondary w-full"
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
