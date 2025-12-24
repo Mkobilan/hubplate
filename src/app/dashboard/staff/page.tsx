@@ -114,9 +114,9 @@ export default function StaffPage() {
                 .is("clock_out", null);
             if (timeError) throw timeError;
 
-            const clockedInIds = new Set((activeEntries || []).map(entry => entry.employee_id));
+            const clockedInIds = new Set((activeEntries as any[] || []).map(entry => entry.employee_id));
 
-            setStaff((employees || []).map(emp => ({
+            setStaff((employees as any[] || []).map(emp => ({
                 ...emp,
                 clocked_in: clockedInIds.has(emp.id)
             })));
