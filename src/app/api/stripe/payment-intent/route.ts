@@ -8,15 +8,51 @@ export async function POST(request: NextRequest) {
         const supabase = await createClient();
         const { orderId, amount, tip } = await request.json();
 
-        // Get order details
-        const { data: order, error } = await supabase
-            .from('orders')
+        console.log('Payment intent request for order:', orderId, 'amount:', amount);
+
+        // Get order details including existing payment intent
+        const { data: order, error } = await (supabase
+            .from('orders') as any)
             .select('*, locations(stripe_account_id)')
             .eq('id', orderId)
-            .single() as { data: { locations: { stripe_account_id: string } | null } | null; error: any };
+            .single();
 
         if (error || !order) {
+            console.error('Order not found:', error);
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        }
+
+        // If order is already paid, don't create new payment intent
+        if (order.payment_status === 'paid') {
+            return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
+        }
+
+        // If a payment intent already exists, try to retrieve it
+        if (order.stripe_payment_intent_id) {
+            try {
+                const existingIntent = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id);
+
+                // If the existing intent is still usable, return it
+                if (existingIntent.status === 'requires_payment_method' ||
+                    existingIntent.status === 'requires_confirmation' ||
+                    existingIntent.status === 'requires_action') {
+                    console.log('Reusing existing payment intent:', existingIntent.id);
+                    return NextResponse.json({
+                        clientSecret: existingIntent.client_secret,
+                        paymentIntentId: existingIntent.id,
+                    });
+                }
+
+                // If it succeeded, mark order as paid
+                if (existingIntent.status === 'succeeded') {
+                    await (supabase.from('orders') as any)
+                        .update({ payment_status: 'paid', paid_at: new Date().toISOString() })
+                        .eq('id', orderId);
+                    return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
+                }
+            } catch (retrieveError) {
+                console.log('Could not retrieve existing intent, creating new one');
+            }
         }
 
         const stripeAccountId = order.locations?.stripe_account_id;
@@ -36,19 +72,16 @@ export async function POST(request: NextRequest) {
         };
 
         // If restaurant has Stripe Connect set up, use it
-        // Otherwise, payments go directly to the platform account (for testing)
         if (stripeAccountId) {
             paymentIntentOptions.transfer_data = {
                 destination: stripeAccountId,
             };
-            // Platform fee (2.5%) when using Connect
             paymentIntentOptions.application_fee_amount = Math.round(totalCents * 0.025);
         }
-        // Note: In production, you may want to require stripeAccountId
-        // For now, we allow direct payments for testing
 
         // Create payment intent
         const paymentIntent = await stripe.paymentIntents.create(paymentIntentOptions);
+        console.log('Created new payment intent:', paymentIntent.id);
 
         // Update order with payment intent ID
         await (supabase.from('orders') as any)
