@@ -41,7 +41,7 @@ export default function EnrollmentPage() {
                     email: form.email,
                     phone: form.phone,
                     is_loyalty_member: true
-                }, { onConflict: 'email' })
+                }, { onConflict: 'location_id,email' })
                 .select()
                 .single());
 

@@ -27,9 +27,17 @@ CREATE TABLE IF NOT EXISTS public.loyalty_tiers (
 
 ALTER TABLE public.loyalty_tiers ENABLE ROW LEVEL SECURITY;
 
--- 3. Ensure customers table has correctly named columns
+-- 3. Ensure customers table has correctly named columns and unique constraint
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS is_loyalty_member BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+
+-- Add unique constraint for upsert (location-based customers)
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'customers_location_email_key') THEN
+        ALTER TABLE public.customers ADD CONSTRAINT customers_location_email_key UNIQUE (location_id, email);
+    END IF;
+END $$;
 
 -- 4. Update/Re-create RLS Policies to allow both Owners AND Employees
 -- Drop any potentially conflicting policy names before creating them
