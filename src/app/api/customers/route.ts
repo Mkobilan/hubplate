@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         console.log('Customer API request:', body);
-        let { email, phone, firstName, lastName, locationId, orderId, marketingOptIn } = body;
+        let { email, phone, firstName, lastName, locationId, orderId, marketingOptIn, discountAmount, pointsRedeemed } = body;
 
         // Standardize empty strings to null for UUIDs
         if (!locationId || locationId === "") locationId = null;
@@ -78,7 +78,9 @@ export async function POST(request: NextRequest) {
                 .update({
                     customer_email: email,
                     customer_name: `${firstName} ${lastName}`.trim(),
-                    customer_phone: phone
+                    customer_phone: phone,
+                    discount: discountAmount || 0,
+                    points_redeemed: pointsRedeemed || 0
                 })
                 .eq('id', orderId);
         }

@@ -11,9 +11,9 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
     try {
-        const { orderId, amount, tip } = await request.json();
+        const { orderId, amount, tip, discountAmount, pointsRedeemed } = await request.json();
 
-        console.log('Payment intent request for order:', orderId, 'amount:', amount);
+        console.log('Payment intent request for order:', orderId, 'amount:', amount, 'discount:', discountAmount);
 
         // Get order details including existing payment intent
         const { data: order, error } = await (supabaseAdmin
@@ -32,6 +32,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
         }
 
+        // Calculate total in cents
+        const finalAmount = Math.max(0, amount + (tip || 0) - (discountAmount || 0));
+        const totalCents = Math.round(finalAmount * 100);
+
+        // Update order with discount info
+        await (supabaseAdmin.from('orders') as any)
+            .update({
+                discount: discountAmount || 0,
+                points_redeemed: pointsRedeemed || 0,
+                total: finalAmount
+            })
+            .eq('id', orderId);
+
         // If a payment intent already exists, try to retrieve it
         if (order.stripe_payment_intent_id) {
             try {
@@ -41,7 +54,21 @@ export async function POST(request: NextRequest) {
                 if (existingIntent.status === 'requires_payment_method' ||
                     existingIntent.status === 'requires_confirmation' ||
                     existingIntent.status === 'requires_action') {
-                    console.log('Reusing existing payment intent:', existingIntent.id);
+
+                    // If the amount has changed (e.g. discount applied), update the intent
+                    if (existingIntent.amount !== totalCents) {
+                        console.log('Updating existing payment intent amount:', totalCents);
+                        await stripe.paymentIntents.update(existingIntent.id, {
+                            amount: totalCents,
+                            metadata: {
+                                ...existingIntent.metadata,
+                                tip_amount: tip?.toString() || '0',
+                                discount_amount: discountAmount?.toString() || '0',
+                                points_redeemed: pointsRedeemed?.toString() || '0'
+                            }
+                        });
+                    }
+
                     return NextResponse.json({
                         clientSecret: existingIntent.client_secret,
                         paymentIntentId: existingIntent.id,
@@ -62,9 +89,6 @@ export async function POST(request: NextRequest) {
 
         const stripeAccountId = order.locations?.stripe_account_id;
 
-        // Calculate total in cents
-        const totalCents = Math.round((amount + (tip || 0)) * 100);
-
         // Create payment intent options
         const paymentIntentOptions: any = {
             amount: totalCents,
@@ -73,6 +97,8 @@ export async function POST(request: NextRequest) {
             metadata: {
                 order_id: orderId,
                 tip_amount: tip?.toString() || '0',
+                discount_amount: discountAmount?.toString() || '0',
+                points_redeemed: pointsRedeemed?.toString() || '0'
             },
         };
 

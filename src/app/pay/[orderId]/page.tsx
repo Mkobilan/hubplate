@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { Loader2, CheckCircle, AlertCircle, CreditCard, DollarSign, QrCode } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, CreditCard, DollarSign, QrCode, Gift } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 // Initialize Stripe
@@ -35,6 +35,12 @@ export default function PaymentPage() {
     const [tip, setTip] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [loyaltyPhone, setLoyaltyPhone] = useState("");
+    const [checkingLoyalty, setCheckingLoyalty] = useState(false);
+    const [loyaltyCustomer, setLoyaltyCustomer] = useState<any>(null);
+    const [availableRewards, setAvailableRewards] = useState<any[]>([]);
+    const [appliedReward, setAppliedReward] = useState<any>(null);
+    const [showLoyaltyField, setShowLoyaltyField] = useState(true);
 
     useEffect(() => {
         const fetchOrderAndCreatePayment = async () => {
@@ -75,6 +81,53 @@ export default function PaymentPage() {
 
         fetchOrderAndCreatePayment();
     }, [orderId]);
+
+    // Update payment intent when tip or discount changes
+    useEffect(() => {
+        if (!order || !clientSecret) return;
+
+        const updateIntent = async () => {
+            try {
+                const res = await fetch("/api/stripe/payment-intent", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        orderId,
+                        amount: order.total, // Original total
+                        tip,
+                        discountAmount: appliedReward?.reward_value || 0,
+                        pointsRedeemed: appliedReward?.points_required || 0
+                    })
+                });
+                if (!res.ok) throw new Error("Failed to update payment amount");
+            } catch (err) {
+                console.error("Update intent error:", err);
+            }
+        };
+
+        const timer = setTimeout(updateIntent, 500);
+        return () => clearTimeout(timer);
+    }, [tip, appliedReward, order]);
+
+    const handleLoyaltyCheckIn = async () => {
+        if (!loyaltyPhone || !order) return;
+        setCheckingLoyalty(true);
+        try {
+            const res = await fetch(`/api/customers/lookup?phone=${encodeURIComponent(loyaltyPhone)}&locationId=${order.location_id}`);
+            const data = await res.json();
+            if (data.found) {
+                setLoyaltyCustomer(data.customer);
+                setAvailableRewards(data.availableRewards || []);
+                setShowLoyaltyField(false);
+            } else {
+                setError("No loyalty account found with this phone number.");
+            }
+        } catch (err) {
+            setError("Failed to look up loyalty account.");
+        } finally {
+            setCheckingLoyalty(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -127,6 +180,100 @@ export default function PaymentPage() {
                     </p>
                 </div>
 
+                {/* Loyalty & Rewards */}
+                <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-4 mb-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Gift className="h-5 w-5 text-orange-400" />
+                        <h3 className="font-bold text-slate-100">Loyalty Rewards</h3>
+                    </div>
+
+                    {showLoyaltyField ? (
+                        <div className="space-y-3">
+                            <p className="text-xs text-slate-400">Enter your phone number to earn or redeem points.</p>
+                            <div className="flex gap-2">
+                                <input
+                                    type="tel"
+                                    placeholder="Phone Number"
+                                    className="input text-sm flex-1"
+                                    value={loyaltyPhone}
+                                    onChange={(e) => setLoyaltyPhone(e.target.value)}
+                                />
+                                <button
+                                    onClick={handleLoyaltyCheckIn}
+                                    disabled={checkingLoyalty || !loyaltyPhone}
+                                    className="btn-secondary py-2 px-4 text-sm"
+                                >
+                                    {checkingLoyalty ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check In"}
+                                </button>
+                            </div>
+                        </div>
+                    ) : loyaltyCustomer ? (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                                <div>
+                                    <p className="text-xs text-orange-400 font-bold uppercase">Member Check-In</p>
+                                    <p className="text-sm font-medium text-slate-200">
+                                        Hi, {loyaltyCustomer.first_name || "Member"}!
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-lg font-bold text-orange-400">{loyaltyCustomer.loyalty_points || 0}</p>
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold">Available Points</p>
+                                </div>
+                            </div>
+
+                            {availableRewards.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-xs text-slate-400 font-medium">Available Rewards:</p>
+                                    <div className="space-y-2">
+                                        {availableRewards.map((reward) => {
+                                            const canAfford = (loyaltyCustomer.loyalty_points || 0) >= reward.points_required;
+                                            const isApplied = appliedReward?.id === reward.id;
+                                            return (
+                                                <button
+                                                    key={reward.id}
+                                                    disabled={!canAfford && !isApplied}
+                                                    onClick={() => setAppliedReward(isApplied ? null : reward)}
+                                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left ${isApplied
+                                                        ? "bg-orange-500 border-orange-500 text-white"
+                                                        : canAfford
+                                                            ? "bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600"
+                                                            : "bg-slate-900/20 border-slate-800 text-slate-600 grayscale opacity-50"
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <Gift className="h-4 w-4" />
+                                                        <div>
+                                                            <p className="text-sm font-bold">{reward.name}</p>
+                                                            <p className="text-[10px] opacity-70">{reward.points_required} Points Required</p>
+                                                        </div>
+                                                    </div>
+                                                    {isApplied ? (
+                                                        <CheckCircle className="h-4 w-4" />
+                                                    ) : !canAfford && (
+                                                        <span className="text-[10px] font-bold">LOCKED</span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            <button
+                                onClick={() => {
+                                    setLoyaltyCustomer(null);
+                                    setAppliedReward(null);
+                                    setShowLoyaltyField(true);
+                                }}
+                                className="text-[10px] text-slate-500 hover:text-slate-300 underline"
+                            >
+                                Not you? Sign out
+                            </button>
+                        </div>
+                    ) : null}
+                </div>
+
                 {/* Order Items */}
                 <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-4 mb-6">
                     <div className="space-y-3 mb-4">
@@ -157,10 +304,16 @@ export default function PaymentPage() {
                                 <span>{formatCurrency(tip)}</span>
                             </div>
                         )}
+                        {appliedReward && (
+                            <div className="flex justify-between text-green-400">
+                                <span>Reward: {appliedReward.name}</span>
+                                <span>-{formatCurrency(appliedReward.reward_value)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between text-xl font-bold text-slate-100 pt-2 border-t border-slate-700">
                             <span>Total</span>
                             <span className="text-orange-400">
-                                {formatCurrency((order?.total || 0) + tip)}
+                                {formatCurrency(Math.max(0, (order?.total || 0) + tip - (appliedReward?.reward_value || 0)))}
                             </span>
                         </div>
                     </div>
@@ -210,7 +363,9 @@ export default function PaymentPage() {
                         <PaymentForm
                             orderId={orderId}
                             locationId={order?.location_id || ""}
-                            total={(order?.total || 0) + tip}
+                            total={(order?.total || 0) + tip - (appliedReward?.reward_value || 0)}
+                            reward={appliedReward}
+                            customerPhone={loyaltyCustomer?.phone || loyaltyPhone}
                         />
                     </Elements>
                 )}
@@ -223,7 +378,13 @@ export default function PaymentPage() {
     );
 }
 
-function PaymentForm({ orderId, locationId, total }: { orderId: string; locationId: string; total: number }) {
+function PaymentForm({ orderId, locationId, total, reward, customerPhone }: {
+    orderId: string;
+    locationId: string;
+    total: number;
+    reward?: any;
+    customerPhone?: string;
+}) {
     const stripe = useStripe();
     const elements = useElements();
     const [loading, setLoading] = useState(false);
@@ -231,7 +392,7 @@ function PaymentForm({ orderId, locationId, total }: { orderId: string; location
 
     // Customer info states
     const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
+    const [phone, setPhone] = useState(customerPhone || "");
     const [name, setName] = useState("");
     const [joinLoyalty, setJoinLoyalty] = useState(true);
 
@@ -259,7 +420,9 @@ function PaymentForm({ orderId, locationId, total }: { orderId: string; location
                         lastName,
                         locationId,
                         orderId,
-                        marketingOptIn: joinLoyalty
+                        marketingOptIn: joinLoyalty,
+                        discountAmount: reward?.reward_value || 0,
+                        pointsRedeemed: reward?.points_required || 0
                     })
                 });
 

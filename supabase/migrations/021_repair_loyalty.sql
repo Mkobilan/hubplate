@@ -31,6 +31,9 @@ ALTER TABLE public.loyalty_tiers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS is_loyalty_member BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 
+-- Add points_redeemed to orders if it doesn't exist
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS points_redeemed INTEGER DEFAULT 0;
+
 -- Add unique constraint for upsert (location-based customers)
 DO $$ 
 BEGIN 

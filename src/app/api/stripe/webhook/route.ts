@@ -38,19 +38,72 @@ export async function POST(request: NextRequest) {
 
             // Update order status in database
             if (paymentIntent.metadata?.order_id) {
-                const { error: updateError } = await supabaseAdmin
-                    .from('orders')
-                    .update({
-                        payment_status: 'paid',
-                        stripe_payment_intent_id: paymentIntent.id,
-                        paid_at: new Date().toISOString()
-                    })
-                    .eq('id', paymentIntent.metadata.order_id);
+                const orderId = paymentIntent.metadata.order_id;
+                const { data: order, error: orderError } = await (supabaseAdmin
+                    .from('orders') as any)
+                    .select('*, locations(id)')
+                    .eq('id', orderId)
+                    .single();
 
-                if (updateError) {
-                    console.error('Failed to update order payment status:', updateError);
+                if (orderError) {
+                    console.error('Failed to fetch order for loyalty update:', orderError);
                 } else {
-                    console.log('Order marked as paid:', paymentIntent.metadata.order_id);
+                    // Update order as paid
+                    await supabaseAdmin
+                        .from('orders')
+                        .update({
+                            payment_status: 'paid',
+                            stripe_payment_intent_id: paymentIntent.id,
+                            paid_at: new Date().toISOString()
+                        })
+                        .eq('id', orderId);
+
+                    // Loyalty Points Logic
+                    const customerPhone = order.customer_phone;
+                    const customerEmail = order.customer_email;
+
+                    if (customerPhone || customerEmail) {
+                        // 1. Get Earning Rate
+                        const { data: program } = await (supabaseAdmin
+                            .from('loyalty_programs') as any)
+                            .select('points_per_dollar')
+                            .eq('location_id', order.location_id)
+                            .single();
+
+                        const rate = (program as any)?.points_per_dollar || 1;
+                        const pointsEarned = Math.floor((order.total || 0) * rate);
+                        const pointsRedeemed = order.points_redeemed || 0;
+
+                        // 2. Find Customer
+                        let customer;
+                        if (customerPhone) {
+                            const { data } = await (supabaseAdmin.from('customers') as any)
+                                .select('*').eq('location_id', order.location_id).eq('phone', customerPhone).maybeSingle();
+                            customer = data;
+                        } else {
+                            const { data } = await (supabaseAdmin.from('customers') as any)
+                                .select('*').eq('location_id', order.location_id).eq('email', customerEmail).maybeSingle();
+                            customer = data;
+                        }
+
+                        if (customer) {
+                            const newPointBalance = Math.max(0, (customer.loyalty_points || 0) + pointsEarned - pointsRedeemed);
+                            const newVisitCount = (customer.total_visits || 0) + 1;
+                            const newTotalSpent = (customer.total_spent || 0) + (order.total || 0);
+
+                            await (supabaseAdmin.from('customers') as any)
+                                .update({
+                                    loyalty_points: newPointBalance,
+                                    total_visits: newVisitCount,
+                                    total_spent: newTotalSpent,
+                                    is_loyalty_member: true, // Auto-enroll if paying and provided contact
+                                    last_visit_at: new Date().toISOString()
+                                })
+                                .eq('id', customer.id);
+
+                            console.log(`Updated loyalty for customer ${customer.id}: +${pointsEarned} earned, -${pointsRedeemed} redeemed.`);
+                        }
+                    }
                 }
             }
             break;
