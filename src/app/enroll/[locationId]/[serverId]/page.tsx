@@ -32,8 +32,8 @@ export default function EnrollmentPage() {
             const supabase = createClient();
 
             // 1. Check if customer already exists or create new one
-            const { data: customer, error: customerError } = await (supabase
-                .from('customers')
+            const { data: customer, error: customerError } = await ((supabase
+                .from('customers') as any)
                 .upsert({
                     location_id: locationId,
                     first_name: form.firstName,
@@ -41,44 +41,44 @@ export default function EnrollmentPage() {
                     email: form.email,
                     phone: form.phone,
                     is_loyalty_member: true
-                } as any, { onConflict: 'email' })
+                }, { onConflict: 'email' })
                 .select()
-                .single() as any);
+                .single());
 
             if (customerError) throw customerError;
 
             // 2. Find the most recent active order for this table at this location
-            const { data: order } = await (supabase
-                .from('orders')
+            const { data: order } = await ((supabase
+                .from('orders') as any)
                 .select('*')
                 .eq('location_id', locationId)
-                .eq('table_number', tableNumber as any)
+                .eq('table_number', tableNumber)
                 .in('status', ['pending', 'in_progress'])
                 .order('created_at', { ascending: false })
                 .limit(1)
-                .single() as any);
+                .single());
 
             if (order) {
                 // 3. Get loyalty program settings (earning rate)
-                const { data: program } = await (supabase
-                    .from('loyalty_programs')
+                const { data: program } = await ((supabase
+                    .from('loyalty_programs') as any)
                     .select('points_per_dollar')
                     .eq('location_id', locationId)
-                    .single() as any);
+                    .single());
 
                 const rate = (program as any)?.points_per_dollar || 1;
                 const earned = Math.floor((order as any).total * rate);
 
                 if (earned > 0) {
                     // Update customer points
-                    await supabase
-                        .from('customers')
+                    await (supabase
+                        .from('customers') as any)
                         .update({
                             loyalty_points: (customer as any).loyalty_points + earned,
                             total_spent: (customer as any).total_spent + (order as any).total,
                             total_visits: (customer as any).total_visits + 1,
                             last_visit_at: new Date().toISOString()
-                        } as any)
+                        })
                         .eq('id', (customer as any).id);
 
                     setPointsEarned(earned);
