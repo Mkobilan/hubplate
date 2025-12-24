@@ -82,6 +82,17 @@ export default function PaymentPage() {
         fetchOrderAndCreatePayment();
     }, [orderId]);
 
+    const calculateDiscount = (reward: any) => {
+        if (!reward || !order) return 0;
+        if (reward.reward_type === "percentage_off") {
+            const base = order.subtotal || order.total || 0;
+            return (base * reward.reward_value) / 100;
+        }
+        return reward.reward_value;
+    };
+
+    const currentDiscount = calculateDiscount(appliedReward);
+
     // Update payment intent when tip or discount changes
     useEffect(() => {
         if (!order || !clientSecret) return;
@@ -95,7 +106,7 @@ export default function PaymentPage() {
                         orderId,
                         amount: order.total, // Original total
                         tip,
-                        discountAmount: appliedReward?.reward_value || 0,
+                        discountAmount: currentDiscount,
                         pointsRedeemed: appliedReward?.points_required || 0
                     })
                 });
@@ -107,7 +118,7 @@ export default function PaymentPage() {
 
         const timer = setTimeout(updateIntent, 500);
         return () => clearTimeout(timer);
-    }, [tip, appliedReward, order]);
+    }, [tip, appliedReward, order, currentDiscount]);
 
     const handleLoyaltyCheckIn = async () => {
         if (!loyaltyPhone || !order) return;
@@ -307,13 +318,13 @@ export default function PaymentPage() {
                         {appliedReward && (
                             <div className="flex justify-between text-green-400">
                                 <span>Reward: {appliedReward.name}</span>
-                                <span>-{formatCurrency(appliedReward.reward_value)}</span>
+                                <span>-{formatCurrency(currentDiscount)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-xl font-bold text-slate-100 pt-2 border-t border-slate-700">
                             <span>Total</span>
                             <span className="text-orange-400">
-                                {formatCurrency(Math.max(0, (order?.total || 0) + tip - (appliedReward?.reward_value || 0)))}
+                                {formatCurrency(Math.max(0, (order?.total || 0) + tip - currentDiscount))}
                             </span>
                         </div>
                     </div>
@@ -363,8 +374,9 @@ export default function PaymentPage() {
                         <PaymentForm
                             orderId={orderId}
                             locationId={order?.location_id || ""}
-                            total={(order?.total || 0) + tip - (appliedReward?.reward_value || 0)}
+                            total={(order?.total || 0) + tip - currentDiscount}
                             reward={appliedReward}
+                            discountAmount={currentDiscount}
                             customerPhone={loyaltyCustomer?.phone || loyaltyPhone}
                             loyaltyCustomer={loyaltyCustomer}
                         />
@@ -379,11 +391,12 @@ export default function PaymentPage() {
     );
 }
 
-function PaymentForm({ orderId, locationId, total, reward, customerPhone, loyaltyCustomer }: {
+function PaymentForm({ orderId, locationId, total, reward, discountAmount, customerPhone, loyaltyCustomer }: {
     orderId: string;
     locationId: string;
     total: number;
     reward?: any;
+    discountAmount: number;
     customerPhone?: string;
     loyaltyCustomer?: any;
 }) {
@@ -432,7 +445,7 @@ function PaymentForm({ orderId, locationId, total, reward, customerPhone, loyalt
                         locationId,
                         orderId,
                         marketingOptIn: joinLoyalty,
-                        discountAmount: reward?.reward_value || 0,
+                        discountAmount: discountAmount || 0,
                         pointsRedeemed: reward?.points_required || 0
                     })
                 });

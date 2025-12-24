@@ -43,6 +43,7 @@ export default function LoyaltyPage() {
     const [showTierModal, setShowTierModal] = useState(false);
     const [editingTier, setEditingTier] = useState<any>(null);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [rewardType, setRewardType] = useState("free_item");
 
     const [newRate, setNewRate] = useState<number | string>(1);
     const [savingRate, setSavingRate] = useState(false);
@@ -371,6 +372,7 @@ export default function LoyaltyPage() {
                         <button
                             onClick={() => {
                                 setEditingReward(null);
+                                setRewardType("free_item");
                                 setShowRewardModal(true);
                             }}
                             className="btn-secondary text-xs py-1"
@@ -387,6 +389,7 @@ export default function LoyaltyPage() {
                                     className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-slate-800 cursor-pointer hover:border-orange-500/50 group"
                                     onClick={() => {
                                         setEditingReward(reward);
+                                        setRewardType(reward.reward_type);
                                         setShowRewardModal(true);
                                     }}
                                 >
@@ -401,7 +404,12 @@ export default function LoyaltyPage() {
                                             )} />
                                         </div>
                                         <div>
-                                            <p className="font-medium group-hover:text-orange-400 transition-colors">{reward.name}</p>
+                                            <p className="font-medium group-hover:text-orange-400 transition-colors">
+                                                {reward.name}
+                                                <span className="ml-2 text-xs font-normal text-slate-400">
+                                                    ({reward.reward_type === 'percentage_off' ? `${reward.reward_value}%` : formatCurrency(reward.reward_value)})
+                                                </span>
+                                            </p>
                                             <p className="text-xs text-slate-500">{reward.points_required} points</p>
                                         </div>
                                     </div>
@@ -518,7 +526,8 @@ export default function LoyaltyPage() {
                                     <select
                                         name="reward_type"
                                         className="input"
-                                        defaultValue={editingReward?.reward_type || "free_item"}
+                                        value={rewardType}
+                                        onChange={(e) => setRewardType(e.target.value)}
                                     >
                                         <option value="free_item">Free Item</option>
                                         <option value="discount">Fixed Discount</option>
@@ -526,15 +535,27 @@ export default function LoyaltyPage() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="label">Value ($, %)</label>
-                                    <input
-                                        name="reward_value"
-                                        type="number"
-                                        step="0.01"
-                                        className="input"
-                                        placeholder="0.00"
-                                        defaultValue={editingReward?.reward_value || 0}
-                                    />
+                                    <label className="label">
+                                        Value {rewardType === 'percentage_off' ? '(%)' : '($)'}
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                                            {rewardType === 'percentage_off' ? '' : '$'}
+                                        </span>
+                                        <input
+                                            name="reward_value"
+                                            type="number"
+                                            step="0.01"
+                                            className={cn("input", rewardType !== 'percentage_off' && "pl-7", rewardType === 'percentage_off' && "pr-7")}
+                                            placeholder="0.00"
+                                            defaultValue={editingReward?.reward_value || 0}
+                                        />
+                                        {rewardType === 'percentage_off' && (
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
+                                                %
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                             <div>
