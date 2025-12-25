@@ -23,7 +23,8 @@ import {
     Heart,
     Building2,
     Activity,
-    User
+    User,
+    Armchair
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
@@ -92,6 +93,11 @@ export function DashboardSidebar() {
             href: "/dashboard/schedule",
             icon: <Calendar className="h-5 w-5" />,
             label: t("nav.schedule"),
+        },
+        {
+            href: "/dashboard/seating",
+            icon: <Armchair className="h-5 w-5" />,
+            label: t("nav.seating"),
         },
         {
             href: "/dashboard/profile",
