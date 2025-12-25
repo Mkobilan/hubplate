@@ -475,8 +475,33 @@ function AddMenuItemModal({
 }) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
+    const [kdsScreens, setKdsScreens] = useState<{ id: string; name: string; is_default: boolean }[]>([]);
+    const [selectedKdsScreens, setSelectedKdsScreens] = useState<string[]>([]);
     const currentLocation = useAppStore((state) => state.currentLocation);
     const supabase = createClient();
+
+    // Fetch KDS screens on mount
+    useEffect(() => {
+        const fetchKdsScreens = async () => {
+            if (!currentLocation?.id) return;
+            const { data } = await supabase
+                .from("kds_screens")
+                .select("id, name, is_default")
+                .eq("location_id", currentLocation.id)
+                .eq("is_active", true)
+                .order("display_order");
+            setKdsScreens(data || []);
+        };
+        fetchKdsScreens();
+    }, [currentLocation?.id]);
+
+    const handleKdsToggle = (screenId: string) => {
+        setSelectedKdsScreens(prev =>
+            prev.includes(screenId)
+                ? prev.filter(id => id !== screenId)
+                : [...prev, screenId]
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -487,7 +512,8 @@ function AddMenuItemModal({
 
         setLoading(true);
         try {
-            const { error } = await (supabase
+            // Insert menu item
+            const { data: newItem, error } = await (supabase
                 .from("menu_items") as any)
                 .insert({
                     location_id: currentLocation.id,
@@ -496,9 +522,28 @@ function AddMenuItemModal({
                     price: parseFloat(formData.get("price") as string),
                     cost: formData.get("cost") ? parseFloat(formData.get("cost") as string) : null,
                     category_id: formData.get("category_id") as string,
-                });
+                })
+                .select("id")
+                .single();
 
             if (error) throw error;
+
+            // Insert KDS assignments if any selected
+            if (selectedKdsScreens.length > 0 && newItem?.id) {
+                const assignments = selectedKdsScreens.map(kdsScreenId => ({
+                    menu_item_id: newItem.id,
+                    kds_screen_id: kdsScreenId
+                }));
+
+                const { error: assignError } = await (supabase
+                    .from("menu_item_kds_assignments") as any)
+                    .insert(assignments);
+
+                if (assignError) {
+                    console.error("Error saving KDS assignments:", assignError);
+                    // Don't fail the whole operation for assignment errors
+                }
+            }
 
             toast.success("Item added successfully");
             onSuccess();
@@ -514,7 +559,7 @@ function AddMenuItemModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-            <div className="relative card w-full max-w-md">
+            <div className="relative card w-full max-w-md max-h-[90vh] overflow-y-auto">
                 <h2 className="text-xl font-bold mb-4">{t("menu.addItem")}</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -546,6 +591,42 @@ function AddMenuItemModal({
                             ))}
                         </select>
                     </div>
+                    {/* KDS Screen Selection */}
+                    {kdsScreens.length > 0 && (
+                        <div>
+                            <label className="label flex items-center gap-2">
+                                <Layers className="h-4 w-4 text-orange-400" />
+                                KDS Screens
+                            </label>
+                            <p className="text-xs text-slate-400 mb-2">
+                                Select which kitchen screens should display this item. Unassigned items go to Main Kitchen.
+                            </p>
+                            <div className="space-y-2">
+                                {kdsScreens.map((screen) => (
+                                    <label
+                                        key={screen.id}
+                                        className={cn(
+                                            "flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors",
+                                            selectedKdsScreens.includes(screen.id)
+                                                ? "border-orange-500 bg-orange-500/10"
+                                                : "border-slate-700 hover:border-slate-600"
+                                        )}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedKdsScreens.includes(screen.id)}
+                                            onChange={() => handleKdsToggle(screen.id)}
+                                            className="w-4 h-4 accent-orange-500"
+                                        />
+                                        <span className="flex-1">{screen.name}</span>
+                                        {screen.is_default && (
+                                            <span className="text-xs bg-slate-700 px-2 py-0.5 rounded">Main</span>
+                                        )}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     <div className="flex gap-2 pt-4">
                         <button type="button" onClick={onClose} className="btn-secondary flex-1">
                             {t("common.cancel")}
@@ -708,7 +789,53 @@ function EditMenuItemModal({
 }) {
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
+    const [kdsScreens, setKdsScreens] = useState<{ id: string; name: string; is_default: boolean }[]>([]);
+    const [selectedKdsScreens, setSelectedKdsScreens] = useState<string[]>([]);
+    const [loadingKds, setLoadingKds] = useState(true);
+    const currentLocation = useAppStore((state) => state.currentLocation);
     const supabase = createClient();
+
+    // Fetch KDS screens and current assignments on mount
+    useEffect(() => {
+        const fetchKdsData = async () => {
+            if (!currentLocation?.id) return;
+
+            setLoadingKds(true);
+            try {
+                // Fetch all KDS screens
+                const { data: screens } = await supabase
+                    .from("kds_screens")
+                    .select("id, name, is_default")
+                    .eq("location_id", currentLocation.id)
+                    .eq("is_active", true)
+                    .order("display_order");
+
+                setKdsScreens(screens || []);
+
+                // Fetch current assignments for this item
+                const { data: assignments } = await supabase
+                    .from("menu_item_kds_assignments")
+                    .select("kds_screen_id")
+                    .eq("menu_item_id", item.id);
+
+                const currentScreenIds = (assignments || []).map((a: any) => a.kds_screen_id);
+                setSelectedKdsScreens(currentScreenIds);
+            } catch (error) {
+                console.error("Error fetching KDS data:", error);
+            } finally {
+                setLoadingKds(false);
+            }
+        };
+        fetchKdsData();
+    }, [currentLocation?.id, item.id]);
+
+    const handleKdsToggle = (screenId: string) => {
+        setSelectedKdsScreens(prev =>
+            prev.includes(screenId)
+                ? prev.filter(id => id !== screenId)
+                : [...prev, screenId]
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -717,6 +844,7 @@ function EditMenuItemModal({
 
         setLoading(true);
         try {
+            // Update menu item
             const { error } = await (supabase
                 .from("menu_items") as any)
                 .update({
@@ -728,6 +856,27 @@ function EditMenuItemModal({
                 .eq("id", item.id);
 
             if (error) throw error;
+
+            // Update KDS assignments - delete existing and insert new
+            await (supabase
+                .from("menu_item_kds_assignments") as any)
+                .delete()
+                .eq("menu_item_id", item.id);
+
+            if (selectedKdsScreens.length > 0) {
+                const assignments = selectedKdsScreens.map(kdsScreenId => ({
+                    menu_item_id: item.id,
+                    kds_screen_id: kdsScreenId
+                }));
+
+                const { error: assignError } = await (supabase
+                    .from("menu_item_kds_assignments") as any)
+                    .insert(assignments);
+
+                if (assignError) {
+                    console.error("Error saving KDS assignments:", assignError);
+                }
+            }
 
             toast.success("Item updated successfully");
             onSuccess();
@@ -743,7 +892,7 @@ function EditMenuItemModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-            <div className="relative card w-full max-w-md">
+            <div className="relative card w-full max-w-md max-h-[90vh] overflow-y-auto">
                 <h2 className="text-xl font-bold mb-4">Edit Item</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -771,6 +920,48 @@ function EditMenuItemModal({
                             ))}
                         </select>
                     </div>
+                    {/* KDS Screen Selection */}
+                    {kdsScreens.length > 0 && (
+                        <div>
+                            <label className="label flex items-center gap-2">
+                                <Layers className="h-4 w-4 text-orange-400" />
+                                KDS Screens
+                            </label>
+                            <p className="text-xs text-slate-400 mb-2">
+                                Select which kitchen screens should display this item. Unassigned items go to Main Kitchen.
+                            </p>
+                            {loadingKds ? (
+                                <div className="flex items-center justify-center py-4">
+                                    <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {kdsScreens.map((screen) => (
+                                        <label
+                                            key={screen.id}
+                                            className={cn(
+                                                "flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors",
+                                                selectedKdsScreens.includes(screen.id)
+                                                    ? "border-orange-500 bg-orange-500/10"
+                                                    : "border-slate-700 hover:border-slate-600"
+                                            )}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedKdsScreens.includes(screen.id)}
+                                                onChange={() => handleKdsToggle(screen.id)}
+                                                className="w-4 h-4 accent-orange-500"
+                                            />
+                                            <span className="flex-1">{screen.name}</span>
+                                            {screen.is_default && (
+                                                <span className="text-xs bg-slate-700 px-2 py-0.5 rounded">Main</span>
+                                            )}
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <div className="flex gap-2 pt-4">
                         <button type="button" onClick={onClose} className="btn-secondary flex-1">
                             {t("common.cancel")}

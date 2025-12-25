@@ -265,24 +265,28 @@ export default function SchedulePage() {
                             Make Schedule
                         </button>
                     )}
-                    <button className="btn btn-secondary">
-                        <Copy className="h-4 w-4" />
-                        Copy Last Week
-                    </button>
-                    <button
-                        onClick={() => {
-                            setNewShift({
-                                ...newShift,
-                                date: format(new Date(), "yyyy-MM-dd"),
-                                employee_id: ""
-                            });
-                            setIsAddModalOpen(true);
-                        }}
-                        className="btn btn-secondary"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Add Shift
-                    </button>
+                    {isManagerOrOwner && (
+                        <>
+                            <button className="btn btn-secondary">
+                                <Copy className="h-4 w-4" />
+                                Copy Last Week
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setNewShift({
+                                        ...newShift,
+                                        date: format(new Date(), "yyyy-MM-dd"),
+                                        employee_id: ""
+                                    });
+                                    setIsAddModalOpen(true);
+                                }}
+                                className="btn btn-secondary"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Add Shift
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -380,18 +384,20 @@ export default function SchedulePage() {
                                                             <span>{shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}</span>
                                                         </div>
                                                         <div className="text-slate-400 mt-1">{shift.role}</div>
-                                                        <div className="mt-2 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <Edit2
-                                                                onClick={(e: any) => {
-                                                                    e.stopPropagation();
-                                                                    setSelectedShift(shift);
-                                                                    setIsEditModalOpen(true);
-                                                                }}
-                                                                className="w-3 h-3 text-slate-500 hover:text-white cursor-pointer"
-                                                            />
-                                                        </div>
+                                                        {isManagerOrOwner && (
+                                                            <div className="mt-2 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Edit2
+                                                                    onClick={(e: any) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedShift(shift);
+                                                                        setIsEditModalOpen(true);
+                                                                    }}
+                                                                    className="w-3 h-3 text-slate-500 hover:text-white cursor-pointer"
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                ) : (
+                                                ) : isManagerOrOwner ? (
                                                     <button
                                                         onClick={() => {
                                                             setNewShift({
@@ -406,7 +412,7 @@ export default function SchedulePage() {
                                                     >
                                                         <Plus className="w-4 h-4 text-slate-600" />
                                                     </button>
-                                                )}
+                                                ) : null}
                                             </div>
                                         );
                                     })}
