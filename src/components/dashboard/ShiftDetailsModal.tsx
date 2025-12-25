@@ -61,7 +61,7 @@ export function ShiftDetailsModal({
 
             const orgId = (currentEmployee as any)?.organization_id;
 
-            const { error } = await supabase.from("shift_swap_requests").insert({
+            const { error } = await (supabase.from("shift_swap_requests") as any).insert({
                 organization_id: orgId,
                 location_id: currentLocation?.id,
                 shift_id: shift.id,
