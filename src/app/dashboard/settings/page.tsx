@@ -85,8 +85,7 @@ export default function SettingsPage() {
             const orgId = (currentEmployee as any)?.organization_id;
             if (!orgId) throw new Error("No organization found");
 
-            const { error } = await supabase
-                .from("organizations")
+            const { error } = await (supabase.from("organizations") as any)
                 .update({
                     require_manager_approval_for_swaps: settings.require_manager_approval_for_swaps,
                 })
