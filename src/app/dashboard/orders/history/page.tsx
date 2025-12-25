@@ -154,7 +154,8 @@ export default function OrderHistoryPage() {
                             const isItemComped = compedItems[i.id];
                             return sum + (isItemComped ? 0 : (Number(i.unit_price || i.price) * i.quantity));
                         }, 0);
-                        newTax = newSubtotal * 0.0875;
+                        const taxRate = currentLocation?.tax_rate ?? 8.75;
+                        newTax = newSubtotal * (taxRate / 100);
                         newTotal = newSubtotal + newTax + (selectedOrder.tip || 0);
                     }
                 }
@@ -181,7 +182,8 @@ export default function OrderHistoryPage() {
                             const isIComped = compedItems[i.id];
                             return sum + (isIComped ? 0 : (Number(i.unit_price || i.price) * i.quantity));
                         }, 0);
-                        newTax = newSubtotal * 0.0875;
+                        const taxRate = currentLocation?.tax_rate ?? 8.75;
+                        newTax = newSubtotal * (taxRate / 100);
                         newTotal = newSubtotal + newTax + (selectedOrder.tip || 0);
                     }
                 }

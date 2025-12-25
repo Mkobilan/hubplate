@@ -10,19 +10,19 @@ BEGIN
         -- Is the Organization Owner?
         EXISTS (
             SELECT 1 FROM public.organizations 
-            WHERE id = target_org_id AND owner_id = auth.uid()
+            WHERE id = target_org_id AND owner_id = (SELECT auth.uid())
         )
         OR
         -- Is an employee with manager/owner role?
         EXISTS (
             SELECT 1 FROM public.employees 
-            WHERE user_id = auth.uid() 
+            WHERE user_id = (SELECT auth.uid()) 
             AND organization_id = target_org_id 
             AND role IN ('owner', 'manager')
         )
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- 2. Update staffing_templates policies
 DROP POLICY IF EXISTS "Manage org staffing_templates" ON public.staffing_templates;

@@ -66,6 +66,7 @@ export default function OrdersPage() {
     const [loading, setLoading] = useState(true);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
+    const setCurrentLocation = useAppStore((state) => state.setCurrentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const supabase = createClient();
 
@@ -119,6 +120,32 @@ export default function OrdersPage() {
 
         fetchMenuData();
     }, [currentLocation?.id]);
+
+    // Refresh location data to ensure we have the latest tax rate and other settings
+    useEffect(() => {
+        const refreshLocation = async () => {
+            if (!currentLocation?.id) return;
+            try {
+                const supabase = createClient();
+                const { data, error } = await supabase
+                    .from("locations")
+                    .select("*")
+                    .eq("id", currentLocation.id)
+                    .single();
+
+                if (data && !error) {
+                    setCurrentLocation(data);
+                }
+            } catch (err) {
+                console.error("Error refreshing location:", err);
+            }
+        };
+
+        // Only refresh if we haven't refreshed in this session or if tax_rate is missing
+        if (currentLocation?.id && (currentLocation.tax_rate === undefined || currentLocation.tax_rate === null)) {
+            refreshLocation();
+        }
+    }, [currentLocation?.id, currentLocation?.tax_rate]);
 
     const availableItems = menuItems.filter(
         (item) => (item.category?.name || "Uncategorized") === selectedCategory && !item.is_86d
@@ -218,7 +245,8 @@ export default function OrdersPage() {
         (sum, item) => sum + item.price * item.quantity,
         0
     );
-    const tax = subtotal * 0.0875;
+    const taxRate = currentLocation?.tax_rate ?? 8.75;
+    const tax = subtotal * (taxRate / 100);
     const total = subtotal + tax;
 
     const sendToKitchen = async () => {
@@ -528,7 +556,7 @@ export default function OrdersPage() {
                         <span>{formatCurrency(subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-slate-400">
-                        <span>{t("pos.tax")} (8.75%)</span>
+                        <span>{t("pos.tax")} ({taxRate}%)</span>
                         <span>{formatCurrency(tax)}</span>
                     </div>
                     <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-700">

@@ -16,16 +16,21 @@ CREATE TABLE IF NOT EXISTS public.employee_invites (
 ALTER TABLE public.employee_invites ENABLE ROW LEVEL SECURITY;
 
 -- Policies
-CREATE POLICY "Location owners can manage invites" ON public.employee_invites
-    FOR ALL USING (
-        location_id IN (
-            SELECT id FROM public.locations WHERE owner_id = (SELECT auth.uid())
-        )
+-- Management (Authenticated only)
+DROP POLICY IF EXISTS "Location owners can manage invites" ON public.employee_invites;
+DROP POLICY IF EXISTS "Manage invites" ON public.employee_invites;
+DROP POLICY IF EXISTS "Invite manage" ON public.employee_invites;
+CREATE POLICY "Invite manage" ON public.employee_invites
+    FOR ALL TO authenticated USING (
+        location_id IN (SELECT id FROM public.locations WHERE owner_id = (SELECT auth.uid()))
     );
 
--- Allow public access to view invite details via token (for the acceptance page)
-CREATE POLICY "Public can view invite by token" ON public.employee_invites
-    FOR SELECT USING (status = 'pending' AND expires_at > NOW());
+-- Public view (Anon only)
+DROP POLICY IF EXISTS "Public can view invite by token" ON public.employee_invites;
+DROP POLICY IF EXISTS "View invite public" ON public.employee_invites;
+DROP POLICY IF EXISTS "Invite public view" ON public.employee_invites;
+CREATE POLICY "Invite public view" ON public.employee_invites
+    FOR SELECT TO anon USING (status = 'pending' AND expires_at > NOW());
 
 -- Indexing
 CREATE INDEX idx_employee_invites_token ON public.employee_invites(token);

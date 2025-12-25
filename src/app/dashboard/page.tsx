@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { startOfDay, endOfDay } from "date-fns";
+import ServerSettlement from "./components/ServerSettlement";
 
 export default function DashboardPage() {
     const { t } = useTranslation();
@@ -214,6 +215,9 @@ export default function DashboardPage() {
 
                 {/* Alerts/Info Column */}
                 <div className="space-y-4">
+                    {/* Server Settlement - Today's Tickets */}
+                    <ServerSettlement />
+
                     {isClockedIn && activeEntry && (
                         <div className="card border-orange-500/50 bg-orange-500/5">
                             <div className="flex items-center gap-2 text-orange-400 mb-2">

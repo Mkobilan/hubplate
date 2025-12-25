@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { AddLocationModal } from "@/components/dashboard/locations/add-location-modal";
+import { ManageLocationModal } from "@/components/dashboard/locations/manage-location-modal";
 
 // TODO: Locations are now fetched dynamically from Supabase
 
@@ -31,6 +32,8 @@ export default function LocationsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+    const [selectedLocationForManage, setSelectedLocationForManage] = useState<any>(null);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
     const setCurrentLocation = useAppStore((state) => state.setCurrentLocation);
@@ -52,6 +55,10 @@ export default function LocationsPage() {
             // Auto-select first location if none selected
             if (!currentLocation && data && data.length > 0) {
                 setCurrentLocation(data[0]);
+            } else if (currentLocation) {
+                // Refresh current location if it was updated
+                const updated = (data as any[])?.find(l => l.id === (currentLocation as any).id);
+                if (updated) setCurrentLocation(updated);
             }
         } catch (err) {
             console.error("Error fetching locations:", err);
@@ -64,15 +71,6 @@ export default function LocationsPage() {
     useEffect(() => {
         fetchLocations();
     }, []);
-
-    // Aggregate stats (placeholder for now, could be a separate query or computed)
-    const aggregateStats = {
-        totalLocations: locations.length,
-        openNow: locations.filter(l => l.is_active).length,
-        totalSalesToday: 0, // TODO: Fetch from daily_sales_summary
-        totalOrdersToday: 0,
-        avgRating: 0
-    };
 
     if (loading) {
         return (
@@ -110,35 +108,6 @@ export default function LocationsPage() {
                 </div>
             )}
 
-            {/* Aggregate Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="card text-center">
-                    <Building2 className="h-6 w-6 text-blue-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold">{aggregateStats.totalLocations}</p>
-                    <p className="text-xs text-slate-500">Total Locations</p>
-                </div>
-                <div className="card text-center">
-                    <div className="w-3 h-3 bg-green-400 rounded-full mx-auto mb-2 animate-pulse" />
-                    <p className="text-2xl font-bold text-green-400">{aggregateStats.openNow}</p>
-                    <p className="text-xs text-slate-500">Active</p>
-                </div>
-                <div className="card text-center">
-                    <DollarSign className="h-6 w-6 text-green-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold">{formatCurrency(aggregateStats.totalSalesToday)}</p>
-                    <p className="text-xs text-slate-500">Combined Sales</p>
-                </div>
-                <div className="card text-center">
-                    <TrendingUp className="h-6 w-6 text-orange-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold">{aggregateStats.totalOrdersToday}</p>
-                    <p className="text-xs text-slate-500">Total Orders</p>
-                </div>
-                <div className="card text-center">
-                    <Star className="h-6 w-6 text-yellow-400 mx-auto mb-2" />
-                    <p className="text-2xl font-bold">{aggregateStats.avgRating}</p>
-                    <p className="text-xs text-slate-500">Avg Rating</p>
-                </div>
-            </div>
-
             {/* Locations List */}
             <div className="space-y-4">
                 {locations.length > 0 ? (
@@ -147,7 +116,7 @@ export default function LocationsPage() {
                             key={location.id}
                             className={cn(
                                 "card transition-all",
-                                currentLocation?.id === location.id && "border-orange-500"
+                                currentLocation?.id === location.id && "border-orange-500 shadow-lg shadow-orange-500/10"
                             )}
                         >
                             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -162,21 +131,26 @@ export default function LocationsPage() {
                                         )} />
                                     </div>
                                     <div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <h3 className="text-lg font-bold">{location.name}</h3>
                                             {currentLocation?.id === location.id && (
-                                                <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">
-                                                    Selected
+                                                <span className="text-[10px] uppercase font-bold bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">
+                                                    Current Location
                                                 </span>
                                             )}
                                             <span className={cn(
-                                                "text-xs px-2 py-0.5 rounded-full",
+                                                "text-[10px] uppercase font-bold px-2 py-0.5 rounded-full",
                                                 location.is_active
                                                     ? "bg-green-500/20 text-green-400"
                                                     : "bg-slate-700 text-slate-400"
                                             )}>
                                                 {location.is_active ? "Active" : "Inactive"}
                                             </span>
+                                            {location.tax_rate > 0 && (
+                                                <span className="text-[10px] uppercase font-bold bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full">
+                                                    Tax: {location.tax_rate}%
+                                                </span>
+                                            )}
                                         </div>
                                         <p className="text-sm text-slate-500 mt-1">{location.address}</p>
                                     </div>
@@ -188,15 +162,21 @@ export default function LocationsPage() {
                                             onClick={() => setCurrentLocation(location)}
                                             className="btn-primary text-sm py-2"
                                         >
-                                            Select
+                                            Switch to this Location
                                         </button>
                                     ) : (
-                                        <button className="btn-secondary text-sm py-2 disabled" disabled>
-                                            <Check className="h-4 w-4" />
-                                            Selected
+                                        <button className="btn-secondary text-sm py-2 opacity-50 cursor-default" disabled>
+                                            <Check className="h-4 w-4 text-green-400" />
+                                            Active
                                         </button>
                                     )}
-                                    <button className="btn-secondary text-sm py-2">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedLocationForManage(location);
+                                            setIsManageModalOpen(true);
+                                        }}
+                                        className="btn-secondary text-sm py-2"
+                                    >
                                         <Settings className="h-4 w-4" />
                                         Manage
                                     </button>
@@ -219,15 +199,17 @@ export default function LocationsPage() {
             </div>
 
             {/* Add Location Card */}
-            <div className="card border-dashed border-slate-700 p-8 text-center">
-                <Plus className="h-8 w-8 text-slate-600 mx-auto mb-3" />
-                <h3 className="font-bold mb-2">Add New Location</h3>
-                <p className="text-sm text-slate-500 mb-4 max-w-md mx-auto">
+            <div className="card border-dashed border-slate-700 p-8 text-center flex flex-col items-center justify-center">
+                <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mb-4">
+                    <Plus className="h-8 w-8 text-slate-600" />
+                </div>
+                <h3 className="font-bold mb-2 text-xl">Add New Location</h3>
+                <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto leading-relaxed">
                     Expand your business by adding a new restaurant location. All locations share the same menu and settings by default.
                 </p>
                 <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="btn-primary"
+                    className="btn-primary px-8"
                 >
                     Get Started
                     <ChevronRight className="h-4 w-4" />
@@ -239,6 +221,19 @@ export default function LocationsPage() {
                 onClose={() => setIsAddModalOpen(false)}
                 onSuccess={fetchLocations}
             />
+
+            {selectedLocationForManage && (
+                <ManageLocationModal
+                    isOpen={isManageModalOpen}
+                    onClose={() => {
+                        setIsManageModalOpen(false);
+                        setSelectedLocationForManage(null);
+                    }}
+                    onSuccess={fetchLocations}
+                    location={selectedLocationForManage}
+                />
+            )}
         </div>
     );
 }
+

@@ -100,12 +100,6 @@ export function DashboardSidebar() {
         },
         // Manager items
         {
-            href: "/dashboard/reports",
-            icon: <BarChart3 className="h-5 w-5" />,
-            label: t("nav.reports"),
-            requiresManager: true,
-        },
-        {
             href: "/dashboard/analytics",
             icon: <Activity className="h-5 w-5" />,
             label: t("nav.analytics"),
@@ -129,6 +123,7 @@ export function DashboardSidebar() {
             label: t("nav.settings"),
         },
     ];
+
 
     // Filter nav items based on management access
     const navItems = allNavItems.filter(item => !item.requiresManager || isManager);

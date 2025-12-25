@@ -36,11 +36,13 @@ export async function POST(request: NextRequest) {
         const finalAmount = Math.max(0, amount + (tip || 0) - (discountAmount || 0));
         const totalCents = Math.round(finalAmount * 100);
 
-        // Update order with discount info
+        // Update order with discount and tip info pre-emptively
         await (supabaseAdmin.from('orders') as any)
             .update({
                 discount: discountAmount || 0,
                 points_redeemed: pointsRedeemed || 0,
+                tip: tip || 0,
+                payment_method: 'card',
                 total: finalAmount
             })
             .eq('id', orderId);
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
                 // If it succeeded, mark order as paid
                 if (existingIntent.status === 'succeeded') {
                     await (supabaseAdmin.from('orders') as any)
-                        .update({ payment_status: 'paid', paid_at: new Date().toISOString() })
+                        .update({ payment_status: 'paid', completed_at: new Date().toISOString() })
                         .eq('id', orderId);
                     return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
                 }

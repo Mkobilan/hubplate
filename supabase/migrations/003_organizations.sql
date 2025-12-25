@@ -64,7 +64,7 @@ BEGIN
     UNION
     SELECT organization_id FROM public.employees WHERE user_id = auth.uid();
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- 5. Create an atomic join function (Fixes 401, Join errors, and NULL org_id)
 CREATE OR REPLACE FUNCTION public.join_organization_via_token(token_val text, f_name text, l_name text)
@@ -124,37 +124,75 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "View organization" ON public.organizations;
-CREATE POLICY "View organization" ON public.organizations
-    FOR SELECT USING (id IN (SELECT org_id FROM get_my_organizations()));
+DROP POLICY IF EXISTS "Manage organization" ON public.organizations;
+DROP POLICY IF EXISTS "Organization select" ON public.organizations;
+DROP POLICY IF EXISTS "Organization update" ON public.organizations;
 
-CREATE POLICY "Manage organization" ON public.organizations
-    FOR ALL USING (owner_id = (SELECT auth.uid()));
+CREATE POLICY "Organization select" ON public.organizations
+    FOR SELECT TO authenticated USING (
+        id IN (SELECT org_id FROM get_my_organizations())
+    );
+
+CREATE POLICY "Organization update" ON public.organizations
+    FOR UPDATE TO authenticated USING (owner_id = (SELECT auth.uid())) WITH CHECK (owner_id = (SELECT auth.uid()));
+
+
 
 -- 6. Refactor Locations RLS
 DROP POLICY IF EXISTS "View locations" ON public.locations;
 DROP POLICY IF EXISTS "Modify locations" ON public.locations;
+DROP POLICY IF EXISTS "Manage locations" ON public.locations;
+DROP POLICY IF EXISTS "Location select" ON public.locations;
+DROP POLICY IF EXISTS "Location insert" ON public.locations;
+DROP POLICY IF EXISTS "Location update" ON public.locations;
+DROP POLICY IF EXISTS "Location delete" ON public.locations;
 
-CREATE POLICY "View locations" ON public.locations
-    FOR SELECT USING (organization_id IN (SELECT org_id FROM get_my_organizations()));
-
-CREATE POLICY "Modify locations" ON public.locations
-    FOR ALL USING (
-        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+CREATE POLICY "Location select" ON public.locations
+    FOR SELECT TO authenticated USING (
+        organization_id IN (SELECT org_id FROM get_my_organizations())
     );
+
+CREATE POLICY "Location insert" ON public.locations
+    FOR INSERT TO authenticated WITH CHECK (organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid())));
+
+CREATE POLICY "Location update" ON public.locations
+    FOR UPDATE TO authenticated USING (organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid())));
+
+CREATE POLICY "Location delete" ON public.locations
+    FOR DELETE TO authenticated USING (organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid())));
 
 -- 7. Refactor Employees RLS
 DROP POLICY IF EXISTS "View employees" ON public.employees;
 DROP POLICY IF EXISTS "Join organization" ON public.employees;
 DROP POLICY IF EXISTS "Manage employees" ON public.employees;
+DROP POLICY IF EXISTS "Organization employee view" ON public.employees;
+DROP POLICY IF EXISTS "Employee select" ON public.employees;
+DROP POLICY IF EXISTS "Employee insert" ON public.employees;
+DROP POLICY IF EXISTS "Employee update" ON public.employees;
+DROP POLICY IF EXISTS "Employee delete" ON public.employees;
 
-CREATE POLICY "View employees" ON public.employees
-    FOR SELECT USING (organization_id IN (SELECT org_id FROM get_my_organizations()));
+CREATE POLICY "Employee select" ON public.employees
+    FOR SELECT TO authenticated USING (
+        organization_id IN (SELECT org_id FROM get_my_organizations())
+        OR user_id = (SELECT auth.uid())
+    );
 
-CREATE POLICY "Join organization" ON public.employees
-    FOR INSERT WITH CHECK (user_id = (SELECT auth.uid()));
+CREATE POLICY "Employee insert" ON public.employees
+    FOR INSERT TO authenticated WITH CHECK (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR user_id = (SELECT auth.uid())
+    );
 
-CREATE POLICY "Manage employees" ON public.employees
-    FOR ALL USING (organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid())));
+CREATE POLICY "Employee update" ON public.employees
+    FOR UPDATE TO authenticated USING (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR user_id = (SELECT auth.uid())
+    );
+
+CREATE POLICY "Employee delete" ON public.employees
+    FOR DELETE TO authenticated USING (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+    );
 
 -- 8. Update Employee Invites RLS
 DROP POLICY IF EXISTS "Manage invites" ON public.employee_invites;

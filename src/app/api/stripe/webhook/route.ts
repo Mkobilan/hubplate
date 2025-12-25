@@ -48,15 +48,25 @@ export async function POST(request: NextRequest) {
                 if (orderError) {
                     console.error('Failed to fetch order for loyalty update:', orderError);
                 } else {
-                    // Update order as paid
-                    await supabaseAdmin
-                        .from('orders')
+                    // Extract tip from metadata
+                    const tipAmount = Number(paymentIntent.metadata?.tip_amount) || 0;
+
+                    // Update order as paid with all payment details
+                    const { error: updateError } = await (supabaseAdmin
+                        .from('orders') as any)
                         .update({
                             payment_status: 'paid',
+                            payment_method: 'card',
+                            tip: tipAmount,
+                            status: 'completed',
                             stripe_payment_intent_id: paymentIntent.id,
-                            paid_at: new Date().toISOString()
+                            completed_at: new Date().toISOString()
                         })
                         .eq('id', orderId);
+
+                    if (updateError) {
+                        console.error('Failed to update order in webhook:', updateError);
+                    }
 
                     // Loyalty Points Logic
                     let customerPhone = order.customer_phone;

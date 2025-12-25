@@ -6,22 +6,13 @@
 DROP POLICY IF EXISTS "View own shifts" ON public.shifts;
 
 -- 2. Create a new policy that allows viewing all shifts in the organization
--- This covers both owners (via organization_id check) and all employees
-CREATE POLICY "View organization shifts" ON public.shifts
-    FOR SELECT USING (
-        -- Case 1: user is the organization owner
-        EXISTS (
-            SELECT 1 FROM public.organizations o
-            WHERE o.id = public.shifts.organization_id
-            AND o.owner_id = (SELECT auth.uid())
-        )
-        OR
-        -- Case 2: user is an employee in the same organization
-        EXISTS (
-            SELECT 1 FROM public.employees e
-            WHERE e.user_id = (SELECT auth.uid())
-            AND e.organization_id = public.shifts.organization_id
-        )
+DROP POLICY IF EXISTS "View organization shifts" ON public.shifts;
+DROP POLICY IF EXISTS "View shifts" ON public.shifts;
+DROP POLICY IF EXISTS "Shift select" ON public.shifts;
+
+CREATE POLICY "Shift select" ON public.shifts
+    FOR SELECT TO authenticated USING (
+        organization_id IN (SELECT org_id FROM get_my_organizations())
     );
 
 -- 3. Ensure "Manage org shifts" remains for administrative actions

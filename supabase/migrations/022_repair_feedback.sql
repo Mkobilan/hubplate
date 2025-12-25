@@ -12,7 +12,7 @@ END $$;
 
 -- Create the updated policy
 CREATE POLICY "Customer feedback access" ON public.customer_feedback
-    FOR ALL USING (
-        location_id IN (SELECT id FROM public.locations WHERE owner_id = auth.uid()) OR
-        location_id IN (SELECT location_id FROM public.employees WHERE user_id = auth.uid())
+    FOR ALL TO authenticated USING (
+        location_id IN (SELECT id FROM public.locations WHERE owner_id = (SELECT auth.uid())) OR
+        location_id IN (SELECT location_id FROM public.employees WHERE user_id = (SELECT auth.uid()))
     );

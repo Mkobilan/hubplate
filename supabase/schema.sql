@@ -491,7 +491,7 @@ BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public;
 
 -- Apply to relevant tables
 CREATE TRIGGER update_locations_updated_at BEFORE UPDATE ON public.locations

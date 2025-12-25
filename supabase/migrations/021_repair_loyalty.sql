@@ -98,41 +98,51 @@ END $$;
 
 -- Program Policies
 CREATE POLICY "Loyalty programs access" ON public.loyalty_programs
-    FOR ALL USING (
-        location_id IN (SELECT id FROM public.locations WHERE owner_id = auth.uid()) OR
-        location_id IN (SELECT location_id FROM public.employees WHERE user_id = auth.uid())
+    FOR ALL TO authenticated USING (
+        location_id IN (SELECT id FROM public.locations WHERE owner_id = (SELECT auth.uid())) OR
+        location_id IN (SELECT location_id FROM public.employees WHERE user_id = (SELECT auth.uid()))
     );
 
 -- Tiers Policies
 CREATE POLICY "Loyalty tiers access" ON public.loyalty_tiers
-    FOR ALL USING (
-        location_id IN (SELECT id FROM public.locations WHERE owner_id = auth.uid()) OR
-        location_id IN (SELECT location_id FROM public.employees WHERE user_id = auth.uid())
+    FOR ALL TO authenticated USING (
+        location_id IN (SELECT id FROM public.locations WHERE owner_id = (SELECT auth.uid())) OR
+        location_id IN (SELECT location_id FROM public.employees WHERE user_id = (SELECT auth.uid()))
     );
 
 -- Rewards Policies
 CREATE POLICY "Loyalty rewards access" ON public.loyalty_rewards
-    FOR ALL USING (
-        location_id IN (SELECT id FROM public.locations WHERE owner_id = auth.uid()) OR
-        location_id IN (SELECT location_id FROM public.employees WHERE user_id = auth.uid())
+    FOR ALL TO authenticated USING (
+        location_id IN (SELECT id FROM public.locations WHERE owner_id = (SELECT auth.uid())) OR
+        location_id IN (SELECT location_id FROM public.employees WHERE user_id = (SELECT auth.uid()))
     );
 
 -- Customers Policy (Dashboard Access)
-CREATE POLICY "Customers location access" ON public.customers
-    FOR ALL USING (
-        location_id IN (SELECT id FROM public.locations WHERE owner_id = auth.uid()) OR
-        location_id IN (SELECT location_id FROM public.employees WHERE user_id = auth.uid())
+DROP POLICY IF EXISTS "Customers location access" ON public.customers;
+DROP POLICY IF EXISTS "Allow public select for enrollment" ON public.customers;
+DROP POLICY IF EXISTS "Allow public insert for enrollment" ON public.customers;
+DROP POLICY IF EXISTS "Allow public update for enrollment" ON public.customers;
+DROP POLICY IF EXISTS "Location access for customers" ON public.customers;
+DROP POLICY IF EXISTS "Customer staff access" ON public.customers;
+DROP POLICY IF EXISTS "Customer public select" ON public.customers;
+DROP POLICY IF EXISTS "Customer public insert" ON public.customers;
+DROP POLICY IF EXISTS "Customer public update" ON public.customers;
+
+CREATE POLICY "Customer staff access" ON public.customers
+    FOR ALL TO authenticated USING (
+        location_id IN (SELECT id FROM public.locations WHERE owner_id = (SELECT auth.uid())) OR
+        location_id IN (SELECT location_id FROM public.employees WHERE user_id = (SELECT auth.uid()))
     );
 
 -- Public Enrollment Policies (Allow anonymous users to join)
-CREATE POLICY "Allow public select for enrollment" ON public.customers
-    FOR SELECT USING (true);
+CREATE POLICY "Customer public select" ON public.customers
+    FOR SELECT TO anon USING (true);
 
-CREATE POLICY "Allow public insert for enrollment" ON public.customers
-    FOR INSERT WITH CHECK (true);
+CREATE POLICY "Customer public insert" ON public.customers
+    FOR INSERT TO anon WITH CHECK (true);
 
-CREATE POLICY "Allow public update for enrollment" ON public.customers
-    FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Customer public update" ON public.customers
+    FOR UPDATE TO anon USING (true) WITH CHECK (true);
 
 -- 6. Re-initialize default data
 INSERT INTO public.loyalty_programs (location_id)

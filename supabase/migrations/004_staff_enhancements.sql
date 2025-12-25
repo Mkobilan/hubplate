@@ -39,68 +39,122 @@ ALTER TABLE public.time_entries ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "View own shifts" ON public.shifts;
 CREATE POLICY "View own shifts" ON public.shifts
     FOR SELECT USING (
-        employee_id IN (SELECT id FROM public.employees WHERE user_id = auth.uid())
+        employee_id IN (SELECT id FROM public.employees WHERE user_id = (SELECT auth.uid()))
     );
 
 DROP POLICY IF EXISTS "Manage org shifts" ON public.shifts;
-CREATE POLICY "Manage org shifts" ON public.shifts
+DROP POLICY IF EXISTS "Manage shifts" ON public.shifts;
+CREATE POLICY "Manage shifts" ON public.shifts
     FOR ALL USING (
-        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = auth.uid())
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
         OR 
         EXISTS (
             SELECT 1 FROM public.employees 
-            WHERE user_id = auth.uid() 
+            WHERE user_id = (SELECT auth.uid()) 
             AND role IN ('manager', 'owner') 
             AND organization_id = public.shifts.organization_id
         )
     );
 
 -- Availability:
--- 1. Employees can view and manage their own availability
--- 2. Managers can view all availability in org
-DROP POLICY IF EXISTS "Manage own availability" ON public.availability;
-CREATE POLICY "Manage own availability" ON public.availability
-    FOR ALL USING (
-        employee_id IN (SELECT id FROM public.employees WHERE user_id = auth.uid())
-    );
+-- Managers/Owners can manage all availability in org
+-- Employees can view and manage their own availability
+DROP POLICY IF EXISTS "Availability access" ON public.availability;
+DROP POLICY IF EXISTS "Manage availability" ON public.availability;
+DROP POLICY IF EXISTS "Self availability access" ON public.availability;
+DROP POLICY IF EXISTS "Availability select" ON public.availability;
+DROP POLICY IF EXISTS "Availability insert" ON public.availability;
+DROP POLICY IF EXISTS "Availability update" ON public.availability;
+DROP POLICY IF EXISTS "Availability delete" ON public.availability;
 
-DROP POLICY IF EXISTS "View org availability" ON public.availability;
-CREATE POLICY "View org availability" ON public.availability
-    FOR SELECT USING (
-        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = auth.uid())
-        OR 
-        EXISTS (
+CREATE POLICY "Availability select" ON public.availability
+    FOR SELECT TO authenticated USING (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR employee_id IN (SELECT id FROM public.employees WHERE user_id = (SELECT auth.uid()))
+        OR EXISTS (
             SELECT 1 FROM public.employees 
-            WHERE user_id = auth.uid() 
+            WHERE user_id = (SELECT auth.uid()) 
             AND role IN ('manager', 'owner') 
             AND organization_id = public.availability.organization_id
         )
     );
 
+CREATE POLICY "Availability insert" ON public.availability
+    FOR INSERT TO authenticated WITH CHECK (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR employee_id IN (SELECT id FROM public.employees WHERE user_id = (SELECT auth.uid()))
+        OR EXISTS (
+            SELECT 1 FROM public.employees e
+            WHERE e.user_id = (SELECT auth.uid()) AND e.role IN ('manager', 'owner') AND e.organization_id = organization_id
+        )
+    );
+
+CREATE POLICY "Availability update" ON public.availability
+    FOR UPDATE TO authenticated USING (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR employee_id IN (SELECT id FROM public.employees WHERE user_id = (SELECT auth.uid()))
+        OR EXISTS (
+            SELECT 1 FROM public.employees e
+            WHERE e.user_id = (SELECT auth.uid()) AND e.role IN ('manager', 'owner') AND e.organization_id = organization_id
+        )
+    );
+
+CREATE POLICY "Availability delete" ON public.availability
+    FOR DELETE TO authenticated USING (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR employee_id IN (SELECT id FROM public.employees WHERE user_id = (SELECT auth.uid()))
+        OR EXISTS (
+            SELECT 1 FROM public.employees e
+            WHERE e.user_id = (SELECT auth.uid()) AND e.role IN ('manager', 'owner') AND e.organization_id = organization_id
+        )
+    );
+
 -- Time Entries:
--- 1. Employees can view/insert their own time entries
--- 2. Managers can manage all time entries in org
-DROP POLICY IF EXISTS "View own time entries" ON public.time_entries;
-CREATE POLICY "View own time entries" ON public.time_entries
-    FOR SELECT USING (
-        employee_id IN (SELECT id FROM public.employees WHERE user_id = auth.uid())
+-- Managers/Owners can manage all time entries in org
+-- Employees can view/insert their own time entries
+DROP POLICY IF EXISTS "Time entry access" ON public.time_entries;
+DROP POLICY IF EXISTS "Manage time entries" ON public.time_entries;
+DROP POLICY IF EXISTS "Self time entries access" ON public.time_entries;
+DROP POLICY IF EXISTS "Time entry select" ON public.time_entries;
+DROP POLICY IF EXISTS "Time entry insert" ON public.time_entries;
+DROP POLICY IF EXISTS "Time entry update" ON public.time_entries;
+DROP POLICY IF EXISTS "Time entry delete" ON public.time_entries;
+
+CREATE POLICY "Time entry select" ON public.time_entries
+    FOR SELECT TO authenticated USING (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR employee_id IN (SELECT id FROM public.employees WHERE user_id = (SELECT auth.uid()))
+        OR EXISTS (
+            SELECT 1 FROM public.employees e
+            WHERE e.user_id = (SELECT auth.uid()) AND e.role IN ('manager', 'owner') AND e.organization_id = organization_id
+        )
     );
 
-DROP POLICY IF EXISTS "Insert own time entries" ON public.time_entries;
-CREATE POLICY "Insert own time entries" ON public.time_entries
-    FOR INSERT WITH CHECK (
-        employee_id IN (SELECT id FROM public.employees WHERE user_id = auth.uid())
+CREATE POLICY "Time entry insert" ON public.time_entries
+    FOR INSERT TO authenticated WITH CHECK (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR employee_id IN (SELECT id FROM public.employees WHERE user_id = (SELECT auth.uid()))
+        OR EXISTS (
+            SELECT 1 FROM public.employees e
+            WHERE e.user_id = (SELECT auth.uid()) AND e.role IN ('manager', 'owner') AND e.organization_id = organization_id
+        )
     );
 
-DROP POLICY IF EXISTS "Manage org time entries" ON public.time_entries;
-CREATE POLICY "Manage org time entries" ON public.time_entries
-    FOR ALL USING (
-        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = auth.uid())
-        OR 
-        EXISTS (
-            SELECT 1 FROM public.employees 
-            WHERE user_id = auth.uid() 
-            AND role IN ('manager', 'owner') 
-            AND organization_id = public.time_entries.organization_id
+CREATE POLICY "Time entry update" ON public.time_entries
+    FOR UPDATE TO authenticated USING (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR employee_id IN (SELECT id FROM public.employees WHERE user_id = (SELECT auth.uid()))
+        OR EXISTS (
+            SELECT 1 FROM public.employees e
+            WHERE e.user_id = (SELECT auth.uid()) AND e.role IN ('manager', 'owner') AND e.organization_id = organization_id
+        )
+    );
+
+CREATE POLICY "Time entry delete" ON public.time_entries
+    FOR DELETE TO authenticated USING (
+        organization_id IN (SELECT id FROM public.organizations WHERE owner_id = (SELECT auth.uid()))
+        OR EXISTS (
+            SELECT 1 FROM public.employees e
+            WHERE e.user_id = (SELECT auth.uid()) AND e.role IN ('manager', 'owner') AND e.organization_id = organization_id
         )
     );

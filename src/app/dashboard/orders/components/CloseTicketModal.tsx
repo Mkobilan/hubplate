@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Printer, CreditCard, QrCode, Loader2, Copy, Check } from "lucide-react";
+import { X, Printer, CreditCard, QrCode, Loader2, Copy, Check, Banknote } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -11,17 +11,47 @@ interface CloseTicketModalProps {
     orderType: string;
     total: number;
     onClose: () => void;
+    onPaymentComplete?: () => void;
 }
+
+import { createClient } from "@/lib/supabase/client";
 
 export default function CloseTicketModal({
     orderId,
     tableNumber,
     orderType,
     total,
-    onClose
+    onClose,
+    onPaymentComplete
 }: CloseTicketModalProps) {
-    const [activeOption, setActiveOption] = useState<"print" | "card" | "qr" | null>(null);
+    const [activeOption, setActiveOption] = useState<"print" | "card" | "qr" | "cash" | null>(null);
     const [copied, setCopied] = useState(false);
+    const [processingCash, setProcessingCash] = useState(false);
+
+    const handleCashPayment = async () => {
+        setProcessingCash(true);
+        try {
+            const supabase = createClient();
+            const { error } = await (supabase
+                .from("orders") as any)
+                .update({
+                    payment_status: "paid",
+                    payment_method: "cash",
+                    status: "completed",
+                    completed_at: new Date().toISOString()
+                })
+                .eq("id", orderId);
+
+            if (error) throw error;
+
+            onPaymentComplete?.();
+            onClose();
+        } catch (err) {
+            console.error("Error processing cash payment:", err);
+        } finally {
+            setProcessingCash(false);
+        }
+    };
 
     // Generate payment URL for QR code
     const paymentUrl = typeof window !== "undefined"
@@ -83,14 +113,27 @@ export default function CloseTicketModal({
 
                         <button
                             onClick={() => setActiveOption("qr")}
-                            className="w-full flex items-center gap-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl hover:border-orange-500/50 hover:bg-orange-500/20 transition-all group"
+                            className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
                         >
-                            <div className="p-3 bg-orange-500/20 rounded-lg group-hover:bg-orange-500/30 transition-colors">
-                                <QrCode className="h-6 w-6 text-orange-400" />
+                            <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
+                                <QrCode className="h-6 w-6 text-slate-300" />
                             </div>
                             <div className="text-left">
-                                <p className="font-semibold text-orange-400">Use QR Code</p>
+                                <p className="font-semibold text-slate-100">Use QR Code</p>
                                 <p className="text-sm text-slate-400">Customer scans to pay</p>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => setActiveOption("cash")}
+                            className="w-full flex items-center gap-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl hover:border-green-500/50 hover:bg-green-500/20 transition-all group"
+                        >
+                            <div className="p-3 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
+                                <Banknote className="h-6 w-6 text-green-400" />
+                            </div>
+                            <div className="text-left">
+                                <p className="font-semibold text-green-400">Paid Cash</p>
+                                <p className="text-sm text-slate-400">Mark as paid with cash</p>
                             </div>
                         </button>
                     </div>
@@ -155,6 +198,38 @@ export default function CloseTicketModal({
                         <button onClick={() => setActiveOption(null)} className="btn-secondary">
                             Back to Options
                         </button>
+                    </div>
+                )}
+
+                {/* Cash Payment Confirmation */}
+                {activeOption === "cash" && (
+                    <div className="text-center py-6">
+                        <Banknote className="h-16 w-16 mx-auto text-green-400 mb-4" />
+                        <h3 className="text-lg font-semibold text-slate-300 mb-2">Confirm Cash Payment</h3>
+                        <p className="text-slate-400 text-sm mb-2">
+                            Mark this ticket as paid with cash?
+                        </p>
+                        <p className="text-2xl font-bold text-green-400 mb-6">{formatCurrency(total)}</p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setActiveOption(null)}
+                                className="btn-secondary flex-1"
+                                disabled={processingCash}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleCashPayment}
+                                className="btn-primary flex-1 bg-green-600 hover:bg-green-700"
+                                disabled={processingCash}
+                            >
+                                {processingCash ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                                ) : (
+                                    "Confirm Payment"
+                                )}
+                            </button>
+                        </div>
                     </div>
                 )}
 

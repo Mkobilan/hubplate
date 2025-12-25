@@ -55,6 +55,7 @@ export interface Database {
                     stripe_account_id: string | null;
                     stripe_onboarding_complete: boolean;
                     is_active: boolean;
+                    tax_rate: number;
                     created_at: string;
                     updated_at: string;
                 };
@@ -71,6 +72,7 @@ export interface Database {
                     stripe_account_id?: string | null;
                     stripe_onboarding_complete?: boolean;
                     is_active?: boolean;
+                    tax_rate?: number;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -86,6 +88,7 @@ export interface Database {
                     stripe_account_id?: string | null;
                     stripe_onboarding_complete?: boolean;
                     is_active?: boolean;
+                    tax_rate?: number;
                     created_at?: string;
                     updated_at?: string;
                 };
