@@ -248,7 +248,7 @@ export default function SchedulePage() {
                 <CalendarIcon className="h-12 w-12 text-orange-500 mb-4" />
                 <h2 className="text-xl font-bold mb-2">No Location Selected</h2>
                 <p className="text-slate-400 mb-6">Please select a location to view schedule.</p>
-                <button onClick={() => window.location.href = "/dashboard/locations"} className="btn-primary">
+                <button onClick={() => window.location.href = "/dashboard/locations"} className="btn btn-primary">
                     Go to Locations
                 </button>
             </div>

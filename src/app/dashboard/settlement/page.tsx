@@ -252,7 +252,7 @@ export default function SettlementPage() {
                     <button
                         onClick={exportToCSV}
                         disabled={tickets.length === 0}
-                        className="btn-primary flex items-center gap-2"
+                        className="btn btn-primary flex items-center gap-2"
                     >
                         <Download className="h-4 w-4" />
                         Export CSV
@@ -369,8 +369,8 @@ export default function SettlementPage() {
                                             </td>
                                             <td className="py-3 text-center">
                                                 <span className={`badge ${ticket.payment_status === "paid"
-                                                        ? "badge-success"
-                                                        : "badge-warning"
+                                                    ? "badge-success"
+                                                    : "badge-warning"
                                                     }`}>
                                                     {ticket.payment_status}
                                                 </span>

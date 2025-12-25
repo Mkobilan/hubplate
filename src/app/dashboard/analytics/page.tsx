@@ -397,7 +397,7 @@ export default function AnalyticsPage() {
                 <BarChart3 className="h-12 w-12 text-orange-500 mb-4" />
                 <h2 className="text-xl font-bold mb-2">No Location Selected</h2>
                 <p className="text-slate-400 mb-6">Please select a location to view analytics.</p>
-                <button onClick={() => window.location.href = "/dashboard/locations"} className="btn-primary">
+                <button onClick={() => window.location.href = "/dashboard/locations"} className="btn btn-primary">
                     Go to Locations
                 </button>
             </div>
@@ -442,7 +442,7 @@ export default function AnalyticsPage() {
                     <button
                         onClick={fetchAllData}
                         disabled={refreshing}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
+                        className="btn btn-secondary gap-2"
                     >
                         <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
                         Refresh

@@ -685,7 +685,7 @@ export default function ScheduleBuilderPage() {
                                         setNewTemplateDesc("");
                                         setIsTemplateModalOpen(true);
                                     }}
-                                    className="btn-secondary gap-2"
+                                    className="btn btn-secondary gap-2"
                                 >
                                     <Plus className="h-4 w-4" />
                                     New Template
@@ -701,7 +701,7 @@ export default function ScheduleBuilderPage() {
                                     </p>
                                     <button
                                         onClick={() => setIsTemplateModalOpen(true)}
-                                        className="btn-primary gap-2"
+                                        className="btn btn-primary gap-2"
                                     >
                                         <Plus className="h-4 w-4" />
                                         Create First Template
@@ -742,7 +742,7 @@ export default function ScheduleBuilderPage() {
                             <button
                                 onClick={() => setCurrentStep(2)}
                                 disabled={!selectedTemplate}
-                                className="btn-primary gap-2"
+                                className="btn btn-primary gap-2"
                             >
                                 Continue to Staffing Rules
                                 <ChevronRight className="h-4 w-4" />
@@ -769,7 +769,7 @@ export default function ScheduleBuilderPage() {
                                     });
                                     setIsRuleModalOpen(true);
                                 }}
-                                className="btn-primary gap-2"
+                                className="btn btn-primary gap-2"
                             >
                                 <Plus className="h-4 w-4" />
                                 Add Rule
@@ -848,7 +848,7 @@ export default function ScheduleBuilderPage() {
                         <div className="flex justify-between pt-4 border-t border-slate-800">
                             <button
                                 onClick={() => setCurrentStep(1)}
-                                className="btn-secondary gap-2"
+                                className="btn btn-secondary gap-2"
                             >
                                 <ChevronLeft className="h-4 w-4" />
                                 Back
@@ -856,7 +856,7 @@ export default function ScheduleBuilderPage() {
                             <button
                                 onClick={generateSchedule}
                                 disabled={rules.length === 0 || generating}
-                                className="btn-primary gap-2"
+                                className="btn btn-primary gap-2"
                             >
                                 {generating ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1011,7 +1011,7 @@ export default function ScheduleBuilderPage() {
                         <div className="flex justify-between pt-4 border-t border-slate-800">
                             <button
                                 onClick={() => setCurrentStep(2)}
-                                className="btn-secondary gap-2"
+                                className="btn btn-secondary gap-2"
                             >
                                 <ChevronLeft className="h-4 w-4" />
                                 Back to Edit
@@ -1019,7 +1019,7 @@ export default function ScheduleBuilderPage() {
                             <button
                                 onClick={handlePublishSchedule}
                                 disabled={saving || generatedShifts.length === 0}
-                                className="btn-primary gap-2"
+                                className="btn btn-primary gap-2"
                             >
                                 {saving ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1062,14 +1062,14 @@ export default function ScheduleBuilderPage() {
                     <div className="flex gap-3">
                         <button
                             onClick={() => setIsTemplateModalOpen(false)}
-                            className="btn-secondary flex-1"
+                            className="btn btn-secondary flex-1"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleSaveTemplate}
                             disabled={saving || !newTemplateName.trim()}
-                            className="btn-primary flex-1 gap-2"
+                            className="btn btn-primary flex-1 gap-2"
                         >
                             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             Save
@@ -1170,14 +1170,14 @@ export default function ScheduleBuilderPage() {
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setIsRuleModalOpen(false)}
-                                className="btn-secondary flex-1"
+                                className="btn btn-secondary flex-1"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSaveRule}
                                 disabled={saving}
-                                className="btn-primary flex-1 gap-2"
+                                className="btn btn-primary flex-1 gap-2"
                             >
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                                 Save Rule

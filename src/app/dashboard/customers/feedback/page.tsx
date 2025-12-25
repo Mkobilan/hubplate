@@ -125,7 +125,7 @@ export default function FeedbackPage() {
                 <p className="text-slate-400 mb-6">Please select a location to view customer feedback.</p>
                 <button
                     onClick={() => window.location.href = "/dashboard/locations"}
-                    className="btn-primary"
+                    className="btn btn-primary"
                 >
                     Go to Locations
                 </button>
@@ -183,7 +183,7 @@ export default function FeedbackPage() {
                     <input
                         type="text"
                         placeholder="Search feedback..."
-                        className="input pl-10"
+                        className="input !pl-10"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />

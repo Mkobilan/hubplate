@@ -49,7 +49,7 @@ export default function BillSplitPage() {
                 <Receipt className="h-12 w-12 text-slate-700" />
                 <h2 className="text-xl font-bold">Order Not Found</h2>
                 <p className="text-slate-500 text-sm">This order might have been closed or the ID is incorrect.</p>
-                <Link href="/dashboard/orders" className="btn-primary">Back to Orders</Link>
+                <Link href="/dashboard/orders" className="btn btn-primary">Back to Orders</Link>
             </div>
         );
     }
@@ -73,7 +73,7 @@ export default function BillSplitPage() {
                         Order #{order.id} • {formatCurrency(order.total)} total
                     </p>
                 </div>
-                <button className="btn-secondary">
+                <button className="btn btn-secondary">
                     <X className="h-4 w-4" />
                     Cancel Split
                 </button>
@@ -167,7 +167,7 @@ export default function BillSplitPage() {
                                     </div>
                                     <button
                                         onClick={() => handlePayGuest(i)}
-                                        className="btn-primary text-sm py-2"
+                                        className="btn btn-primary text-sm py-2"
                                     >
                                         Pay Now
                                     </button>
@@ -252,7 +252,7 @@ export default function BillSplitPage() {
                                         step="0.01"
                                     />
                                 </div>
-                                <button className="btn-primary text-sm py-2 whitespace-nowrap">
+                                <button className="btn btn-primary text-sm py-2 whitespace-nowrap">
                                     Pay Now
                                 </button>
                             </div>
@@ -268,7 +268,7 @@ export default function BillSplitPage() {
             {/* Back Button */}
             {splitMethod && (
                 <div className="text-center">
-                    <button onClick={() => setSplitMethod(null)} className="btn-secondary">
+                    <button onClick={() => setSplitMethod(null)} className="btn btn-secondary">
                         ← Choose Different Method
                     </button>
                 </div>
@@ -293,11 +293,11 @@ export default function BillSplitPage() {
                         <p className="text-4xl font-bold text-orange-400 mb-6">{formatCurrency(perPersonAmount)}</p>
 
                         <div className="space-y-3">
-                            <button className="btn-primary w-full py-4">
+                            <button className="btn btn-primary w-full py-4">
                                 <CreditCard className="h-5 w-5" />
                                 Pay with Card
                             </button>
-                            <button className="btn-secondary w-full py-4">
+                            <button className="btn btn-secondary w-full py-4">
                                 <Smartphone className="h-5 w-5" />
                                 Tap-to-Pay
                             </button>

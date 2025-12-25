@@ -42,7 +42,7 @@ export default function TapToPayPage() {
                         Accept contactless payments directly on your phone - no terminal required
                     </p>
                 </div>
-                <Link href="/dashboard/settings/payments" className="btn-secondary">
+                <Link href="/dashboard/settings/payments" className="btn btn-secondary">
                     ← Back to Payments
                 </Link>
             </div>
@@ -89,7 +89,7 @@ export default function TapToPayPage() {
                         <button
                             onClick={handleSetup}
                             disabled={isConnecting}
-                            className="btn-primary px-12 py-4 text-lg rounded-2xl shadow-xl shadow-orange-500/20"
+                            className="btn btn-primary px-12 py-4 text-lg rounded-2xl shadow-xl shadow-orange-500/20"
                         >
                             {isConnecting ? (
                                 <>
@@ -135,7 +135,7 @@ export default function TapToPayPage() {
                             </div>
                         </div>
 
-                        <button className="btn-secondary w-full text-sm">
+                        <button className="btn btn-secondary w-full text-sm">
                             View Transaction History
                         </button>
                     </div>

@@ -61,7 +61,7 @@ export default function AISuggestionsPage() {
                 <button
                     onClick={handleGenerate}
                     disabled={isGenerating}
-                    className="btn-primary"
+                    className="btn btn-primary"
                 >
                     {isGenerating ? (
                         <>
@@ -156,7 +156,7 @@ export default function AISuggestionsPage() {
                             </div>
                         </div>
 
-                        <button className="btn-secondary w-full group-hover:btn-primary transition-all">
+                        <button className="btn btn-secondary w-full group-hover:btn-primary transition-all">
                             Add to Menu
                             <ArrowRight className="h-4 w-4" />
                         </button>

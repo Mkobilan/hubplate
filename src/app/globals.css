@@ -56,261 +56,263 @@ html {
   /* slate-600 */
 }
 
-/* Button base styles */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 0.5rem;
-  padding: 0.625rem 1rem;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.btn:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgb(2 6 23), 0 0 0 4px rgb(249 115 22);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background-color: rgb(249 115 22);
-  /* orange-500 */
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: rgb(234 88 12);
-  /* orange-600 */
-}
-
-.btn-primary:active {
-  transform: scale(0.95);
-}
-
-.btn-secondary {
-  background-color: rgb(30 41 59);
-  /* slate-800 */
-  color: rgb(241 245 249);
-  /* slate-100 */
-}
-
-.btn-secondary:hover {
-  background-color: rgb(51 65 85);
-  /* slate-700 */
-}
-
-.btn-secondary:active {
-  transform: scale(0.95);
-}
-
-.btn-ghost {
-  background-color: transparent;
-  color: rgb(203 213 225);
-  /* slate-300 */
-}
-
-.btn-ghost:hover {
-  background-color: rgb(30 41 59);
-  /* slate-800 */
-  color: rgb(241 245 249);
-  /* slate-100 */
-}
-
-.btn-danger {
-  background-color: rgb(220 38 38);
-  /* red-600 */
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: rgb(185 28 28);
-  /* red-700 */
-}
-
-.btn-success {
-  background-color: rgb(22 163 74);
-  /* green-600 */
-  color: white;
-}
-
-.btn-success:hover {
-  background-color: rgb(21 128 61);
-  /* green-700 */
-}
-
-/* Card styles */
-.card {
-  background-color: rgba(15 23 42 / 0.5);
-  /* slate-900/50 */
-  backdrop-filter: blur(12px);
-  border: 1px solid rgb(30 41 59);
-  /* slate-800 */
-  border-radius: 0.75rem;
-  padding: 1rem;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
-}
-
-.card-interactive {
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.card-interactive:hover {
-  border-color: rgb(51 65 85);
-  /* slate-700 */
-  background-color: rgba(15 23 42 / 0.7);
-}
-
-/* Input styles */
-.input {
-  width: 100%;
-  background-color: rgb(15 23 42);
-  /* slate-900 */
-  border: 1px solid rgb(51 65 85);
-  /* slate-700 */
-  border-radius: 0.5rem;
-  padding: 0.625rem 1rem;
-  color: rgb(241 245 249);
-  /* slate-100 */
-  transition: all 0.2s;
-}
-
-.input::placeholder {
-  color: rgb(100 116 139);
-  /* slate-500 */
-}
-
-.input:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgb(249 115 22);
-  /* orange-500 */
-  border-color: transparent;
-}
-
-.input-error {
-  border-color: rgb(239 68 68);
-  /* red-500 */
-}
-
-.input-error:focus {
-  box-shadow: 0 0 0 2px rgb(239 68 68);
-}
-
-/* Label styles */
-.label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgb(203 213 225);
-  /* slate-300 */
-  margin-bottom: 0.375rem;
-}
-
-/* Badge styles */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.125rem 0.625rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.badge-success {
-  background-color: rgba(34 197 94 / 0.2);
-  color: rgb(74 222 128);
-  /* green-400 */
-}
-
-.badge-warning {
-  background-color: rgba(245 158 11 / 0.2);
-  color: rgb(251 191 36);
-  /* amber-400 */
-}
-
-.badge-danger {
-  background-color: rgba(239 68 68 / 0.2);
-  color: rgb(248 113 113);
-  /* red-400 */
-}
-
-.badge-info {
-  background-color: rgba(14 165 233 / 0.2);
-  color: rgb(56 189 248);
-  /* sky-400 */
-}
-
-/* Menu item card for POS */
-.menu-item-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  min-height: 100px;
-}
-
-.menu-item-card.is-86d {
-  opacity: 0.5;
-  cursor: not-allowed;
-  border-color: rgba(239 68 68 / 0.5);
-}
-
-/* Safe area padding for notched devices */
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 1rem);
-}
-
-.safe-top {
-  padding-top: env(safe-area-inset-top, 0);
-}
-
-/* Animation utilities */
-.animate-slide-up {
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+@layer components {
+  /* Button base styles */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-weight: 500;
+    transition: all 0.2s;
   }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+  .btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(2 6 23), 0 0 0 4px rgb(249 115 22);
   }
 
-  to {
-    opacity: 1;
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
-}
 
-/* Glass effect */
-.glass {
-  background-color: rgba(15 23 42 / 0.7);
-  backdrop-filter: blur(24px);
-}
+  .btn-primary {
+    background-color: rgb(249 115 22);
+    /* orange-500 */
+    color: white;
+  }
 
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(to right, rgb(251 146 60), rgb(251 191 36));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  .btn-primary:hover {
+    background-color: rgb(234 88 12);
+    /* orange-600 */
+  }
+
+  .btn-primary:active {
+    transform: scale(0.95);
+  }
+
+  .btn-secondary {
+    background-color: rgb(30 41 59);
+    /* slate-800 */
+    color: rgb(241 245 249);
+    /* slate-100 */
+  }
+
+  .btn-secondary:hover {
+    background-color: rgb(51 65 85);
+    /* slate-700 */
+  }
+
+  .btn-secondary:active {
+    transform: scale(0.95);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: rgb(203 213 225);
+    /* slate-300 */
+  }
+
+  .btn-ghost:hover {
+    background-color: rgb(30 41 59);
+    /* slate-800 */
+    color: rgb(241 245 249);
+    /* slate-100 */
+  }
+
+  .btn-danger {
+    background-color: rgb(220 38 38);
+    /* red-600 */
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background-color: rgb(185 28 28);
+    /* red-700 */
+  }
+
+  .btn-success {
+    background-color: rgb(22 163 74);
+    /* green-600 */
+    color: white;
+  }
+
+  .btn-success:hover {
+    background-color: rgb(21 128 61);
+    /* green-700 */
+  }
+
+  /* Card styles */
+  .card {
+    background-color: rgba(15 23 42 / 0.5);
+    /* slate-900/50 */
+    backdrop-filter: blur(12px);
+    border: 1px solid rgb(30 41 59);
+    /* slate-800 */
+    border-radius: 0.75rem;
+    padding: 1rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+  }
+
+  .card-interactive {
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .card-interactive:hover {
+    border-color: rgb(51 65 85);
+    /* slate-700 */
+    background-color: rgba(15 23 42 / 0.7);
+  }
+
+  /* Input styles */
+  .input {
+    width: 100%;
+    background-color: rgb(15 23 42);
+    /* slate-900 */
+    border: 1px solid rgb(51 65 85);
+    /* slate-700 */
+    border-radius: 0.5rem;
+    padding: 0.625rem 1rem;
+    color: rgb(241 245 249);
+    /* slate-100 */
+    transition: all 0.2s;
+  }
+
+  .input::placeholder {
+    color: rgb(100 116 139);
+    /* slate-500 */
+  }
+
+  .input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(249 115 22);
+    /* orange-500 */
+    border-color: transparent;
+  }
+
+  .input-error {
+    border-color: rgb(239 68 68);
+    /* red-500 */
+  }
+
+  .input-error:focus {
+    box-shadow: 0 0 0 2px rgb(239 68 68);
+  }
+
+  /* Label styles */
+  .label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: rgb(203 213 225);
+    /* slate-300 */
+    margin-bottom: 0.375rem;
+  }
+
+  /* Badge styles */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .badge-success {
+    background-color: rgba(34 197 94 / 0.2);
+    color: rgb(74 222 128);
+    /* green-400 */
+  }
+
+  .badge-warning {
+    background-color: rgba(245 158 11 / 0.2);
+    color: rgb(251 191 36);
+    /* amber-400 */
+  }
+
+  .badge-danger {
+    background-color: rgba(239 68 68 / 0.2);
+    color: rgb(248 113 113);
+    /* red-400 */
+  }
+
+  .badge-info {
+    background-color: rgba(14 165 233 / 0.2);
+    color: rgb(56 189 248);
+    /* sky-400 */
+  }
+
+  /* Menu item card for POS */
+  .menu-item-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    min-height: 100px;
+  }
+
+  .menu-item-card.is-86d {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: rgba(239 68 68 / 0.5);
+  }
+
+  /* Safe area padding for notched devices */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 1rem);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  /* Animation utilities */
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Glass effect */
+  .glass {
+    background-color: rgba(15 23 42 / 0.7);
+    backdrop-filter: blur(24px);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(to right, rgb(251 146 60), rgb(251 191 36));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }

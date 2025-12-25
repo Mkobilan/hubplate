@@ -387,7 +387,7 @@ export default function StaffPage() {
                 <input
                     type="text"
                     placeholder="Search by name, role, or email..."
-                    className="input pl-10"
+                    className="input !pl-10"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -869,7 +869,7 @@ export default function StaffPage() {
                         <div className="pt-4 flex gap-3">
                             <button
                                 onClick={() => setIsDetailModalOpen(false)}
-                                className="btn-secondary flex-1"
+                                className="btn btn-secondary flex-1"
                             >
                                 Done
                             </button>
@@ -933,20 +933,20 @@ export default function StaffPage() {
                         <button
                             type="button"
                             onClick={() => setIsEditEntryModalOpen(false)}
-                            className="btn-secondary flex-1"
+                            className="btn btn-secondary flex-1"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="btn-primary flex-1"
+                            className="btn btn-primary flex-1"
                         >
                             Save Entry
                         </button>
                     </div>
                 </form>
-            </Modal>
-        </div>
+            </Modal >
+        </div >
     );
 }
 

@@ -77,7 +77,7 @@ export default function InventoryPage() {
                 <AlertCircle className="h-12 w-12 text-orange-500 mb-4" />
                 <h2 className="text-xl font-bold mb-2">No Location Selected</h2>
                 <p className="text-slate-400 mb-6">Please select a location to view inventory.</p>
-                <Link href="/dashboard/locations" className="btn-primary">
+                <Link href="/dashboard/locations" className="btn btn-primary">
                     Go to Locations
                 </Link>
             </div>
@@ -120,7 +120,7 @@ export default function InventoryPage() {
                             </p>
                         </div>
                     </div>
-                    <button className="btn-primary whitespace-nowrap bg-orange-500 hover:bg-orange-600 border-none shadow-lg shadow-orange-500/20">
+                    <button className="btn btn-primary whitespace-nowrap bg-orange-500 hover:bg-orange-600 border-none shadow-lg shadow-orange-500/20">
                         Create PO
                         <ArrowRight className="h-4 w-4" />
                     </button>
@@ -135,7 +135,7 @@ export default function InventoryPage() {
                         <input
                             type="text"
                             placeholder="Search inventory..."
-                            className="input pl-10"
+                            className="input !pl-10"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />

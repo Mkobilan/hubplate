@@ -378,7 +378,7 @@ export default function ProfilePage() {
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                                         <input
                                             type="email"
-                                            className="input pl-10"
+                                            className="input !pl-10"
                                             value={profile.email}
                                             onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                                             placeholder="your@email.com"
@@ -391,7 +391,7 @@ export default function ProfilePage() {
                                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                                         <input
                                             type="tel"
-                                            className="input pl-10"
+                                            className="input !pl-10"
                                             value={profile.phone}
                                             onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                                             placeholder="(555) 000-0000"

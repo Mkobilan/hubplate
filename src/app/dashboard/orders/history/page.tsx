@@ -341,7 +341,7 @@ export default function OrderHistoryPage() {
                                         <td className="p-4 text-right">
                                             <button
                                                 onClick={() => handleViewDetails(order)}
-                                                className="btn-secondary text-xs py-1 px-3"
+                                                className="btn btn-secondary text-xs py-1 px-3"
                                             >
                                                 Details
                                             </button>
@@ -506,12 +506,12 @@ export default function OrderHistoryPage() {
                         <div className="flex gap-2 pt-2">
                             <button
                                 onClick={() => setShowDetailModal(false)}
-                                className="btn-secondary flex-1 py-1.5 text-sm"
+                                className="btn btn-secondary flex-1 py-1.5 text-sm"
                             >
                                 Close
                             </button>
                             <button
-                                className="btn-primary flex-1 gap-2 py-1.5 text-sm"
+                                className="btn btn-primary flex-1 gap-2 py-1.5 text-sm"
                                 onClick={() => window.print()}
                             >
                                 <Receipt className="h-4 w-4" />
@@ -555,7 +555,7 @@ export default function OrderHistoryPage() {
                     <div className="flex gap-3 pt-2">
                         <button
                             onClick={() => setShowCompModal(false)}
-                            className="btn-secondary flex-1 py-2"
+                            className="btn btn-secondary flex-1 py-2"
                         >
                             Cancel
                         </button>
@@ -563,7 +563,7 @@ export default function OrderHistoryPage() {
                             onClick={confirmComp}
                             disabled={!((compingItem?.id === selectedOrder?.id ? selectedOrder?.is_comped : selectedOrder?.comp_meta?.comped_items?.[compingItem?.id])) && !compReason.trim()}
                             className={cn(
-                                "flex-1 py-2 rounded-xl font-bold transition-all",
+                                "btn flex-1 py-2 rounded-xl font-bold transition-all",
                                 ((compingItem?.id === selectedOrder?.id ? selectedOrder?.is_comped : selectedOrder?.comp_meta?.comped_items?.[compingItem?.id])) ? "bg-orange-500 hover:bg-orange-600 text-white" : "btn-primary"
                             )}
                         >

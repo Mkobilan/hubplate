@@ -97,7 +97,7 @@ export default function PublicMenuPage() {
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
                             className={cn(
-                                "btn-secondary whitespace-nowrap px-6 rounded-full py-2 text-sm",
+                                "btn btn-secondary whitespace-nowrap px-6 rounded-full py-2 text-sm",
                                 selectedCategory === cat && "bg-orange-500 text-white border-orange-500"
                             )}
                         >
@@ -174,7 +174,7 @@ export default function PublicMenuPage() {
                                 <span className="text-2xl font-bold text-orange-400">{formatCurrency(cartTotal)}</span>
                             </div>
                             <button
-                                className="btn-primary w-full py-4 rounded-2xl text-lg font-bold shadow-lg shadow-orange-500/20"
+                                className="btn btn-primary w-full py-4 rounded-2xl text-lg font-bold shadow-lg shadow-orange-500/20"
                                 disabled={cart.length === 0}
                             >
                                 Place Order

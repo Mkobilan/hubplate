@@ -253,7 +253,7 @@ export default function WastePage() {
                         <input
                             type="text"
                             placeholder="Search waste logs..."
-                            className="input pl-10"
+                            className="input !pl-10"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />

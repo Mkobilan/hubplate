@@ -90,7 +90,7 @@ export default function RecommendationsPage() {
                 <button
                     onClick={handleRegenerate}
                     disabled={isGenerating}
-                    className="btn-primary"
+                    className="btn btn-primary"
                 >
                     {isGenerating ? (
                         <>

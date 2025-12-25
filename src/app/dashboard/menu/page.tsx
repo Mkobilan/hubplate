@@ -193,7 +193,7 @@ export default function MenuPage() {
                         placeholder={`${t("common.search")} menu items...`}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="input pl-10"
+                        className="input !pl-10"
                     />
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-2">
@@ -421,11 +421,11 @@ function MenuItemCard({
                 <div className="flex gap-1">
                     <button
                         onClick={() => onEdit?.()}
-                        className="btn-ghost p-2"
+                        className="btn btn-ghost p-2"
                     >
                         <Edit2 className="h-4 w-4" />
                     </button>
-                    <button className="btn-ghost p-2 hover:text-red-400">
+                    <button className="btn btn-ghost p-2 hover:text-red-400">
                         <Trash2 className="h-4 w-4" />
                     </button>
                 </div>

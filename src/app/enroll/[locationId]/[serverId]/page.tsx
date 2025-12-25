@@ -134,7 +134,7 @@ export default function EnrollmentPage() {
                     )}
                     <button
                         onClick={() => window.close()}
-                        className="btn-secondary w-full py-4 rounded-2xl font-bold"
+                        className="btn btn-secondary w-full py-4 rounded-2xl font-bold"
                     >
                         Close
                     </button>
@@ -209,7 +209,7 @@ export default function EnrollmentPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="btn-primary w-full py-4 rounded-2xl font-black text-lg shadow-xl shadow-orange-500/20 active:scale-[0.98] transition-all"
+                        className="btn btn-primary w-full py-4 rounded-2xl font-black text-lg shadow-xl shadow-orange-500/20 active:scale-[0.98] transition-all"
                     >
                         {loading ? (
                             <Loader2 className="h-6 w-6 animate-spin mx-auto" />

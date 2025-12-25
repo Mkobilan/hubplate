@@ -121,7 +121,7 @@ export default function PaymentSuccessPage() {
                                     <button
                                         onClick={handleSubmitFeedback}
                                         disabled={submitting}
-                                        className="btn-primary w-full"
+                                        className="btn btn-primary w-full"
                                     >
                                         {submitting ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />

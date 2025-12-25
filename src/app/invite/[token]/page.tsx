@@ -74,7 +74,7 @@ export default function InvitationPage() {
                     </div>
                     <button
                         onClick={() => router.push("/")}
-                        className="btn-secondary w-full"
+                        className="btn btn-secondary w-full"
                     >
                         Go to Homepage
                     </button>
@@ -141,7 +141,7 @@ export default function InvitationPage() {
 
                             <button
                                 onClick={handleJoin}
-                                className="group btn-primary w-full py-6 text-lg font-bold flex items-center justify-center gap-3 relative overflow-hidden transition-all active:scale-95"
+                                className="group btn btn-primary w-full py-6 text-lg font-bold flex items-center justify-center gap-3 relative overflow-hidden transition-all active:scale-95"
                             >
                                 <span className="relative z-10 flex items-center gap-3">
                                     Accept Invitation <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />

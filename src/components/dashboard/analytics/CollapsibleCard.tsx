@@ -57,8 +57,7 @@ export function CollapsibleCard({
                     {onExportCSV && isOpen && (
                         <button
                             onClick={onExportCSV}
-                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg 
-                                       bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                            className="btn btn-secondary flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors"
                         >
                             <Download className="h-4 w-4" />
                             {exportLabel}

@@ -188,14 +188,14 @@ export function ManageLocationModal({ isOpen, onClose, onSuccess, location }: Ma
                     <button
                         type="button"
                         onClick={onClose}
-                        className="btn-secondary flex-1"
+                        className="btn btn-secondary flex-1"
                     >
                         Cancel
                     </button>
                     <button
                         type="submit"
                         disabled={loading}
-                        className="btn-primary flex-1"
+                        className="btn btn-primary flex-1"
                     >
                         {loading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

@@ -158,7 +158,7 @@ export default function PaymentPage() {
                     <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
                     <h1 className="text-2xl font-bold text-slate-100 mb-2">Oops!</h1>
                     <p className="text-slate-400 mb-6">{error}</p>
-                    <a href="/" className="btn-primary">Go Home</a>
+                    <a href="/" className="btn btn-primary">Go Home</a>
                 </div>
             </div>
         );
@@ -212,7 +212,7 @@ export default function PaymentPage() {
                                 <button
                                     onClick={handleLoyaltyCheckIn}
                                     disabled={checkingLoyalty || !loyaltyPhone}
-                                    className="btn-secondary py-2 px-4 text-sm"
+                                    className="btn btn-secondary py-2 px-4 text-sm"
                                 >
                                     {checkingLoyalty ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check In"}
                                 </button>
@@ -534,7 +534,7 @@ function PaymentForm({ orderId, locationId, total, reward, discountAmount, custo
             <button
                 type="submit"
                 disabled={!stripe || loading}
-                className="btn-primary w-full py-4 text-lg font-bold"
+                className="btn btn-primary w-full py-4 text-lg font-bold"
             >
                 {loading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />

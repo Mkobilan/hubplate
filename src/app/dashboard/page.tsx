@@ -128,7 +128,7 @@ export default function DashboardPage() {
                 <p className="text-slate-400 mb-6">Please select a location to view the dashboard.</p>
                 <button
                     onClick={() => window.location.href = "/dashboard/locations"}
-                    className="btn-primary"
+                    className="btn btn-primary"
                 >
                     Go to Locations
                 </button>
@@ -207,7 +207,7 @@ export default function DashboardPage() {
 
                     <button
                         onClick={() => window.location.href = "/dashboard/orders/history"}
-                        className="btn-ghost w-full mt-4 text-sm"
+                        className="btn btn-ghost w-full mt-4 text-sm"
                     >
                         View All Orders →
                     </button>

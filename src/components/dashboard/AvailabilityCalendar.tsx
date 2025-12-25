@@ -271,7 +271,7 @@ export function AvailabilityCalendar() {
                                         <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                                         <input
                                             type="time"
-                                            className="input pl-10"
+                                            className="input !pl-10"
                                             value={startTime}
                                             onChange={(e) => setStartTime(e.target.value)}
                                         />
@@ -283,7 +283,7 @@ export function AvailabilityCalendar() {
                                         <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                                         <input
                                             type="time"
-                                            className="input pl-10"
+                                            className="input !pl-10"
                                             value={endTime}
                                             onChange={(e) => setEndTime(e.target.value)}
                                         />

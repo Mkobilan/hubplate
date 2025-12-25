@@ -130,7 +130,7 @@ export default function IntegrationsPage() {
                         ) : (
                             <button
                                 onClick={() => setShowConnectModal(integration.id)}
-                                className="btn-secondary w-full text-sm"
+                                className="btn btn-secondary w-full text-sm"
                             >
                                 Connect
                                 <ChevronRight className="h-4 w-4" />
@@ -147,7 +147,7 @@ export default function IntegrationsPage() {
                 <p className="text-sm text-slate-500 mb-4 max-w-md mx-auto">
                     We&apos;re constantly adding new integrations. Let us know what you need!
                 </p>
-                <button className="btn-secondary">
+                <button className="btn btn-secondary">
                     Request Integration
                 </button>
             </div>
@@ -171,7 +171,7 @@ export default function IntegrationsPage() {
                                     <span className="text-5xl mb-4 block">{integration.logo}</span>
                                     <h2 className="text-2xl font-bold mb-2">Connect {integration.name}</h2>
                                     <p className="text-slate-400 mb-6">{integration.description}</p>
-                                    <button className="btn-primary w-full py-3">
+                                    <button className="btn btn-primary w-full py-3">
                                         <ExternalLink className="h-4 w-4" />
                                         Authorize {integration.name}
                                     </button>

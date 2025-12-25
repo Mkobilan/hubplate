@@ -281,7 +281,7 @@ export default function ServerSettlement() {
             {/* View Full Settlement Link */}
             <Link
                 href="/dashboard/settlement"
-                className="btn-ghost w-full mt-4 text-sm text-center block"
+                className="btn btn-ghost w-full mt-4 text-sm text-center block"
             >
                 View Full Settlement →
             </Link>

@@ -66,7 +66,7 @@ export default function PaymentsPage() {
                     <div className="pt-8 flex flex-col items-center gap-4">
                         <button
                             onClick={() => setIsOnboarded(true)}
-                            className="btn-primary px-12 py-4 text-lg rounded-2xl shadow-xl shadow-orange-500/20"
+                            className="btn btn-primary px-12 py-4 text-lg rounded-2xl shadow-xl shadow-orange-500/20"
                         >
                             Start Onboarding with Stripe
                             <ArrowRight className="ml-2 w-5 h-5" />
@@ -88,7 +88,7 @@ export default function PaymentsPage() {
                             <p className="text-sm text-slate-400 mb-6">
                                 Your account is fully verified and ready to accept payments.
                             </p>
-                            <button className="btn-secondary w-full text-xs py-2">View Stripe Dashboard</button>
+                            <button className="btn btn-secondary w-full text-xs py-2">View Stripe Dashboard</button>
                         </div>
 
                         <div className="card">

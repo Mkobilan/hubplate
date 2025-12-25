@@ -79,7 +79,7 @@ export default function IngredientLinkerPage() {
                         <input
                             type="text"
                             placeholder="Search inventory items..."
-                            className="input pl-10"
+                            className="input !pl-10"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -160,7 +160,7 @@ export default function IngredientLinkerPage() {
                                         </p>
                                     </div>
                                     {selectedItem && (
-                                        <button className="btn-secondary text-xs py-1 px-3">
+                                        <button className="btn btn-secondary text-xs py-1 px-3">
                                             <Plus className="h-3 w-3" />
                                             Link
                                         </button>

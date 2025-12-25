@@ -116,7 +116,7 @@ export default function MarketingPage() {
                         Create and manage email, SMS, and push notification campaigns
                     </p>
                 </div>
-                <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+                <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
                     <Plus className="h-4 w-4" />
                     New Campaign
                 </button>
@@ -295,10 +295,10 @@ export default function MarketingPage() {
                                 </select>
                             </div>
                             <div className="flex gap-2 pt-4">
-                                <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary flex-1">
+                                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary flex-1">
                                     Cancel
                                 </button>
-                                <button type="submit" className="btn-primary flex-1">
+                                <button type="submit" className="btn btn-primary flex-1">
                                     <Send className="h-4 w-4" />
                                     Send Now
                                 </button>

@@ -75,7 +75,7 @@ export default function HappyHourPage() {
                 </div>
                 <button
                     onClick={() => setShowAddModal(true)}
-                    className="btn-primary"
+                    className="btn btn-primary"
                 >
                     <Plus className="h-4 w-4" />
                     Create Rule
@@ -142,7 +142,7 @@ export default function HappyHourPage() {
                     </p>
                     <button
                         onClick={() => setShowAddModal(true)}
-                        className="btn-primary mt-6"
+                        className="btn btn-primary mt-6"
                     >
                         <Plus className="h-4 w-4" />
                         Create First Rule
@@ -218,11 +218,11 @@ export default function HappyHourPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowAddModal(false)}
-                                    className="btn-secondary flex-1"
+                                    className="btn btn-secondary flex-1"
                                 >
                                     Cancel
                                 </button>
-                                <button type="submit" className="btn-primary flex-1">
+                                <button type="submit" className="btn btn-primary flex-1">
                                     <Save className="h-4 w-4" />
                                     Save Rule
                                 </button>

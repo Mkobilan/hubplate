@@ -45,10 +45,10 @@ export default function TerminalsPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Link href="/dashboard/settings/payments" className="btn-secondary">
+                    <Link href="/dashboard/settings/payments" className="btn btn-secondary">
                         ← Back
                     </Link>
-                    <button onClick={handleDiscover} disabled={isDiscovering} className="btn-primary">
+                    <button onClick={handleDiscover} disabled={isDiscovering} className="btn btn-primary">
                         {isDiscovering ? (
                             <>
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -148,7 +148,7 @@ export default function TerminalsPage() {
                 <p className="text-sm text-slate-500 mb-4 max-w-md mx-auto">
                     Connect a new Stripe Terminal reader to accept in-person payments at your location.
                 </p>
-                <button className="btn-secondary">
+                <button className="btn btn-secondary">
                     Order a Reader
                     <ChevronRight className="h-4 w-4" />
                 </button>

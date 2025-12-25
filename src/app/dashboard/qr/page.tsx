@@ -58,11 +58,11 @@ export default function QRPage() {
                         </p>
 
                         <div className="flex flex-wrap gap-4 justify-center w-full">
-                            <button className="btn-primary px-8">
+                            <button className="btn btn-primary px-8">
                                 <Download className="h-4 w-4" />
                                 Download PNG
                             </button>
-                            <button className="btn-secondary px-8">
+                            <button className="btn btn-secondary px-8">
                                 <Download className="h-4 w-4" />
                                 Download PDF
                             </button>
@@ -78,13 +78,13 @@ export default function QRPage() {
                             <button
                                 onClick={handleCopy}
                                 className={cn(
-                                    "btn-secondary px-4 transition-all",
+                                    "btn btn-secondary px-4 transition-all",
                                     copied && "bg-green-500/20 text-green-400 border-green-500/50"
                                 )}
                             >
                                 {copied ? "Copied!" : <Copy className="h-4 w-4" />}
                             </button>
-                            <button className="btn-secondary px-4">
+                            <button className="btn btn-secondary px-4">
                                 <ExternalLink className="h-4 w-4" />
                             </button>
                         </div>
