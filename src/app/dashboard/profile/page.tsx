@@ -19,7 +19,8 @@ import {
     Edit2,
     Key,
     Lock,
-    Activity
+    Activity,
+    RefreshCw,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useAppStore } from "@/stores";
@@ -28,6 +29,9 @@ import { ClockInOut } from "@/components/dashboard/clock-in";
 import { format, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import { AvailabilityCalendar } from "@/components/dashboard/AvailabilityCalendar";
 import { HoursWorkedModal } from "@/components/dashboard/HoursWorkedModal";
+import { ShiftSwapsModal } from "@/components/dashboard/ShiftSwapsModal";
+import { ShiftDetailsModal } from "@/components/dashboard/ShiftDetailsModal";
+import { Gift, ListCheck } from "lucide-react";
 
 
 export default function ProfilePage() {
@@ -58,6 +62,17 @@ export default function ProfilePage() {
     const [shifts, setShifts] = useState<any[]>([]);
 
     const [selectedWeek, setSelectedWeek] = useState(new Date());
+
+    // Shift swap modals
+    const [isShiftSwapsModalOpen, setIsShiftSwapsModalOpen] = useState(false);
+    const [isShiftDetailsModalOpen, setIsShiftDetailsModalOpen] = useState(false);
+    const [selectedShiftForDetails, setSelectedShiftForDetails] = useState<any>(null);
+    const [pendingSwapRequestCount, setPendingSwapRequestCount] = useState(0);
+
+    // Multi-select state
+    const [isMultiSelect, setIsMultiSelect] = useState(false);
+    const [selectedShiftIds, setSelectedShiftIds] = useState<string[]>([]);
+    const [bulkOffering, setBulkOffering] = useState(false);
 
     const fetchProfileData = async () => {
         try {
@@ -142,6 +157,24 @@ export default function ProfilePage() {
 
             if (shiftError) throw shiftError;
             setShifts(shiftData || []);
+
+            // 4. Fetch pending shift swap requests targeting this employee
+            const { data: swapRequests } = await (supabase as any)
+                .from("shift_swap_requests")
+                .select("id")
+                .eq("target_employee_id", employeeId)
+                .eq("status", "pending");
+
+            // Also count open offers (not from this employee)
+            const { data: openOffers } = await (supabase as any)
+                .from("shift_swap_requests")
+                .select("id")
+                .eq("request_type", "open_offer")
+                .eq("status", "pending")
+                .neq("requester_id", employeeId)
+                .eq("organization_id", organizationId);
+
+            setPendingSwapRequestCount((swapRequests?.length || 0) + (openOffers?.length || 0));
 
         } catch (err) {
             console.error("Error fetching profile data:", err);
@@ -239,6 +272,51 @@ export default function ProfilePage() {
 
 
 
+    const handleBulkOffer = async () => {
+        if (selectedShiftIds.length === 0) return;
+
+        try {
+            setBulkOffering(true);
+            const supabase = createClient();
+            const orgId = (currentEmployeeFromStore as any)?.organization_id;
+
+            // Insert each shift request
+            const requests = selectedShiftIds.map(shiftId => ({
+                organization_id: orgId,
+                location_id: currentLocation?.id,
+                shift_id: shiftId,
+                requester_id: currentEmployeeFromStore?.id,
+                target_employee_id: null,
+                request_type: "open_offer",
+                status: "pending",
+            }));
+
+            const { error } = await supabase.from("shift_swap_requests").insert(requests);
+
+            if (error) throw error;
+
+            setStatus("success");
+            setMessage(`Successfully offered up ${selectedShiftIds.length} shifts!`);
+            setSelectedShiftIds([]);
+            setIsMultiSelect(false);
+            fetchProfileData();
+            setTimeout(() => setStatus("idle"), 3000);
+        } catch (err) {
+            console.error("Error in bulk offer:", err);
+            setStatus("error");
+            setMessage("Failed to offer up selected shifts.");
+        } finally {
+            setBulkOffering(false);
+        }
+    };
+
+    const toggleShiftSelection = (shiftId: string) => {
+        setSelectedShiftIds(prev =>
+            prev.includes(shiftId)
+                ? prev.filter(id => id !== shiftId)
+                : [...prev, shiftId]
+        );
+    };
     if (loading && !profile.first_name) {
         return (
             <div className="flex items-center justify-center py-20">
@@ -369,6 +447,33 @@ export default function ProfilePage() {
                         )}
                     </div>
 
+                    {/* Shift Swaps Button */}
+                    <div className="card space-y-4 p-6 bg-slate-900/50 rounded-2xl border border-slate-700">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-500/10 rounded-xl">
+                                    <RefreshCw className="h-6 w-6 text-blue-500" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">Shift Swaps</h3>
+                                    <p className="text-xs text-slate-400">Manage coverage requests</p>
+                                </div>
+                            </div>
+                            {pendingSwapRequestCount > 0 && (
+                                <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse">
+                                    {pendingSwapRequestCount} New
+                                </span>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setIsShiftSwapsModalOpen(true)}
+                            className="btn btn-primary w-full gap-2"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                            View Shift Swaps
+                        </button>
+                    </div>
+
                     {/* Staff PIN Access */}
                     <div className="card flex flex-col items-center justify-center p-8 bg-slate-900/50 rounded-2xl border border-dashed border-slate-700">
                         <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-4">
@@ -434,6 +539,43 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
+                {/* Multi-select Toggle */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-slate-900/30 rounded-2xl border border-slate-800/50">
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => {
+                                setIsMultiSelect(!isMultiSelect);
+                                if (isMultiSelect) setSelectedShiftIds([]);
+                            }}
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all text-sm font-medium",
+                                isMultiSelect
+                                    ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
+                                    : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                            )}
+                        >
+                            <ListCheck className="h-4 w-4" />
+                            {isMultiSelect ? "Cancel Multi-Select" : "Multi-Select Shifts"}
+                        </button>
+                        {isMultiSelect && (
+                            <p className="text-xs text-slate-500 animate-in fade-in slide-in-from-left-2">
+                                {selectedShiftIds.length} shift(s) selected
+                            </p>
+                        )}
+                    </div>
+
+                    {isMultiSelect && selectedShiftIds.length > 0 && (
+                        <button
+                            onClick={handleBulkOffer}
+                            disabled={bulkOffering}
+                            className="btn btn-primary gap-2 animate-in zoom-in-95"
+                        >
+                            {bulkOffering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
+                            Offer Up {selectedShiftIds.length} Shift{selectedShiftIds.length > 1 ? "s" : ""}
+                        </button>
+                    )}
+                </div>
+
                 {/* Weekly Shifts Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
                     {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
@@ -459,12 +601,41 @@ export default function ProfilePage() {
                                 <div className="p-2 space-y-2 flex-1">
                                     {dayShifts.length > 0 ? (
                                         dayShifts.map((shift, i) => (
-                                            <div key={i} className="p-2 bg-slate-800 rounded-lg border border-slate-700">
-                                                <p className="text-[10px] font-bold text-orange-400">
-                                                    {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
+                                            <button
+                                                key={i}
+                                                onClick={() => {
+                                                    if (isMultiSelect) {
+                                                        toggleShiftSelection(shift.id);
+                                                    } else {
+                                                        setSelectedShiftForDetails(shift);
+                                                        setIsShiftDetailsModalOpen(true);
+                                                    }
+                                                }}
+                                                className={cn(
+                                                    "w-full text-left p-2 rounded-lg border transition-all group relative",
+                                                    selectedShiftIds.includes(shift.id)
+                                                        ? "bg-orange-500/20 border-orange-500 ring-1 ring-orange-500"
+                                                        : "bg-slate-800 border-slate-700 hover:border-orange-500/50"
+                                                )}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <p className={cn(
+                                                        "text-[10px] font-bold",
+                                                        selectedShiftIds.includes(shift.id) ? "text-white" : "text-orange-400 group-hover:text-orange-300"
+                                                    )}>
+                                                        {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
+                                                    </p>
+                                                    {selectedShiftIds.includes(shift.id) && (
+                                                        <Check className="h-3 w-3 text-white" />
+                                                    )}
+                                                </div>
+                                                <p className={cn(
+                                                    "text-[9px] truncate uppercase mt-0.5",
+                                                    selectedShiftIds.includes(shift.id) ? "text-orange-200" : "text-slate-400"
+                                                )}>
+                                                    {shift.role || "Shift"}
                                                 </p>
-                                                <p className="text-[9px] text-slate-400 truncate uppercase mt-0.5">{shift.role || "Shift"}</p>
-                                            </div>
+                                            </button>
                                         ))
                                     ) : (
                                         <div className="h-full flex items-center justify-center">
@@ -598,6 +769,21 @@ export default function ProfilePage() {
                 isOpen={isHoursModalOpen}
                 onClose={() => setIsHoursModalOpen(false)}
                 employeeId={currentEmployeeFromStore?.id || ""}
+            />
+
+            {/* Shift Swap Modal */}
+            <ShiftSwapsModal
+                isOpen={isShiftSwapsModalOpen}
+                onClose={() => setIsShiftSwapsModalOpen(false)}
+                onRequestHandled={() => fetchProfileData()}
+            />
+
+            {/* Shift Details Modal */}
+            <ShiftDetailsModal
+                isOpen={isShiftDetailsModalOpen}
+                onClose={() => setIsShiftDetailsModalOpen(false)}
+                shift={selectedShiftForDetails}
+                onOfferUp={() => fetchProfileData()}
             />
         </div>
     );

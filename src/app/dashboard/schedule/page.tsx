@@ -14,11 +14,12 @@ import {
     AlertCircle,
     Check,
     Wand2,
+    Edit2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
 // Type definitions for Supabase integration
-type StaffMember = { id: string; first_name: string; last_name: string; role: string; color: string };
+type StaffMember = { id: string; first_name: string; last_name: string; role: string; color: string; secondary_roles?: string[] };
 type Shift = { id: string; staffId: string; day: number; start: string; end: string; role: string };
 
 import { useEffect } from "react";
@@ -27,6 +28,7 @@ import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { startOfWeek, endOfWeek, addDays, format, parseISO } from "date-fns";
 import { Modal } from "@/components/ui/modal";
+import { ShiftRequestModal } from "@/components/dashboard/ShiftRequestModal";
 
 export default function SchedulePage() {
     const { t } = useTranslation();
@@ -62,6 +64,14 @@ export default function SchedulePage() {
     const [selectedShift, setSelectedShift] = useState<any>(null);
     const [editStatus, setEditStatus] = useState<"idle" | "success" | "error">("idle");
     const [editMessage, setEditMessage] = useState("");
+
+    // Shift Request Modal State (for employees to request coverage)
+    const [isShiftRequestModalOpen, setIsShiftRequestModalOpen] = useState(false);
+    const [shiftRequestTarget, setShiftRequestTarget] = useState<{
+        targetEmployee: any;
+        targetDate: string;
+        targetShift: any | null;
+    } | null>(null);
 
     const fetchData = async () => {
         if (!currentLocation) return;
@@ -368,36 +378,57 @@ export default function SchedulePage() {
                                     {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
                                         const currentDay = addDays(weekStart, dayIdx);
                                         const currentDayStr = format(currentDay, 'yyyy-MM-dd');
-                                        const shift = shifts.find(s =>
+                                        const dayShifts = shifts.filter(s =>
                                             s.employee_id === person.id &&
                                             s.date === currentDayStr
                                         );
                                         return (
-                                            <div key={dayIdx} className="p-2 border-r border-slate-800 last:border-0 relative min-h-[100px] hover:bg-slate-800/20 transition-colors">
-                                                {shift ? (
-                                                    <div className={cn(
-                                                        "p-2 rounded-lg text-[10px] h-full flex flex-col justify-between border",
-                                                        (person.color || "bg-orange-500").replace('bg-', 'border-').replace('-500', '-500/30'),
-                                                        (person.color || "bg-orange-500").replace('bg-', 'bg-').replace('-500', '-500/10')
-                                                    )}>
-                                                        <div className="font-bold flex items-center justify-between">
-                                                            <span>{shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}</span>
-                                                        </div>
-                                                        <div className="text-slate-400 mt-1">{shift.role}</div>
-                                                        {isManagerOrOwner && (
-                                                            <div className="mt-2 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <Edit2
-                                                                    onClick={(e: any) => {
-                                                                        e.stopPropagation();
-                                                                        setSelectedShift(shift);
-                                                                        setIsEditModalOpen(true);
-                                                                    }}
-                                                                    className="w-3 h-3 text-slate-500 hover:text-white cursor-pointer"
-                                                                />
+                                            <div key={dayIdx} className="p-2 border-r border-slate-800 last:border-0 relative min-h-[100px] hover:bg-slate-800/20 transition-colors group/cell">
+                                                <div className="space-y-2">
+                                                    {dayShifts.map((shift) => (
+                                                        <div
+                                                            key={shift.id}
+                                                            className={cn(
+                                                                "p-2 rounded-lg text-[10px] flex flex-col justify-between border",
+                                                                (person.color || "bg-orange-500").replace('bg-', 'border-').replace('-500', '-500/30'),
+                                                                (person.color || "bg-orange-500").replace('bg-', 'bg-').replace('-500', '-500/10')
+                                                            )}
+                                                        >
+                                                            <div className="font-bold flex items-center justify-between">
+                                                                <span>{shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}</span>
+                                                                {isManagerOrOwner ? (
+                                                                    <Edit2
+                                                                        onClick={(e: any) => {
+                                                                            e.stopPropagation();
+                                                                            setSelectedShift(shift);
+                                                                            setIsEditModalOpen(true);
+                                                                        }}
+                                                                        className="w-3 h-3 text-slate-500 hover:text-white cursor-pointer"
+                                                                    />
+                                                                ) : person.id !== currentEmployee?.id && (
+                                                                    <button
+                                                                        onClick={(e: any) => {
+                                                                            e.stopPropagation();
+                                                                            setShiftRequestTarget({
+                                                                                targetEmployee: person,
+                                                                                targetDate: currentDayStr,
+                                                                                targetShift: shift,
+                                                                            });
+                                                                            setIsShiftRequestModalOpen(true);
+                                                                        }}
+                                                                        className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded border border-blue-500/30 hover:bg-blue-500/30 transition-colors ml-1"
+                                                                    >
+                                                                        Swap
+                                                                    </button>
+                                                                )}
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                ) : isManagerOrOwner ? (
+                                                            <div className="text-slate-400 mt-1">{shift.role}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Add Shift Button (Hover) */}
+                                                {isManagerOrOwner ? (
                                                     <button
                                                         onClick={() => {
                                                             setNewShift({
@@ -408,11 +439,25 @@ export default function SchedulePage() {
                                                             });
                                                             setIsAddModalOpen(true);
                                                         }}
-                                                        className="absolute inset-0 w-full h-full opacity-0 hover:opacity-100 flex items-center justify-center"
+                                                        className="absolute bottom-1 right-1 p-1 rounded-full bg-slate-800 border border-slate-700 opacity-0 group-hover/cell:opacity-100 transition-opacity hover:bg-orange-500 hover:border-orange-600 group/add"
                                                     >
-                                                        <Plus className="w-4 h-4 text-slate-600" />
+                                                        <Plus className="w-3 h-3 text-slate-400 group-hover/add:text-white" />
                                                     </button>
-                                                ) : null}
+                                                ) : person.id !== currentEmployee?.id && dayShifts.length === 0 && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setShiftRequestTarget({
+                                                                targetEmployee: person,
+                                                                targetDate: currentDayStr,
+                                                                targetShift: null,
+                                                            });
+                                                            setIsShiftRequestModalOpen(true);
+                                                        }}
+                                                        className="absolute inset-0 w-full h-full opacity-0 hover:opacity-100 flex items-center justify-center bg-blue-500/5 transition-opacity"
+                                                    >
+                                                        <span className="text-[10px] text-blue-400 font-medium">Ask for Coverage</span>
+                                                    </button>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -648,26 +693,20 @@ export default function SchedulePage() {
                     </form>
                 )}
             </Modal>
-        </div>
-    );
-}
 
-function Edit2(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-            <path d="m15 5 4 4" />
-        </svg>
+            {/* Shift Request Modal (for employees) */}
+            <ShiftRequestModal
+                isOpen={isShiftRequestModalOpen}
+                onClose={() => {
+                    setIsShiftRequestModalOpen(false);
+                    setShiftRequestTarget(null);
+                }}
+                targetEmployee={shiftRequestTarget?.targetEmployee || null}
+                targetDate={shiftRequestTarget?.targetDate || ""}
+                targetShift={shiftRequestTarget?.targetShift || null}
+                allShifts={shifts}
+                onSuccess={() => fetchData()}
+            />
+        </div>
     );
 }
