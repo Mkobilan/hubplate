@@ -95,7 +95,7 @@ export default function LocationsPage() {
                 </div>
                 <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="btn-primary"
+                    className="btn btn-primary"
                 >
                     <Plus className="h-4 w-4" />
                     Add Location
@@ -160,12 +160,12 @@ export default function LocationsPage() {
                                     {currentLocation?.id !== location.id ? (
                                         <button
                                             onClick={() => setCurrentLocation(location)}
-                                            className="btn-primary text-sm py-2"
+                                            className="btn btn-primary text-sm py-2"
                                         >
                                             Switch to this Location
                                         </button>
                                     ) : (
-                                        <button className="btn-secondary text-sm py-2 opacity-50 cursor-default" disabled>
+                                        <button className="btn btn-secondary text-sm py-2 opacity-50 cursor-default" disabled>
                                             <Check className="h-4 w-4 text-green-400" />
                                             Active
                                         </button>
@@ -175,7 +175,7 @@ export default function LocationsPage() {
                                             setSelectedLocationForManage(location);
                                             setIsManageModalOpen(true);
                                         }}
-                                        className="btn-secondary text-sm py-2"
+                                        className="btn btn-secondary text-sm py-2"
                                     >
                                         <Settings className="h-4 w-4" />
                                         Manage
@@ -209,7 +209,7 @@ export default function LocationsPage() {
                 </p>
                 <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="btn-primary px-8"
+                    className="btn btn-primary px-8"
                 >
                     Get Started
                     <ChevronRight className="h-4 w-4" />

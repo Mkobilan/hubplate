@@ -325,14 +325,14 @@ export default function ProfilePage() {
                                     <button
                                         type="button"
                                         onClick={() => setIsEditing(false)}
-                                        className="btn-secondary flex-1"
+                                        className="btn btn-secondary flex-1"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={saving}
-                                        className="btn-primary flex-1 gap-2"
+                                        className="btn btn-primary flex-1 gap-2"
                                     >
                                         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                                         Save
@@ -380,7 +380,7 @@ export default function ProfilePage() {
                         </p>
                         <button
                             onClick={() => setIsPinModalOpen(true)}
-                            className="btn-secondary gap-2 px-8 w-full"
+                            className="btn btn-secondary gap-2 px-8 w-full"
                         >
                             <Key className="h-4 w-4" />
                             {currentEmployeeFromStore?.pin_code ? "Reset Staff PIN" : "Set Staff PIN"}
@@ -575,14 +575,14 @@ export default function ProfilePage() {
                                     <button
                                         type="button"
                                         onClick={() => setIsPinModalOpen(false)}
-                                        className="btn-secondary flex-1"
+                                        className="btn btn-secondary flex-1"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={saving || newPin.length !== 4}
-                                        className="btn-primary flex-1 gap-2"
+                                        className="btn btn-primary flex-1 gap-2"
                                     >
                                         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                                         Save PIN

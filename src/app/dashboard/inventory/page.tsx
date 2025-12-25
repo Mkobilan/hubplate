@@ -94,11 +94,11 @@ export default function InventoryPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <button className="btn-secondary" onClick={fetchInventory}>
+                    <button className="btn btn-secondary" onClick={fetchInventory}>
                         <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                         Refresh
                     </button>
-                    <button className="btn-primary">
+                    <button className="btn btn-primary">
                         <Plus className="h-4 w-4" />
                         Add Item
                     </button>

@@ -175,7 +175,7 @@ export default function CustomersPage() {
             <div className="flex justify-end">
                 <button
                     onClick={() => setShowAddModal(true)}
-                    className="btn-primary"
+                    className="btn btn-primary"
                 >
                     <Plus className="h-4 w-4" />
                     Add Customer

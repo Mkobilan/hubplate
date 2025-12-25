@@ -278,7 +278,7 @@ export default function LoyaltyPage() {
                 </div>
                 <button
                     onClick={() => setShowSettingsModal(true)}
-                    className="btn-primary"
+                    className="btn btn-primary"
                 >
                     <Settings className="h-4 w-4" />
                     Program Settings
@@ -375,7 +375,7 @@ export default function LoyaltyPage() {
                                 setRewardType("free_item");
                                 setShowRewardModal(true);
                             }}
-                            className="btn-secondary text-xs py-1"
+                            className="btn btn-secondary text-xs py-1"
                         >
                             <Plus className="h-3 w-3" />
                             Add Reward
@@ -443,7 +443,7 @@ export default function LoyaltyPage() {
                     </div>
                     <button
                         onClick={() => setShowRateModal(true)}
-                        className="btn-secondary"
+                        className="btn btn-secondary"
                     >
                         Adjust Rate
                     </button>
@@ -485,10 +485,10 @@ export default function LoyaltyPage() {
                                 </p>
                             </div>
                             <div className="flex gap-2 pt-4">
-                                <button type="button" onClick={() => setShowRateModal(false)} className="btn-secondary flex-1">
+                                <button type="button" onClick={() => setShowRateModal(false)} className="btn btn-secondary flex-1">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={savingRate} className="btn-primary flex-1">
+                                <button type="submit" disabled={savingRate} className="btn btn-primary flex-1">
                                     {savingRate ? "Saving..." : "Save Rate"}
                                 </button>
                             </div>
@@ -580,10 +580,10 @@ export default function LoyaltyPage() {
                                 />
                             </div>
                             <div className="flex gap-2 pt-4">
-                                <button type="button" onClick={() => setShowRewardModal(false)} className="btn-secondary flex-1">
+                                <button type="button" onClick={() => setShowRewardModal(false)} className="btn btn-secondary flex-1">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={savingReward} className="btn-primary flex-1">
+                                <button type="submit" disabled={savingReward} className="btn btn-primary flex-1">
                                     {savingReward ? "Saving..." : editingReward ? "Update Reward" : "Add Reward"}
                                 </button>
                             </div>
@@ -636,10 +636,10 @@ export default function LoyaltyPage() {
                                 />
                             </div>
                             <div className="flex gap-2 pt-4">
-                                <button type="button" onClick={() => setShowTierModal(false)} className="btn-secondary flex-1">
+                                <button type="button" onClick={() => setShowTierModal(false)} className="btn btn-secondary flex-1">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={savingTier} className="btn-primary flex-1">
+                                <button type="submit" disabled={savingTier} className="btn btn-primary flex-1">
                                     {savingTier ? "Saving..." : editingTier ? "Update Tier" : "Create Tier"}
                                 </button>
                             </div>
@@ -671,10 +671,10 @@ export default function LoyaltyPage() {
                                 />
                             </div>
                             <div className="flex gap-2 pt-4">
-                                <button type="button" onClick={() => setShowSettingsModal(false)} className="btn-secondary flex-1">
+                                <button type="button" onClick={() => setShowSettingsModal(false)} className="btn btn-secondary flex-1">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={savingSettings} className="btn-primary flex-1">
+                                <button type="submit" disabled={savingSettings} className="btn btn-primary flex-1">
                                     {savingSettings ? "Saving..." : "Save Settings"}
                                 </button>
                             </div>

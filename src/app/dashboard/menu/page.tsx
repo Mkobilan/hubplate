@@ -122,14 +122,14 @@ export default function MenuPage() {
                 <div className="flex gap-2">
                     <Link
                         href="/dashboard/menu/happy-hour"
-                        className="btn-secondary"
+                        className="btn btn-secondary"
                     >
                         <Clock className="h-4 w-4" />
                         {t("menu.happyHour")}
                     </Link>
                     <button
                         onClick={() => setShowScanModal(true)}
-                        className="btn-secondary"
+                        className="btn btn-secondary"
                     >
                         <Camera className="h-4 w-4" />
                         {t("menu.scanMenu")}
@@ -160,7 +160,7 @@ export default function MenuPage() {
                     )}
                     <button
                         onClick={() => setShowAddModal(true)}
-                        className="btn-primary"
+                        className="btn btn-primary"
                     >
                         <Plus className="h-4 w-4" />
                         {t("menu.addItem")}

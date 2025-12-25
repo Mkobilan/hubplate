@@ -376,7 +376,7 @@ export function AvailabilityCalendar() {
                     <div className="flex gap-3">
                         <button
                             onClick={() => setIsModalOpen(false)}
-                            className="btn-secondary flex-1"
+                            className="btn btn-secondary flex-1"
                             disabled={saving}
                         >
                             Cancel
@@ -384,7 +384,7 @@ export function AvailabilityCalendar() {
                         <button
                             onClick={handleSave}
                             disabled={saving}
-                            className="btn-primary flex-1 gap-2"
+                            className="btn btn-primary flex-1 gap-2"
                         >
                             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                             Save Changes

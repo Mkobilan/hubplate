@@ -332,9 +332,11 @@ export default function StaffPage() {
                 <Users className="h-12 w-12 text-orange-500 mb-4" />
                 <h2 className="text-xl font-bold mb-2">No Location Selected</h2>
                 <p className="text-slate-400 mb-6">Please select a location to view staff.</p>
-                <button onClick={() => window.location.href = "/dashboard/locations"} className="btn-primary">
-                    Go to Locations
-                </button>
+                <div className="flex gap-2">
+                    <button onClick={() => window.location.href = "/dashboard/locations"} className="btn btn-primary">
+                        Go to Locations
+                    </button>
+                </div>
             </div>
         );
     }
@@ -348,7 +350,7 @@ export default function StaffPage() {
                         {currentLocation.name} - Manage your team and track performance
                     </p>
                 </div>
-                <button onClick={() => setShowAddModal(true)} className="btn-primary">
+                <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
                     <UserPlus className="h-4 w-4" />
                     Add Employee
                 </button>
@@ -567,14 +569,14 @@ export default function StaffPage() {
                                     <button
                                         type="button"
                                         onClick={() => setShowAddModal(false)}
-                                        className="btn-secondary flex-1"
+                                        className="btn btn-secondary flex-1"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={inviteLoading}
-                                        className="btn-primary flex-1 gap-2"
+                                        className="btn btn-primary flex-1 gap-2"
                                     >
                                         {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                                         Generate Invite Link
@@ -596,7 +598,7 @@ export default function StaffPage() {
                                         </div>
                                         <button
                                             onClick={() => copyToClipboard(inviteLink)}
-                                            className="btn-secondary px-4 hover:bg-orange-500/20 hover:text-orange-400"
+                                            className="btn btn-secondary px-4 hover:bg-orange-500/20 hover:text-orange-400"
                                             title="Copy link"
                                         >
                                             <Copy className="h-5 w-5" />
@@ -616,7 +618,7 @@ export default function StaffPage() {
                                         setShowAddModal(false);
                                         setInviteLink(null);
                                     }}
-                                    className="btn-primary w-full"
+                                    className="btn btn-primary w-full"
                                 >
                                     Done
                                 </button>
@@ -654,7 +656,7 @@ export default function StaffPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowDiscontinueModal(null)}
-                                    className="btn-secondary flex-1"
+                                    className="btn btn-secondary flex-1"
                                     disabled={discontinuing}
                                 >
                                     Cancel
@@ -662,7 +664,7 @@ export default function StaffPage() {
                                 <button
                                     onClick={handleDiscontinue}
                                     disabled={discontinuing}
-                                    className="btn-primary bg-red-600 hover:bg-red-500 flex-1 gap-2"
+                                    className="btn btn-primary bg-red-600 hover:bg-red-500 flex-1 gap-2"
                                 >
                                     {discontinuing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                     Discontinue User
@@ -782,7 +784,7 @@ export default function StaffPage() {
                                             });
                                             setIsEditEntryModalOpen(true);
                                         }}
-                                        className="btn-primary py-1.5 text-xs h-auto px-3"
+                                        className="btn btn-primary py-1.5 text-xs h-auto px-3"
                                     >
                                         <Plus className="h-3 w-3" />
                                         Add Entry

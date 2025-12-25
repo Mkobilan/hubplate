@@ -52,10 +52,10 @@ export default function HomePage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/signup" className="btn-primary text-lg px-8 py-3">
+              <Link href="/signup" className="btn btn-primary text-lg px-8 py-3">
                 Start 14-Day Free Trial
               </Link>
-              <Link href="/login" className="btn-secondary text-lg px-8 py-3">
+              <Link href="/login" className="btn btn-secondary text-lg px-8 py-3">
                 {t("auth.login")}
               </Link>
             </div>
@@ -177,7 +177,7 @@ export default function HomePage() {
                 <PricingCheckitem text="Self-Onboarding in Minutes" />
               </ul>
 
-              <Link href="/signup" className="btn-primary w-full py-4 text-lg">
+              <Link href="/signup" className="btn btn-primary w-full py-4 text-lg">
                 Start Your 14-Day Free Trial
               </Link>
               <p className="mt-4 text-sm text-slate-500">No credit card required to start.</p>

@@ -447,7 +447,7 @@ export default function OrdersPage() {
                                 )}
                                 <button
                                     onClick={() => setShowMyTickets(true)}
-                                    className="btn-secondary text-xs py-1"
+                                    className="btn btn-secondary text-xs py-1"
                                 >
                                     My Tickets
                                 </button>
@@ -570,7 +570,7 @@ export default function OrdersPage() {
                     <button
                         onClick={sendToKitchen}
                         disabled={orderItems.length === 0}
-                        className="btn-primary w-full py-3 text-lg"
+                        className="btn btn-primary w-full py-3 text-lg"
                     >
                         <Send className="h-5 w-5" />
                         {t("pos.sendToKitchen")}
@@ -578,7 +578,7 @@ export default function OrdersPage() {
                     <button
                         onClick={() => setShowCloseTicket(true)}
                         disabled={!activeOrderId}
-                        className="btn-secondary w-full py-3 text-lg"
+                        className="btn btn-secondary w-full py-3 text-lg"
                     >
                         <Receipt className="h-5 w-5" />
                         Close Ticket

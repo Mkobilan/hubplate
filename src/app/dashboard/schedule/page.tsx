@@ -259,13 +259,13 @@ export default function SchedulePage() {
                     {isManagerOrOwner && (
                         <button
                             onClick={() => window.location.href = '/dashboard/schedule/builder'}
-                            className="btn-primary gap-2"
+                            className="btn btn-primary gap-2"
                         >
                             <Wand2 className="h-4 w-4" />
                             Make Schedule
                         </button>
                     )}
-                    <button className="btn-secondary">
+                    <button className="btn btn-secondary">
                         <Copy className="h-4 w-4" />
                         Copy Last Week
                     </button>
@@ -278,7 +278,7 @@ export default function SchedulePage() {
                             });
                             setIsAddModalOpen(true);
                         }}
-                        className="btn-secondary"
+                        className="btn btn-secondary"
                     >
                         <Plus className="h-4 w-4" />
                         Add Shift
@@ -522,14 +522,14 @@ export default function SchedulePage() {
                         <button
                             type="button"
                             onClick={() => setIsAddModalOpen(false)}
-                            className="btn-secondary flex-1"
+                            className="btn btn-secondary flex-1"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={addingShift}
-                            className="btn-primary flex-1 gap-2"
+                            className="btn btn-primary flex-1 gap-2"
                         >
                             {addingShift && <Plus className="h-4 w-4 animate-spin" />}
                             Add Shift
@@ -617,14 +617,14 @@ export default function SchedulePage() {
                                 <button
                                     type="button"
                                     onClick={() => setIsEditModalOpen(false)}
-                                    className="btn-secondary flex-1"
+                                    className="btn btn-secondary flex-1"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={editingShift}
-                                    className="btn-primary flex-1 gap-2"
+                                    className="btn btn-primary flex-1 gap-2"
                                 >
                                     {editingShift && <Clock className="h-4 w-4 animate-spin" />}
                                     Save Changes
