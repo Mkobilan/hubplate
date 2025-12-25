@@ -291,7 +291,7 @@ export default function ProfilePage() {
                 status: "pending",
             }));
 
-            const { error } = await supabase.from("shift_swap_requests").insert(requests);
+            const { error } = await (supabase.from("shift_swap_requests") as any).insert(requests);
 
             if (error) throw error;
 
