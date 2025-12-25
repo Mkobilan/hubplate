@@ -2,17 +2,18 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Clock, CheckCircle, ChefHat, Bell, Loader2, Plus, ChevronLeft, ChevronRight, Settings, Trash2, X } from "lucide-react";
+import { Clock, CheckCircle, ChefHat, Bell, Loader2, Plus, ChevronLeft, ChevronRight, Settings, Trash2, X, PlayCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
 import { toast } from "react-hot-toast";
 
 interface KitchenOrderItem {
+    id: string;  // order_item id for updating
     name: string;
     quantity: number;
     notes?: string;
-    status: string;
+    status: string;  // 'pending' | 'preparing' | 'ready' | 'served'
     isEdited?: boolean;
     menuItemId?: string;
 }
@@ -24,7 +25,7 @@ interface KitchenOrder {
     orderType: string;
     items: KitchenOrderItem[];
     createdAt: Date;
-    status: string;
+    status: string;  // Derived from items
     isEdited?: boolean;
 }
 
@@ -75,10 +76,8 @@ export default function KitchenPage() {
 
             if (error) throw error;
 
-            // If no screens exist, we'll show the default "Kitchen" behavior
             if (data && data.length > 0) {
                 setKdsScreens(data);
-                // Set active to default screen if exists, otherwise first screen
                 const defaultScreen = data.find((s: KdsScreen) => s.is_default);
                 if (!activeKdsScreenId) {
                     setActiveKdsScreenId(defaultScreen?.id || data[0].id);
@@ -108,7 +107,6 @@ export default function KitchenPage() {
 
             if (error) throw error;
 
-            // Build a map: menuItemId -> [kdsScreenIds]
             const map = new Map<string, string[]>();
             (data || []).forEach((item: any) => {
                 const existing = map.get(item.menu_item_id) || [];
@@ -121,11 +119,28 @@ export default function KitchenPage() {
         }
     };
 
+    // Derive order status from item statuses
+    const deriveOrderStatus = (items: KitchenOrderItem[]): string => {
+        if (items.length === 0) return 'pending';
+
+        const allServed = items.every(item => item.status === 'served');
+        if (allServed) return 'served';
+
+        const allReady = items.every(item => item.status === 'ready' || item.status === 'served');
+        if (allReady) return 'ready';
+
+        const anyPreparing = items.some(item => item.status === 'preparing');
+        const anyReady = items.some(item => item.status === 'ready');
+        if (anyPreparing || anyReady) return 'in_progress';
+
+        return 'pending';
+    };
+
     const fetchOrders = async () => {
         if (!currentLocation?.id) return;
 
         try {
-            // Fetch active orders (not served)
+            // Fetch active orders with item-level status
             const { data: ordersData, error: ordersError } = await supabase
                 .from("orders")
                 .select(`
@@ -141,6 +156,7 @@ export default function KitchenPage() {
                         name,
                         quantity,
                         notes,
+                        status,
                         is_edited,
                         menu_item_id
                     )
@@ -156,26 +172,31 @@ export default function KitchenPage() {
                 if (o.order_type === 'takeout') title = 'Takeout';
                 if (o.order_type === 'delivery') title = 'Delivery';
 
+                const items: KitchenOrderItem[] = o.order_items.map((oi: any) => ({
+                    id: oi.id,
+                    name: oi.name || "Unknown Item",
+                    quantity: oi.quantity,
+                    notes: oi.notes,
+                    status: oi.status || 'pending',  // Use item-level status
+                    isEdited: oi.is_edited,
+                    menuItemId: oi.menu_item_id
+                }));
+
                 return {
                     id: o.id,
                     table: title,
                     orderType: o.order_type,
                     serverName: o.server ? `${o.server.first_name} ${o.server.last_name.charAt(0)}.` : "System",
-                    status: o.status,
+                    status: deriveOrderStatus(items),  // Derive from items
                     createdAt: new Date(o.created_at),
                     isEdited: o.is_edited,
-                    items: o.order_items.map((oi: any) => ({
-                        name: oi.name || "Unknown Item",
-                        quantity: oi.quantity,
-                        notes: oi.notes,
-                        status: o.status,
-                        isEdited: oi.is_edited,
-                        menuItemId: oi.menu_item_id
-                    }))
+                    items
                 };
             });
 
-            setOrders(formattedOrders);
+            // Filter out orders where all items are served
+            const activeOrders = formattedOrders.filter(o => o.status !== 'served');
+            setOrders(activeOrders);
         } catch (error) {
             console.error("Error fetching kitchen orders:", error);
             toast.error("Failed to load kitchen orders");
@@ -203,6 +224,18 @@ export default function KitchenPage() {
                     filter: `location_id=eq.${currentLocation.id}`
                 },
                 () => {
+                    fetchOrders();
+                }
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "order_items"
+                },
+                () => {
+                    // Refresh on any order_items change
                     fetchOrders();
                 }
             )
@@ -242,71 +275,129 @@ export default function KitchenPage() {
         return "text-red-400";
     };
 
-    const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    // Update status for specific items (the ones visible on this KDS screen)
+    const updateItemsStatus = async (orderId: string, itemIds: string[], newStatus: string) => {
         try {
-            const updateData: any = { status: newStatus };
-
-            // Set completed_at when the kitchen marks the order as ready
-            if (newStatus === 'ready') {
-                updateData.completed_at = new Date().toISOString();
-            }
-
+            // Update each item's status
             const { error } = await (supabase
-                .from("orders") as any)
-                .update(updateData)
-                .eq("id", orderId);
+                .from("order_items") as any)
+                .update({ status: newStatus })
+                .in("id", itemIds);
 
             if (error) throw error;
-            toast.success(`Order ${newStatus}`);
+
+            // After updating items, recalculate and update order status
+            await syncOrderStatus(orderId);
+
+            toast.success(`Items marked as ${newStatus}`);
             fetchOrders();
         } catch (error) {
-            console.error("Error updating order:", error);
+            console.error("Error updating item status:", error);
             toast.error("Failed to update status");
         }
     };
 
-    const markServed = (orderId: string) => {
-        updateOrderStatus(orderId, "served");
+    // Sync order-level status based on all items
+    const syncOrderStatus = async (orderId: string) => {
+        try {
+            // Fetch all items for this order
+            const { data: allItems, error: fetchError } = await supabase
+                .from("order_items")
+                .select("status")
+                .eq("order_id", orderId);
+
+            if (fetchError) throw fetchError;
+
+            const items = (allItems || []) as { status: string }[];
+            const derivedStatus = deriveOrderStatus(items.map(i => ({ ...i, id: '', name: '', quantity: 1 })));
+
+            // Map derived status to order status values
+            let orderStatus = derivedStatus;
+            if (derivedStatus === 'preparing') orderStatus = 'in_progress';
+
+            const updateData: any = { status: orderStatus };
+
+            // Set completed_at when all items are ready
+            if (orderStatus === 'ready') {
+                updateData.completed_at = new Date().toISOString();
+            }
+
+            await (supabase
+                .from("orders") as any)
+                .update(updateData)
+                .eq("id", orderId);
+        } catch (error) {
+            console.error("Error syncing order status:", error);
+        }
+    };
+
+    // Handle Start button - mark visible items as 'preparing'
+    const handleStartItems = (orderId: string, visibleItems: KitchenOrderItem[]) => {
+        const pendingItems = visibleItems.filter(item => item.status === 'pending');
+        if (pendingItems.length === 0) return;
+
+        const itemIds = pendingItems.map(item => item.id);
+        updateItemsStatus(orderId, itemIds, 'preparing');
+    };
+
+    // Handle Ready button - mark visible items as 'ready'
+    const handleReadyItems = (orderId: string, visibleItems: KitchenOrderItem[]) => {
+        const preparingItems = visibleItems.filter(item => item.status === 'preparing');
+        if (preparingItems.length === 0) return;
+
+        const itemIds = preparingItems.map(item => item.id);
+        updateItemsStatus(orderId, itemIds, 'ready');
+    };
+
+    // Handle Served button - mark visible items as 'served'
+    const handleServedItems = (orderId: string, visibleItems: KitchenOrderItem[]) => {
+        const readyItems = visibleItems.filter(item => item.status === 'ready');
+        if (readyItems.length === 0) return;
+
+        const itemIds = readyItems.map(item => item.id);
+        updateItemsStatus(orderId, itemIds, 'served');
     };
 
     // Filter orders based on active KDS screen
     const getFilteredOrders = () => {
         if (!activeKdsScreenId || kdsScreens.length === 0) {
-            // No KDS screens configured - show all orders
             return orders;
         }
 
         const activeScreen = kdsScreens.find(s => s.id === activeKdsScreenId);
 
         return orders.map(order => {
-            // Filter items that belong to this KDS screen
             const filteredItems = order.items.filter(item => {
+                // Skip items already served on this screen
+                if (item.status === 'served') return false;
+
                 if (!item.menuItemId) {
-                    // Items without menu_item_id - show on default screen only
                     return activeScreen?.is_default === true;
                 }
 
                 const assignedScreens = menuItemKdsMap.get(item.menuItemId);
 
                 if (!assignedScreens || assignedScreens.length === 0) {
-                    // No KDS assignment - show on default (Main Kitchen) screen only
                     return activeScreen?.is_default === true;
                 }
 
-                // Show if this item is assigned to the active screen
                 return assignedScreens.includes(activeKdsScreenId);
             });
 
+            // Derive status from only the filtered (visible) items for this screen
+            const screenStatus = deriveOrderStatus(filteredItems);
+
             return {
                 ...order,
-                items: filteredItems
+                items: filteredItems,
+                status: screenStatus  // Status for THIS screen's items
             };
-        }).filter(order => order.items.length > 0); // Only show orders that have items for this screen
+        }).filter(order => order.items.length > 0);
     };
 
     const filteredOrders = getFilteredOrders();
     const pendingOrders = filteredOrders.filter((o) => o.status === "pending");
-    const preparingOrders = filteredOrders.filter((o) => o.status === "in_progress");
+    const preparingOrders = filteredOrders.filter((o) => o.status === "in_progress" || o.status === "preparing");
     const readyOrders = filteredOrders.filter((o) => o.status === "ready");
 
     // Horizontal scroll handlers
@@ -320,6 +411,77 @@ export default function KitchenPage() {
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollBy({ left: 300, behavior: 'smooth' });
         }
+    };
+
+    // Get item status badge
+    const getItemStatusBadge = (status: string) => {
+        switch (status) {
+            case 'pending':
+                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium">Pending</span>;
+            case 'preparing':
+                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium animate-pulse">Cooking</span>;
+            case 'ready':
+                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-medium">Ready</span>;
+            default:
+                return null;
+        }
+    };
+
+    // Determine which button to show based on item statuses
+    const getActionButton = (order: KitchenOrder) => {
+        const pendingCount = order.items.filter(i => i.status === 'pending').length;
+        const preparingCount = order.items.filter(i => i.status === 'preparing').length;
+        const readyCount = order.items.filter(i => i.status === 'ready').length;
+
+        if (pendingCount > 0) {
+            return (
+                <button
+                    onClick={() => handleStartItems(order.id, order.items)}
+                    className="btn-secondary flex-1 flex items-center justify-center gap-2"
+                >
+                    <PlayCircle className="h-4 w-4" />
+                    Start ({pendingCount})
+                </button>
+            );
+        }
+
+        if (preparingCount > 0) {
+            return (
+                <button
+                    onClick={() => handleReadyItems(order.id, order.items)}
+                    className="btn-success flex-1 flex items-center justify-center gap-2"
+                >
+                    <CheckCircle className="h-4 w-4" />
+                    Ready ({preparingCount})
+                </button>
+            );
+        }
+
+        if (readyCount > 0) {
+            return (
+                <button
+                    onClick={() => handleServedItems(order.id, order.items)}
+                    className="btn-primary flex-1 flex items-center justify-center gap-2"
+                >
+                    <Bell className="h-4 w-4" />
+                    Served ({readyCount})
+                </button>
+            );
+        }
+
+        return null;
+    };
+
+    // Get card border color based on items' statuses
+    const getCardStyle = (order: KitchenOrder) => {
+        const hasPending = order.items.some(i => i.status === 'pending');
+        const hasPreparing = order.items.some(i => i.status === 'preparing');
+        const allReady = order.items.every(i => i.status === 'ready');
+
+        if (allReady) return "border-green-500/50 bg-green-500/5 animate-pulse";
+        if (hasPreparing) return "border-amber-500/50 bg-amber-500/5";
+        if (hasPending) return "border-blue-500/50 bg-blue-500/5";
+        return "border-slate-700";
     };
 
     if (loading) {
@@ -339,9 +501,14 @@ export default function KitchenPage() {
                     <h1 className="text-3xl font-bold flex items-center gap-3">
                         <ChefHat className="h-8 w-8 text-orange-500" />
                         {t("nav.kitchen")}
+                        {activeKdsScreenId && kdsScreens.length > 0 && (
+                            <span className="text-lg font-normal text-slate-400">
+                                — {kdsScreens.find(s => s.id === activeKdsScreenId)?.name}
+                            </span>
+                        )}
                     </h1>
                     <p className="text-slate-400 mt-1">
-                        Real-time order management
+                        Real-time order management • Item-level tracking
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -408,7 +575,6 @@ export default function KitchenPage() {
 
             {/* Orders Grid with Horizontal Scroll */}
             <div className="relative">
-                {/* Scroll Left Button */}
                 <button
                     onClick={scrollLeft}
                     className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-slate-800/90 hover:bg-slate-700 p-2 rounded-full shadow-lg"
@@ -416,7 +582,6 @@ export default function KitchenPage() {
                     <ChevronLeft className="h-6 w-6" />
                 </button>
 
-                {/* Scroll Right Button */}
                 <button
                     onClick={scrollRight}
                     className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-slate-800/90 hover:bg-slate-700 p-2 rounded-full shadow-lg"
@@ -424,7 +589,6 @@ export default function KitchenPage() {
                     <ChevronRight className="h-6 w-6" />
                 </button>
 
-                {/* Scrollable Container */}
                 <div
                     ref={scrollContainerRef}
                     className="flex gap-4 overflow-x-auto pb-4 px-8 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800"
@@ -439,9 +603,7 @@ export default function KitchenPage() {
                                 key={order.id}
                                 className={cn(
                                     "card border-2 transition-all min-w-[300px] max-w-[350px] flex-shrink-0",
-                                    order.status === "pending" && "border-blue-500/50 bg-blue-500/5",
-                                    order.status === "in_progress" && "border-amber-500/50 bg-amber-500/5",
-                                    order.status === "ready" && "border-green-500/50 bg-green-500/5 animate-pulse"
+                                    getCardStyle(order)
                                 )}
                             >
                                 {/* Header */}
@@ -460,16 +622,6 @@ export default function KitchenPage() {
                                                 </span>
                                             )}
                                         </div>
-                                        <span
-                                            className={cn(
-                                                "badge",
-                                                order.status === "pending" && "badge-info",
-                                                order.status === "in_progress" && "badge-warning",
-                                                order.status === "ready" && "badge-success"
-                                            )}
-                                        >
-                                            {order.status}
-                                        </span>
                                     </div>
                                     <div className={cn("flex items-center gap-1 font-mono font-bold", timeColor)}>
                                         <Clock className="h-4 w-4" />
@@ -477,13 +629,16 @@ export default function KitchenPage() {
                                     </div>
                                 </div>
 
-                                {/* Items */}
+                                {/* Items with individual status badges */}
                                 <div className="space-y-2 mb-4">
-                                    {order.items.map((item, i) => (
-                                        <div key={i} className="flex items-start gap-2">
+                                    {order.items.map((item) => (
+                                        <div key={item.id} className="flex items-start gap-2">
                                             <span className="font-bold text-orange-400">{item.quantity}x</span>
                                             <div className="flex-1">
-                                                <p className="font-medium">{item.name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium">{item.name}</p>
+                                                    {getItemStatusBadge(item.status)}
+                                                </div>
                                                 {item.notes && (
                                                     <p className="text-sm text-amber-400 font-medium">⚠ {item.notes}</p>
                                                 )}
@@ -497,34 +652,9 @@ export default function KitchenPage() {
                                     ))}
                                 </div>
 
-                                {/* Actions */}
+                                {/* Dynamic Action Button */}
                                 <div className="flex gap-2">
-                                    {order.status === "pending" && (
-                                        <button
-                                            onClick={() => updateOrderStatus(order.id, "in_progress")}
-                                            className="btn-secondary flex-1"
-                                        >
-                                            Start
-                                        </button>
-                                    )}
-                                    {order.status === "in_progress" && (
-                                        <button
-                                            onClick={() => updateOrderStatus(order.id, "ready")}
-                                            className="btn-success flex-1"
-                                        >
-                                            <CheckCircle className="h-4 w-4" />
-                                            {t("kitchen.markReady")}
-                                        </button>
-                                    )}
-                                    {order.status === "ready" && (
-                                        <button
-                                            onClick={() => markServed(order.id)}
-                                            className="btn-primary flex-1"
-                                        >
-                                            <Bell className="h-4 w-4" />
-                                            {t("kitchen.markServed")}
-                                        </button>
-                                    )}
+                                    {getActionButton(order)}
                                 </div>
                             </div>
                         );
@@ -693,7 +823,6 @@ function ManageKdsModal({
 
             toast.success(`KDS screen "${screenName}" deleted`);
 
-            // If we deleted the active screen, switch to another
             if (activeScreenId === screenId) {
                 const remaining = screens.filter(s => s.id !== screenId);
                 setActiveScreenId(remaining.length > 0 ? remaining[0].id : null);
@@ -711,7 +840,6 @@ function ManageKdsModal({
     const handleSetDefault = async (screenId: string) => {
         setLoading(screenId);
         try {
-            // First, unset all defaults for this location
             const locationId = screens[0] ? (screens[0] as any).location_id : null;
 
             if (locationId) {
@@ -721,7 +849,6 @@ function ManageKdsModal({
                     .eq("location_id", locationId);
             }
 
-            // Set the new default
             const { error } = await (supabase
                 .from("kds_screens") as any)
                 .update({ is_default: true })
