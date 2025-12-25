@@ -56,7 +56,7 @@ export default function SettingsPage() {
 
             if (data) {
                 setSettings({
-                    require_manager_approval_for_swaps: data.require_manager_approval_for_swaps || false,
+                    require_manager_approval_for_swaps: (data as any).require_manager_approval_for_swaps || false,
                 });
             }
         } catch (err) {
