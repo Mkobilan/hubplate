@@ -109,7 +109,7 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
                 </div>
 
                 <div className="p-4 border-t border-slate-800 text-center">
-                    <button onClick={onClose} className="btn-secondary w-full">
+                    <button onClick={onClose} className="btn btn-secondary w-full">
                         Close
                     </button>
                 </div>

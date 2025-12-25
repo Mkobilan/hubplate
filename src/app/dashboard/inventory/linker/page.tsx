@@ -55,7 +55,7 @@ export default function IngredientLinkerPage() {
                         Connect inventory items to menu dishes for automatic stock tracking
                     </p>
                 </div>
-                <Link href="/dashboard/inventory" className="btn-secondary">
+                <Link href="/dashboard/inventory" className="btn btn-secondary">
                     ← Back to Inventory
                 </Link>
             </div>

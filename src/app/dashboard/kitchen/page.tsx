@@ -51,6 +51,7 @@ export default function KitchenPage() {
     const [showAddKdsModal, setShowAddKdsModal] = useState(false);
     const [showManageKdsModal, setShowManageKdsModal] = useState(false);
     const [menuItemKdsMap, setMenuItemKdsMap] = useState<Map<string, string[]>>(new Map());
+    const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
@@ -368,8 +369,8 @@ export default function KitchenPage() {
 
         return orders.map(order => {
             const filteredItems = order.items.filter(item => {
-                // Skip items already served on this screen
-                if (item.status === 'served') return false;
+                // Skip items already served on this screen, EXCEPT for the Main Kitchen KDS
+                if (item.status === 'served' && !activeScreen?.is_default) return false;
 
                 if (!item.menuItemId) {
                     return activeScreen?.is_default === true;
@@ -417,11 +418,13 @@ export default function KitchenPage() {
     const getItemStatusBadge = (status: string) => {
         switch (status) {
             case 'pending':
-                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium">Pending</span>;
+                return <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold uppercase tracking-wider">Pending</span>;
             case 'preparing':
-                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium animate-pulse">Cooking</span>;
+                return <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold uppercase tracking-wider animate-pulse">Cooking</span>;
             case 'ready':
-                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-medium">Ready</span>;
+                return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-semibold uppercase tracking-wider">Ready</span>;
+            case 'served':
+                return <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 font-semibold uppercase tracking-wider">Served</span>;
             default:
                 return null;
         }
@@ -437,7 +440,7 @@ export default function KitchenPage() {
             return (
                 <button
                     onClick={() => handleStartItems(order.id, order.items)}
-                    className="btn-secondary flex-1 flex items-center justify-center gap-2"
+                    className="btn btn-secondary flex-1 flex items-center justify-center gap-2"
                 >
                     <PlayCircle className="h-4 w-4" />
                     Start ({pendingCount})
@@ -449,7 +452,7 @@ export default function KitchenPage() {
             return (
                 <button
                     onClick={() => handleReadyItems(order.id, order.items)}
-                    className="btn-success flex-1 flex items-center justify-center gap-2"
+                    className="btn btn-success flex-1 flex items-center justify-center gap-2"
                 >
                     <CheckCircle className="h-4 w-4" />
                     Ready ({preparingCount})
@@ -461,7 +464,7 @@ export default function KitchenPage() {
             return (
                 <button
                     onClick={() => handleServedItems(order.id, order.items)}
-                    className="btn-primary flex-1 flex items-center justify-center gap-2"
+                    className="btn btn-primary flex-1 flex items-center justify-center gap-2"
                 >
                     <Bell className="h-4 w-4" />
                     Served ({readyCount})
@@ -602,52 +605,118 @@ export default function KitchenPage() {
                             <div
                                 key={order.id}
                                 className={cn(
-                                    "card border-2 transition-all min-w-[300px] max-w-[350px] flex-shrink-0",
+                                    "card border-2 transition-all min-w-[320px] max-w-[380px] flex-shrink-0 flex flex-col shadow-xl",
                                     getCardStyle(order)
                                 )}
                             >
                                 {/* Header */}
-                                <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-700">
+                                <div className="flex items-start justify-between mb-4 pb-3 border-b border-slate-700/50">
                                     <div>
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="font-bold text-lg">{order.table}</h3>
+                                        <div className="flex flex-col gap-0.5">
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="font-bold text-xl tracking-tight text-white">{order.table}</h3>
+                                                {order.isEdited && (
+                                                    <span className="text-red-500 font-black text-[10px] ring-1 ring-red-500 px-1.5 rounded bg-red-500/10 animate-pulse">
+                                                        [EDITED]
+                                                    </span>
+                                                )}
+                                            </div>
                                             {order.serverName && (
-                                                <span className="text-xs text-slate-400 font-medium">
-                                                    • {order.serverName}
-                                                </span>
-                                            )}
-                                            {order.isEdited && (
-                                                <span className="text-red-500 font-black text-xs animate-pulse ring-1 ring-red-500 px-1 rounded">
-                                                    [EDITED]
+                                                <span className="text-sm text-slate-400 font-medium">
+                                                    Served by {order.serverName}
                                                 </span>
                                             )}
                                         </div>
                                     </div>
-                                    <div className={cn("flex items-center gap-1 font-mono font-bold", timeColor)}>
+                                    <div className={cn("flex items-center gap-1.5 font-mono font-bold text-lg px-2 py-1 rounded-lg bg-slate-800/50 border border-slate-700/50", timeColor)}>
                                         <Clock className="h-4 w-4" />
                                         <span>{ticketTime}m</span>
                                     </div>
                                 </div>
 
                                 {/* Items with individual status badges */}
-                                <div className="space-y-2 mb-4">
+                                <div className="flex-1 space-y-3 mb-6">
                                     {order.items.map((item) => (
-                                        <div key={item.id} className="flex items-start gap-2">
-                                            <span className="font-bold text-orange-400">{item.quantity}x</span>
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="font-medium">{item.name}</p>
-                                                    {getItemStatusBadge(item.status)}
+                                        <div
+                                            key={item.id}
+                                            className={cn(
+                                                "flex flex-col gap-2 p-2 rounded-xl transition-all cursor-pointer border-2",
+                                                selectedItemId === item.id
+                                                    ? "bg-orange-500/10 border-orange-500/40 shadow-inner"
+                                                    : "border-transparent hover:bg-slate-700/30"
+                                            )}
+                                            onClick={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}
+                                        >
+                                            <div className="flex items-start gap-3 group">
+                                                <div className={cn(
+                                                    "flex items-center justify-center min-w-[2.5rem] h-[2.5rem] rounded-xl font-bold text-lg border transition-colors",
+                                                    selectedItemId === item.id
+                                                        ? "bg-orange-500 text-white border-orange-400"
+                                                        : "bg-orange-500/10 text-orange-500 border-orange-500/20"
+                                                )}>
+                                                    {item.quantity}
                                                 </div>
-                                                {item.notes && (
-                                                    <p className="text-sm text-amber-400 font-medium">⚠ {item.notes}</p>
-                                                )}
-                                                {item.isEdited && (
-                                                    <span className="text-[10px] font-bold text-red-500 uppercase tracking-tight bg-red-500/10 px-1 rounded border border-red-500/20 w-fit">
-                                                        Modified
-                                                    </span>
-                                                )}
+                                                <div className="flex-1 pt-1">
+                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                        <p className="font-bold text-slate-100 text-lg leading-tight">{item.name}</p>
+                                                        {getItemStatusBadge(item.status)}
+                                                    </div>
+                                                    {item.notes && (
+                                                        <div className="mt-1.5 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                                            <p className="text-xs text-amber-400 font-semibold flex items-center gap-1.5 italic">
+                                                                <Bell className="h-3 w-3" /> {item.notes}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                    {item.isEdited && (
+                                                        <span className="mt-1.5 inline-block text-[10px] font-bold text-red-500 uppercase tracking-tighter bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                                                            Modified
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
+
+                                            {/* Item-Level Actions */}
+                                            {selectedItemId === item.id && (
+                                                <div className="flex gap-2 p-1 animate-in slide-in-from-top-2 duration-200">
+                                                    {item.status === 'pending' && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                updateItemsStatus(order.id, [item.id], 'preparing');
+                                                                setSelectedItemId(null);
+                                                            }}
+                                                            className="btn btn-secondary btn-sm flex-1 py-2 font-bold"
+                                                        >
+                                                            <PlayCircle className="h-4 w-4 mr-2" /> Start Item
+                                                        </button>
+                                                    )}
+                                                    {(item.status === 'preparing' || item.status === 'pending') && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                updateItemsStatus(order.id, [item.id], 'ready');
+                                                                setSelectedItemId(null);
+                                                            }}
+                                                            className="btn btn-success btn-sm flex-1 py-2 font-bold"
+                                                        >
+                                                            <CheckCircle className="h-4 w-4 mr-2" /> Mark Ready
+                                                        </button>
+                                                    )}
+                                                    {item.status === 'ready' && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                updateItemsStatus(order.id, [item.id], 'served');
+                                                                setSelectedItemId(null);
+                                                            }}
+                                                            className="btn btn-primary btn-sm flex-1 py-2 font-bold"
+                                                        >
+                                                            <Bell className="h-4 w-4 mr-2" /> Serve Item
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

@@ -148,7 +148,7 @@ export default function CloseTicketModal({
                             Thermal printer integration coming soon.<br />
                             Connect a Bluetooth receipt printer to enable this feature.
                         </p>
-                        <button onClick={() => setActiveOption(null)} className="btn-secondary">
+                        <button onClick={() => setActiveOption(null)} className="btn btn-secondary">
                             Back to Options
                         </button>
                     </div>
@@ -163,7 +163,7 @@ export default function CloseTicketModal({
                             Stripe Terminal integration coming soon.<br />
                             This will enable NFC tap-to-pay and Bluetooth card readers.
                         </p>
-                        <button onClick={() => setActiveOption(null)} className="btn-secondary">
+                        <button onClick={() => setActiveOption(null)} className="btn btn-secondary">
                             Back to Options
                         </button>
                     </div>
@@ -195,7 +195,7 @@ export default function CloseTicketModal({
                                 {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
                             </button>
                         </div>
-                        <button onClick={() => setActiveOption(null)} className="btn-secondary">
+                        <button onClick={() => setActiveOption(null)} className="btn btn-secondary">
                             Back to Options
                         </button>
                     </div>
@@ -213,14 +213,14 @@ export default function CloseTicketModal({
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setActiveOption(null)}
-                                className="btn-secondary flex-1"
+                                className="btn btn-secondary flex-1"
                                 disabled={processingCash}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleCashPayment}
-                                className="btn-primary flex-1 bg-green-600 hover:bg-green-700"
+                                className="btn btn-primary flex-1 bg-green-600 hover:bg-green-700"
                                 disabled={processingCash}
                             >
                                 {processingCash ? (
@@ -235,7 +235,7 @@ export default function CloseTicketModal({
 
                 {/* Close button */}
                 <div className="mt-6 pt-4 border-t border-slate-800">
-                    <button onClick={onClose} className="btn-ghost w-full">
+                    <button onClick={onClose} className="btn btn-ghost w-full">
                         Cancel
                     </button>
                 </div>

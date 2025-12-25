@@ -176,7 +176,7 @@ export default function MenuPage() {
                     </div>
                     <button
                         onClick={() => setShowAddCategoryModal(true)}
-                        className="btn-secondary btn-sm"
+                        className="btn btn-secondary btn-sm"
                     >
                         <Plus className="h-4 w-4" />
                         Add Category
@@ -628,10 +628,10 @@ function AddMenuItemModal({
                         </div>
                     )}
                     <div className="flex gap-2 pt-4">
-                        <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                        <button type="button" onClick={onClose} className="btn btn-secondary flex-1">
                             {t("common.cancel")}
                         </button>
-                        <button type="submit" disabled={loading} className="btn-primary flex-1">
+                        <button type="submit" disabled={loading} className="btn btn-primary flex-1">
                             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.save")}
                         </button>
                     </div>
@@ -753,7 +753,7 @@ function ScanMenuModal({
                             Drag & drop a menu photo here
                         </p>
                         <p className="text-sm text-slate-500 mb-4">or</p>
-                        <label className="btn-primary cursor-pointer">
+                        <label className="btn btn-primary cursor-pointer">
                             Choose File
                             <input
                                 type="file"
@@ -767,7 +767,7 @@ function ScanMenuModal({
 
                 <button
                     onClick={onClose}
-                    className="btn-ghost w-full mt-4"
+                    className="btn btn-ghost w-full mt-4"
                 >
                     {t("common.cancel")}
                 </button>
@@ -963,10 +963,10 @@ function EditMenuItemModal({
                         </div>
                     )}
                     <div className="flex gap-2 pt-4">
-                        <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                        <button type="button" onClick={onClose} className="btn btn-secondary flex-1">
                             {t("common.cancel")}
                         </button>
-                        <button type="submit" disabled={loading} className="btn-primary flex-1">
+                        <button type="submit" disabled={loading} className="btn btn-primary flex-1">
                             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.save")}
                         </button>
                     </div>
@@ -1045,10 +1045,10 @@ function AddCategoryModal({
                         </p>
                     </div>
                     <div className="flex gap-2 pt-2">
-                        <button type="button" onClick={onClose} className="btn-secondary flex-1">
+                        <button type="button" onClick={onClose} className="btn btn-secondary flex-1">
                             Cancel
                         </button>
-                        <button type="submit" disabled={loading} className="btn-primary flex-1">
+                        <button type="submit" disabled={loading} className="btn btn-primary flex-1">
                             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
                         </button>
                     </div>
@@ -1086,7 +1086,7 @@ function BulkActionBar({
                     <div className="relative">
                         <button
                             onClick={() => setShowCategoryList(!showCategoryList)}
-                            className="btn-primary btn-sm rounded-full"
+                            className="btn btn-primary btn-sm rounded-full"
                         >
                             <Layers className="h-4 w-4" />
                             Move to Category
@@ -1227,13 +1227,13 @@ function ManageCategoryModal({
                             />
                         </div>
                         <div className="flex flex-col gap-2 pt-2">
-                            <button type="submit" disabled={loading} className="btn-primary w-full">
+                            <button type="submit" disabled={loading} className="btn btn-primary w-full">
                                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Name"}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setShowDeleteConfirm(true)}
-                                className="btn-ghost text-red-400 hover:text-red-300 w-full"
+                                className="btn btn-ghost text-red-400 hover:text-red-300 w-full"
                             >
                                 <Trash2 className="h-4 w-4 mr-2 inline" />
                                 Delete Category
@@ -1249,14 +1249,14 @@ function ManageCategoryModal({
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setShowDeleteConfirm(false)}
-                                className="btn-secondary flex-1"
+                                className="btn btn-secondary flex-1"
                                 disabled={loading}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleDelete}
-                                className="btn-primary bg-red-600 hover:bg-red-500 border-red-600 flex-1"
+                                className="btn btn-primary bg-red-600 hover:bg-red-500 border-red-600 flex-1"
                                 disabled={loading}
                             >
                                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Yes, Delete"}

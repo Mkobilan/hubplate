@@ -12,21 +12,36 @@ import {
     BarChart3,
     Search,
     X,
-    Lightbulb
+    Lightbulb,
+    Loader2
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
 import { useEffect } from "react";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "react-hot-toast";
 
 export default function WastePage() {
     const { t } = useTranslation();
     const currentLocation = useAppStore((state) => state.currentLocation);
     const [wasteLogs, setWasteLogs] = useState<any[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [showLogModal, setShowLogModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Form state
+    const [formData, setFormData] = useState({
+        inventory_item_id: "",
+        item_name: "",
+        quantity: "",
+        unit: "",
+        reason: "expired",
+        cost: "",
+        notes: ""
+    });
 
     const fetchWasteLogs = async () => {
         if (!currentLocation) return;
@@ -35,11 +50,10 @@ export default function WastePage() {
             setLoading(true);
             const supabase = createClient();
 
-            const { data, error } = await supabase
-                .from("waste_logs")
+            const { data, error } = await (supabase.from("waste_logs") as any)
                 .select(`
                     *,
-                    inventory_items!inner(name)
+                    inventory_items(name)
                 `)
                 .eq("location_id", currentLocation.id)
                 .order("created_at", { ascending: false });
@@ -48,29 +62,119 @@ export default function WastePage() {
             setWasteLogs(data || []);
         } catch (err) {
             console.error("Error fetching waste logs:", err);
+            toast.error("Failed to fetch waste logs");
         } finally {
             setLoading(false);
         }
     };
 
+    const fetchInventoryItems = async () => {
+        if (!currentLocation) return;
+
+        try {
+            const supabase = createClient();
+            const { data, error } = await (supabase.from("inventory_items") as any)
+                .select("id, name, unit, cost_per_unit")
+                .eq("location_id", currentLocation.id)
+                .order("name", { ascending: true });
+
+            if (error) throw error;
+            setInventoryItems(data || []);
+        } catch (err) {
+            console.error("Error fetching inventory items:", err);
+        }
+    };
+
     useEffect(() => {
         fetchWasteLogs();
+        fetchInventoryItems();
     }, [currentLocation?.id]);
 
-    const totalWaste = wasteLogs.reduce((sum, log) => sum + Number(log.cost_impact || 0), 0);
+    const handleInventoryChange = (itemId: string) => {
+        const item = inventoryItems.find(i => i.id === itemId);
+        if (item) {
+            setFormData(prev => ({
+                ...prev,
+                inventory_item_id: itemId,
+                item_name: item.name,
+                unit: item.unit || "",
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                inventory_item_id: "",
+                item_name: "",
+                unit: "",
+            }));
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentLocation) return;
+        if (!formData.item_name || !formData.quantity) {
+            toast.error("Please fill in the required fields");
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+
+            if (!user) {
+                toast.error("You must be logged in to log waste");
+                return;
+            }
+
+            const { error } = await (supabase.from("waste_logs") as any).insert({
+                location_id: currentLocation.id,
+                inventory_item_id: formData.inventory_item_id || null,
+                item_name: formData.item_name,
+                quantity: parseFloat(formData.quantity),
+                unit: formData.unit,
+                reason: formData.reason,
+                cost: formData.cost ? parseFloat(formData.cost) : 0,
+                notes: formData.notes,
+                recorded_by: user.id
+            });
+
+            if (error) throw error;
+
+            toast.success("Waste logged successfully");
+            setShowLogModal(false);
+            setFormData({
+                inventory_item_id: "",
+                item_name: "",
+                quantity: "",
+                unit: "",
+                reason: "expired",
+                cost: "",
+                notes: ""
+            });
+            fetchWasteLogs();
+        } catch (err: any) {
+            console.error("Error logging waste:", err);
+            toast.error(err.message || "Failed to log waste");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const totalWaste = wasteLogs.reduce((sum, log) => sum + Number(log.cost || 0), 0);
     const filtered = wasteLogs.filter(log =>
-        (log.inventory_items?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (log.item_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (log.reason || "").toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const wasteByCategory = Array.from(
         wasteLogs.reduce((acc: Map<string, number>, log: any) => {
-            const reason = log.reason || "Other";
-            acc.set(reason, (acc.get(reason) || 0) + Number(log.cost_impact || 0));
+            const reason = log.reason || "other";
+            acc.set(reason, (acc.get(reason) || 0) + Number(log.cost || 0));
             return acc;
         }, new Map<string, number>())
     ).map(([category, cost]: [string, number]) => ({
-        category,
+        category: category.replace("_", " "),
         cost,
         percentage: totalWaste > 0 ? (cost / totalWaste) * 100 : 0
     })).sort((a, b) => b.cost - a.cost);
@@ -81,7 +185,7 @@ export default function WastePage() {
                 <Trash2 className="h-12 w-12 text-orange-500 mb-4" />
                 <h2 className="text-xl font-bold mb-2">No Location Selected</h2>
                 <p className="text-slate-400 mb-6">Please select a location to view waste logs.</p>
-                <button onClick={() => window.location.href = "/dashboard/locations"} className="btn-primary">
+                <button onClick={() => window.location.href = "/dashboard/locations"} className="btn btn-primary">
                     Go to Locations
                 </button>
             </div>
@@ -97,7 +201,7 @@ export default function WastePage() {
                         {currentLocation.name} - Log waste, analyze patterns, and reduce food costs
                     </p>
                 </div>
-                <button onClick={() => setShowLogModal(true)} className="btn-primary">
+                <button onClick={() => setShowLogModal(true)} className="btn btn-primary">
                     <Plus className="h-4 w-4" />
                     Log Waste
                 </button>
@@ -114,7 +218,7 @@ export default function WastePage() {
                         <p className="text-sm text-amber-200/60 max-w-2xl mt-1">
                             {wasteLogs.length < 5
                                 ? "HubPlate is waiting for more data to generate insights. Keep logging waste to see patterns."
-                                : "Analyzing your waste patterns... Focus on 'Prep Error' reduction to save significantly this month."}
+                                : `Top waste reason is "${wasteByCategory[0]?.category}". Focus on reducing this to save significantly this month.`}
                         </p>
                     </div>
                 </div>
@@ -134,7 +238,7 @@ export default function WastePage() {
                 </div>
                 <div className="card text-center">
                     <AlertTriangle className="h-8 w-8 text-amber-400 mx-auto mb-2" />
-                    <p className="text-3xl font-bold truncate">
+                    <p className="text-2xl font-bold truncate capitalize">
                         {wasteByCategory[0]?.category || "N/A"}
                     </p>
                     <p className="text-sm text-slate-500 mt-1">Top Waste Category</p>
@@ -177,22 +281,29 @@ export default function WastePage() {
                                     ) : filtered.length > 0 ? (
                                         filtered.map((log) => (
                                             <tr key={log.id} className="hover:bg-slate-900/40 transition-colors">
-                                                <td className="px-4 py-3 font-medium text-sm">{log.inventory_items?.name || "Unknown"}</td>
+                                                <td className="px-4 py-3 font-medium text-sm">
+                                                    {log.item_name}
+                                                    {log.inventory_items && (
+                                                        <span className="block text-[10px] text-slate-500">Inventory Linked</span>
+                                                    )}
+                                                </td>
                                                 <td className="px-4 py-3 text-sm font-mono">
-                                                    {log.quantity_lost} <span className="text-slate-500">{log.unit || "unit"}</span>
+                                                    {log.quantity} <span className="text-slate-500 text-[10px]">{log.unit || ""}</span>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className={cn(
-                                                        "badge text-[10px]",
-                                                        log.reason === "Expired" && "badge-danger",
-                                                        log.reason === "Spoilage" && "badge-warning",
-                                                        log.reason === "Prep Error" && "badge-info"
+                                                        "badge text-[10px] capitalize",
+                                                        log.reason === "expired" && "badge-danger",
+                                                        log.reason === "spoiled" && "badge-warning",
+                                                        log.reason === "over_prepped" && "badge-info",
+                                                        log.reason === "customer_return" && "badge-purple",
+                                                        log.reason === "damaged" && "badge-orange"
                                                     )}>
-                                                        {log.reason}
+                                                        {log.reason.replace("_", " ")}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-sm font-mono text-red-400">
-                                                    -{formatCurrency(log.cost_impact)}
+                                                    -{formatCurrency(log.cost)}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-slate-500">
                                                     {new Date(log.created_at).toLocaleDateString()}
@@ -223,7 +334,7 @@ export default function WastePage() {
                             wasteByCategory.map((cat) => (
                                 <div key={cat.category} className="space-y-2">
                                     <div className="flex justify-between text-sm">
-                                        <span>{cat.category}</span>
+                                        <span className="capitalize">{cat.category}</span>
                                         <span className="font-mono text-red-400">-{formatCurrency(cat.cost)}</span>
                                     </div>
                                     <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
@@ -244,54 +355,116 @@ export default function WastePage() {
             {/* Log Waste Modal */}
             {showLogModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/50" onClick={() => setShowLogModal(false)} />
-                    <div className="relative card w-full max-w-md">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !submitting && setShowLogModal(false)} />
+                    <div className="relative card w-full max-w-md animate-in fade-in zoom-in duration-200">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-xl font-bold">Log Waste</h2>
-                            <button onClick={() => setShowLogModal(false)} className="p-2 hover:bg-slate-800 rounded-lg">
+                            <button onClick={() => setShowLogModal(false)} disabled={submitting} className="p-2 hover:bg-slate-800 rounded-lg">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <form className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="label">Item Name</label>
-                                <input type="text" className="input" placeholder="e.g. Ground Beef" />
+                                <label className="label">Link to Inventory (Optional)</label>
+                                <select
+                                    className="input"
+                                    value={formData.inventory_item_id}
+                                    onChange={(e) => handleInventoryChange(e.target.value)}
+                                    disabled={submitting}
+                                >
+                                    <option value="">-- No Link (Custom Item) --</option>
+                                    {inventoryItems.map(item => (
+                                        <option key={item.id} value={item.id}>{item.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="label">Item Name*</label>
+                                <input
+                                    type="text"
+                                    className="input"
+                                    placeholder="e.g. Ground Beef"
+                                    value={formData.item_name}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, item_name: e.target.value }))}
+                                    required
+                                    disabled={submitting}
+                                />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="label">Quantity</label>
-                                    <input type="number" className="input" placeholder="5" />
+                                    <label className="label">Quantity*</label>
+                                    <input
+                                        type="number"
+                                        className="input"
+                                        placeholder="0.00"
+                                        step="0.01"
+                                        value={formData.quantity}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                                        required
+                                        disabled={submitting}
+                                    />
                                 </div>
                                 <div>
                                     <label className="label">Unit</label>
-                                    <select className="input">
-                                        <option>lb</option>
-                                        <option>pack</option>
-                                        <option>unit</option>
-                                        <option>oz</option>
-                                    </select>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        placeholder="lb, oz, each..."
+                                        value={formData.unit}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, unit: e.target.value }))}
+                                        disabled={submitting}
+                                    />
                                 </div>
                             </div>
                             <div>
                                 <label className="label">Reason</label>
-                                <select className="input">
-                                    <option>Expired</option>
-                                    <option>Spoilage</option>
-                                    <option>Prep Error</option>
-                                    <option>Customer Return</option>
-                                    <option>Other</option>
+                                <select
+                                    className="input"
+                                    value={formData.reason}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
+                                    disabled={submitting}
+                                >
+                                    <option value="expired">Expired</option>
+                                    <option value="spoiled">Spoiled</option>
+                                    <option value="over_prepped">Over Prepped</option>
+                                    <option value="damaged">Damaged</option>
+                                    <option value="customer_return">Customer Return</option>
+                                    <option value="other">Other</option>
                                 </select>
                             </div>
                             <div>
                                 <label className="label">Estimated Cost ($)</label>
-                                <input type="number" className="input" placeholder="22.50" step="0.01" />
+                                <input
+                                    type="number"
+                                    className="input"
+                                    placeholder="0.00"
+                                    step="0.01"
+                                    value={formData.cost}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, cost: e.target.value }))}
+                                    disabled={submitting}
+                                />
+                            </div>
+                            <div>
+                                <label className="label">Notes</label>
+                                <textarea
+                                    className="input min-h-[80px] py-2"
+                                    placeholder="Any additional details..."
+                                    value={formData.notes}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                                    disabled={submitting}
+                                />
                             </div>
                             <div className="flex gap-2 pt-4">
-                                <button type="button" onClick={() => setShowLogModal(false)} className="btn-secondary flex-1">
+                                <button type="button" onClick={() => setShowLogModal(false)} disabled={submitting} className="btn btn-secondary flex-1">
                                     Cancel
                                 </button>
-                                <button type="submit" className="btn-primary flex-1">
-                                    Log Waste
+                                <button type="submit" disabled={submitting} className="btn btn-primary flex-1">
+                                    {submitting ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : "Log Waste"}
                                 </button>
                             </div>
                         </form>

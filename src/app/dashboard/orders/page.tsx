@@ -439,7 +439,7 @@ export default function OrdersPage() {
                                             setOrderItems([]);
                                             setTableNumber("5");
                                         }}
-                                        className="btn-secondary text-xs py-1"
+                                        className="btn btn-secondary text-xs py-1"
                                         title="Exit current ticket and start new"
                                     >
                                         New Order
@@ -688,7 +688,7 @@ function ItemCustomizationModal({
                             />
                             <button
                                 onClick={addModifier}
-                                className="btn-primary"
+                                className="btn btn-primary"
                                 disabled={!customText.trim()}
                             >
                                 <Plus className="h-5 w-5" />
@@ -723,12 +723,12 @@ function ItemCustomizationModal({
                     </div>
 
                     <div className="flex gap-3 pt-2">
-                        <button onClick={onClose} className="btn-secondary flex-1">
+                        <button onClick={onClose} className="btn btn-secondary flex-1">
                             Cancel
                         </button>
                         <button
                             onClick={() => onConfirm(modifiers)}
-                            className="btn-primary flex-[2] text-lg font-bold"
+                            className="btn btn-primary flex-[2] text-lg font-bold"
                         >
                             Add to Order
                         </button>
