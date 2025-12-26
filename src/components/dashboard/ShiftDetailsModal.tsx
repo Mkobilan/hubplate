@@ -83,17 +83,17 @@ export function ShiftDetailsModal({
 
             // Notify other eligible staff (same role, same location, excluding self)
             // 1. Fetch eligible staff
-            const { data: eligibleStaff } = await supabase
+            const { data: eligibleStaff } = await (supabase
                 .from("employees")
                 .select("id")
-                .eq("location_id", currentLocation.id)
+                .eq("location_id", currentLocation!.id)
                 .eq("role", shift.role as any) // Cast if shift.role is just string
-                .neq("id", currentEmployee.id);
+                .neq("id", currentEmployee.id) as any);
 
             if (eligibleStaff && eligibleStaff.length > 0) {
-                const notis = eligibleStaff.map(emp => ({
+                const notis = eligibleStaff.map((emp: any) => ({
                     recipient_id: emp.id,
-                    location_id: currentLocation.id,
+                    location_id: currentLocation!.id,
                     type: 'shift_offer' as const,
                     title: 'New Shift Offer',
                     message: `${currentEmployee.first_name} ${currentEmployee.last_name} offered up their ${format(new Date(shift.date), "MMM d")} shift.`,
@@ -101,7 +101,7 @@ export function ShiftDetailsModal({
                     is_read: false
                 }));
 
-                await supabase.from("notifications").insert(notis);
+                await (supabase.from("notifications") as any).insert(notis);
             }
 
             setTimeout(() => {
