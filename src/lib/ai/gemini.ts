@@ -149,6 +149,75 @@ JSON:`;
     return JSON.parse(jsonMatch[0]);
 }
 
+// Detailed Menu Suggestions for the AI Suggestions Page
+export async function generateMenuSuggestions(
+    existingMenu: string[],
+    inventoryItems: string[],
+    customPrompt: string,
+    cuisineStyle: string = "General"
+): Promise<{
+    name: string;
+    description: string;
+    reasoning: string;
+    estimatedProfit: number;
+    popularity: string;
+    difficulty: string;
+    prepTime: string;
+}[]> {
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+
+    const prompt = `You are a world-class executive chef and restaurant consultant.
+    
+Context:
+- Restaurant Style: ${cuisineStyle}
+- Current Menu: ${existingMenu.slice(0, 50).join(", ")}
+- Available Inventory: ${inventoryItems.length > 0 ? inventoryItems.slice(0, 50).join(", ") : "Infer from menu items"}
+
+User's Request: "${customPrompt}"
+
+Task: Suggest 3-5 innovative menu items that strictly follow the user's request.
+If the user asks for a specific category (e.g. "sandwich", "drink"), ONLY suggest that.
+If the inventory is empty, infer likely ingredients from the existing menu (e.g., if they have "Cheeseburger", they have beef, cheese, buns).
+
+For each item provide:
+1. Name & Description
+2. Reasoning: Why this fits the request/trends?
+3. Estimated Profit: A realistic dollar amount (e.g. 8.50) based on typical industry margins.
+4. Popularity: "High", "Trending", "Stable"
+5. Difficulty: "Easy", "Medium", "Hard"
+6. Prep Time: e.g. "15 mins"
+7. Recipe: Brief list of key ingredients and 2-3 step instructions.
+
+Return ONLY a JSON array with this structure:
+[
+  {
+    "name": "Item Name",
+    "description": "Appetizing description",
+    "reasoning": "Why this works...",
+    "estimatedProfit": 8.50,
+    "popularity": "High",
+    "difficulty": "Medium",
+    "prepTime": "15 mins",
+    "recipe": {
+        "ingredients": ["ing1", "ing2"],
+        "instructions": ["step1", "step2"]
+    }
+  }
+]
+
+JSON:`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+        return [];
+    }
+
+    return JSON.parse(jsonMatch[0]);
+}
+
 // AI Reorder Suggestions based on sales velocity and stock levels
 export async function generateReorderSuggestions(
     inventoryItems: { name: string; stock: number; parLevel: number; unit: string; avgDailyUsage: number }[]

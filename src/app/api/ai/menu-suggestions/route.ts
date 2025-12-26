@@ -1,52 +1,46 @@
-// AI Menu Suggestions API route
-import { NextRequest, NextResponse } from 'next/server';
-import { suggestNewMenuItems } from '@/lib/ai/gemini';
-import { createClient } from '@/lib/supabase/server';
 
-export async function POST(request: NextRequest) {
+import { createClient } from "@/lib/supabase/server";
+import { generateMenuSuggestions } from "@/lib/ai/gemini";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
     try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const { locationId, cuisineStyle } = await request.json();
+        const { locationId, prompt } = await req.json();
 
         if (!locationId) {
-            return NextResponse.json({ error: 'Location required' }, { status: 400 });
+            return new NextResponse("Location ID is required", { status: 400 });
         }
 
-        // Get current menu items
-        const { data: menuItems } = await supabase
-            .from('menu_items')
-            .select('name')
-            .eq('location_id', locationId) as { data: { name: string }[] | null };
+        const supabase = await createClient();
 
-        // Get available inventory items as ingredients
-        const { data: inventory } = await supabase
-            .from('inventory_items')
-            .select('name')
-            .eq('location_id', locationId)
-            .gt('stock_quantity', 0) as { data: { name: string }[] | null };
+        // 1. Fetch Menu Items (names)
+        const { data: menuData } = await supabase
+            .from("menu_items")
+            .select("name")
+            .eq("location_id", locationId)
+            .eq("is_active", true);
 
-        const existingMenu = menuItems?.map((i: { name: string }) => i.name) || [];
-        const availableIngredients = inventory?.map((i: { name: string }) => i.name) || [];
+        const menuItems = menuData?.map((i: { name: string }) => i.name) || [];
 
-        // Generate AI suggestions
-        const suggestions = await suggestNewMenuItems(
-            existingMenu,
-            availableIngredients,
-            cuisineStyle
+        // 2. Fetch Inventory Items (names)
+        const { data: invData } = await supabase
+            .from("inventory_items")
+            .select("name")
+            .eq("location_id", locationId);
+
+        const inventoryItems = invData?.map((i: { name: string }) => i.name) || [];
+
+        // 3. Generate Suggestions
+        const suggestions = await generateMenuSuggestions(
+            menuItems,
+            inventoryItems,
+            prompt || "Surprise me with a creative new dish",
+            "American Grill" // TODO: Fetch from location settings if available
         );
 
-        return NextResponse.json({ suggestions });
+        return NextResponse.json(suggestions);
     } catch (error) {
-        console.error('Menu suggestions error:', error);
-        return NextResponse.json(
-            { error: 'Failed to generate suggestions' },
-            { status: 500 }
-        );
+        console.error("Error generating suggestions:", error);
+        return new NextResponse("Internal Server Error", { status: 500 });
     }
 }
