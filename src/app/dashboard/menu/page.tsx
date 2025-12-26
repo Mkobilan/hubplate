@@ -50,16 +50,19 @@ export default function MenuPage() {
     const [loading, setLoading] = useState(true);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
+    const [isEditingMenu, setIsEditingMenu] = useState(false);
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const isOrgOwner = useAppStore((state) => state.isOrgOwner);
     const supabase = createClient();
 
-    const [isEditingMenu, setIsEditingMenu] = useState(false);
-    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-    const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
-
-    const canEdit = isOrgOwner || currentEmployee?.role === "owner" || currentEmployee?.role === "manager";
+    const isTerminalMode = useAppStore((state) => state.isTerminalMode);
+    const canEdit = isTerminalMode
+        ? (currentEmployee?.role === "owner" || currentEmployee?.role === "manager")
+        : isOrgOwner || currentEmployee?.role === "owner" || currentEmployee?.role === "manager";
 
     const fetchMenuData = async () => {
         if (!currentLocation?.id) return;

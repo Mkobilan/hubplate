@@ -99,7 +99,11 @@ export default function AnalyticsPage() {
         items: [],
         topSeller: "N/A",
         totalItemsSold: 0,
-        topItems: []
+        items: [],
+        topSeller: "N/A",
+        totalItemsSold: 0,
+        topItems: [],
+        topCategories: []
     });
 
     const fetchAllData = useCallback(async () => {
@@ -310,36 +314,79 @@ export default function AnalyticsPage() {
                 ratingDistribution
             });
 
-            // ========== MENU PERFORMANCE ==========
-            const { data: orderItems } = await supabase
-                .from("order_items")
-                .select(`
-                    *,
-                    orders!inner(location_id, created_at, status),
-                    menu_items(
-                        category,
-                        menu_categories(name)
-                    )
-                `)
-                .eq("orders.location_id", currentLocation.id)
-                .gte("orders.created_at", startISO)
-                .lte("orders.created_at", endISO);
+            // ========== MENU PERFORMANCE (Derived from Orders) ==========
+            // Fetch menu items for category lookup (fallback for items without category_name in snapshot)
+            const { data: menuItems } = await supabase
+                .from("menu_items")
+                .select("id, category:menu_categories(name)")
+                .eq("location_id", currentLocation.id);
 
-            // Aggregate by item name
-            const itemGroups = (orderItems || []).reduce((acc: any, item: any) => {
+            const menuItemsMap = new Map();
+            if (menuItems) {
+                menuItems.forEach((mi: any) => {
+                    if (mi.category?.name) {
+                        menuItemsMap.set(mi.id, mi.category.name);
+                    }
+                });
+            }
+
+            // Try to fetch legacy order_items
+            let legacyItems: any[] = [];
+            try {
+                const { data: li, error } = await supabase
+                    .from("order_items")
+                    .select("name, quantity, price, menu_item_id, order_id, orders!inner(created_at, status)")
+                    .eq("orders.location_id", currentLocation.id)
+                    .gte("orders.created_at", startISO)
+                    .lte("orders.created_at", endISO);
+
+                if (!error && li) legacyItems = li;
+            } catch (err) {
+                // Ignore error if table doesn't exist
+                console.log("Legacy items table not found or error", err);
+            }
+
+            // Aggregate by item name using the items JSONB in each order AND legacy items
+            const itemGroups = (orders || []).reduce((acc: any, order: any) => {
+                // Skip cancelled orders for menu performance
+                if (order.status === "cancelled") return acc;
+
+                // If items JSONB is populated, use it
+                if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+                    order.items.forEach((item: any) => {
+                        processItemForStats(acc, item, menuItemsMap);
+                    });
+                }
+                // If items JSONB is empty, check if we have legacy items for this order
+                else {
+                    const orderLegacyItems = legacyItems.filter((li: any) => li.order_id === order.id);
+                    orderLegacyItems.forEach((item: any) => {
+                        processItemForStats(acc, item, menuItemsMap);
+                    });
+                }
+                return acc;
+            }, {});
+
+            // Helper to process stats (reduce duplication)
+            function processItemForStats(acc: any, item: any, map: Map<any, any>) {
                 const name = item.name || "Unknown";
                 if (!acc[name]) {
-                    // Get category name - priority: menu_categories.name -> menu_items.category -> "Uncategorized"
-                    const catName = item.menu_items?.menu_categories?.name
-                        || item.menu_items?.category
-                        || "Uncategorized";
+                    // Try to find category from snapshot, then fallback to current menu catalog
+                    let category = item.category_name;
+                    if (!category && item.menu_item_id) {
+                        category = map.get(item.menu_item_id);
+                    }
 
-                    acc[name] = { name, category: catName, quantity: 0, revenue: 0 };
+                    acc[name] = {
+                        name,
+                        category: category || "Uncategorized",
+                        quantity: 0,
+                        revenue: 0
+                    };
                 }
                 acc[name].quantity += item.quantity || 1;
                 acc[name].revenue += (Number(item.price) || 0) * (item.quantity || 1);
-                return acc;
-            }, {});
+            }
 
             const topItems = Object.values(itemGroups)
                 .sort((a: any, b: any) => b.quantity - a.quantity)
@@ -350,7 +397,25 @@ export default function AnalyticsPage() {
                     color: Object.values(COLORS)[i % Object.values(COLORS).length]
                 }));
 
-            const totalItemsSold = (orderItems || []).reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
+            // Calculate Category Performance
+            const categoryGroups = Object.values(itemGroups).reduce((acc: any, item: any) => {
+                const cat = item.category || "Uncategorized";
+                if (!acc[cat]) acc[cat] = { name: cat, quantity: 0, revenue: 0 };
+                acc[cat].quantity += item.quantity;
+                acc[cat].revenue += item.revenue;
+                return acc;
+            }, {});
+
+            const topCategories = Object.values(categoryGroups)
+                .sort((a: any, b: any) => b.revenue - a.revenue) // Sort categories by revenue usually makes more sense, or quantity
+                .map((cat: any, i) => ({
+                    label: cat.name,
+                    value: cat.quantity,
+                    revenue: cat.revenue,
+                    color: Object.values(COLORS)[(i + 2) % Object.values(COLORS).length] // Offset colors slightly
+                }));
+
+            const totalItemsSold = Object.values(itemGroups).reduce((sum: number, i: any) => sum + i.quantity, 0);
             const topSeller = topItems.length > 0 ? topItems[0].label : "N/A";
 
             setMenuData({
@@ -362,7 +427,8 @@ export default function AnalyticsPage() {
                 })),
                 topSeller,
                 totalItemsSold,
-                topItems
+                topItems,
+                topCategories
             });
 
 
@@ -688,38 +754,63 @@ export default function AnalyticsPage() {
                             />
                         </div>
 
-                        {/* Top Items Table */}
-                        <div className="bg-slate-800/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-sm text-slate-400 mb-4">Top Selling Items</h4>
-                            <div className="space-y-4">
-                                {menuData.topItems.map((item: any, i: number) => {
-                                    // Find the full item data to get the category
-                                    const fullItem = menuData.items.find((mi: any) => mi.name === item.label);
-                                    return (
-                                        <div key={i} className="group">
-                                            <div className="flex justify-between text-sm mb-1">
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium text-slate-200">{item.label}</span>
-                                                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">
-                                                        {fullItem?.category || "Uncategorized"}
+                        {/* Charts Row */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Top Selling Items */}
+                            <div className="bg-slate-800/30 rounded-xl p-4">
+                                <h4 className="font-semibold text-sm text-slate-400 mb-4">Top Selling Items</h4>
+                                <div className="space-y-4">
+                                    {menuData.topItems.map((item: any, i: number) => {
+                                        // Find the full item data to get the category
+                                        const fullItem = menuData.items.find((mi: any) => mi.name === item.label);
+                                        return (
+                                            <div key={i} className="group">
+                                                <div className="flex justify-between text-sm mb-1">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-slate-200">{item.label}</span>
+                                                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">
+                                                            {fullItem?.category || "Uncategorized"}
+                                                        </span>
+                                                    </div>
+                                                    <span className="font-bold" style={{ color: item.color }}>
+                                                        {item.value} sold
                                                     </span>
                                                 </div>
-                                                <span className="font-bold" style={{ color: item.color }}>
-                                                    {item.value} sold
-                                                </span>
+                                                <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full rounded-full transition-all duration-500"
+                                                        style={{
+                                                            width: `${(item.value / Math.max(...menuData.topItems.map((d: any) => d.value), 1)) * 100}%`,
+                                                            backgroundColor: item.color
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full transition-all duration-500"
-                                                    style={{
-                                                        width: `${(item.value / Math.max(...menuData.topItems.map((d: any) => d.value), 1)) * 100}%`,
-                                                        backgroundColor: item.color
-                                                    }}
-                                                />
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Top Categories Chart */}
+                            <div className="bg-slate-800/30 rounded-xl p-4">
+                                <h4 className="font-semibold text-sm text-slate-400 mb-4">Sales by Category</h4>
+                                <div className="flex flex-col gap-4">
+                                    <PieChart data={menuData.topCategories || []} size={140} />
+                                    <div className="space-y-2">
+                                        {(menuData.topCategories || []).slice(0, 5).map((cat: any, i: number) => (
+                                            <div key={i} className="flex justify-between text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+                                                    <span className="text-slate-300">{cat.label}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="font-bold block">{cat.value} sold</span>
+                                                    <span className="text-slate-300 font-mono text-[10px]">{formatCurrency(cat.revenue)}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </CollapsibleCard>

@@ -166,7 +166,10 @@ export default function ReservationsPage() {
     });
 
     const MANAGEMENT_ROLES = ["owner", "manager"];
-    const isManager = isOrgOwner || (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role));
+    const isTerminalMode = useAppStore((state) => state.isTerminalMode);
+    const isManager = isTerminalMode
+        ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
+        : isOrgOwner || (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role));
 
     const supabase = createClient();
 

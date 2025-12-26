@@ -45,6 +45,7 @@ type Employee = {
     clocked_in?: boolean;
     clock_in_time?: string;
     server_color?: string;
+    pin_code?: string;
     created_at?: string;
 };
 
@@ -772,6 +773,47 @@ export default function StaffPage() {
                                             <p className="text-red-400">{format(new Date(selectedStaff.termination_date), "MMM d, yyyy")}</p>
                                         </div>
                                     )}
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4 pt-4 border-t border-slate-800">
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-slate-500 uppercase font-bold">Terminal PIN Code</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                maxLength={6}
+                                                placeholder="Enter 4 or 6 digit PIN"
+                                                className="input font-mono tracking-widest"
+                                                value={selectedStaff.pin_code || ""}
+                                                onChange={async (e) => {
+                                                    const newPin = e.target.value.replace(/\D/g, "");
+                                                    if (newPin.length <= 6) {
+                                                        const updatedStaff = { ...selectedStaff, pin_code: newPin };
+                                                        setSelectedStaff(updatedStaff);
+
+                                                        // Auto-save when PIN is 4 or 6 digits
+                                                        if (newPin.length === 4 || newPin.length === 6) {
+                                                            try {
+                                                                const supabase = createClient();
+                                                                const { error } = await (supabase as any)
+                                                                    .from("employees")
+                                                                    .update({ pin_code: newPin })
+                                                                    .eq("id", selectedStaff.id);
+                                                                if (error) throw error;
+                                                                setStaff(staff.map(emp => emp.id === selectedStaff.id ? { ...emp, pin_code: newPin } : emp));
+                                                            } catch (err) {
+                                                                console.error("Error saving PIN:", err);
+                                                                alert("Failed to save PIN. It might already be in use.");
+                                                            }
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <p className="text-[10px] text-slate-500 self-center">
+                                                Used for Terminal Mode login and clock-in.
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="pt-4 border-t border-slate-800">

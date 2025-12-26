@@ -35,6 +35,7 @@ export default function SchedulePage() {
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const isOrgOwner = useAppStore((state) => state.isOrgOwner);
+    const isTerminalMode = useAppStore((state) => state.isTerminalMode);
     const [selectedWeek, setSelectedWeek] = useState(new Date());
     const [staff, setStaff] = useState<any[]>([]);
     const [shifts, setShifts] = useState<any[]>([]);
@@ -42,7 +43,9 @@ export default function SchedulePage() {
 
     // Roles that have management access (same as sidebar)
     const MANAGEMENT_ROLES = ["owner", "manager"];
-    const isManagerOrOwner = (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
+    const isManagerOrOwner = isTerminalMode
+        ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
+        : (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
     const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher"];
 
     // Add Shift Modal State

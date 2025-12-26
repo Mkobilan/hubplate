@@ -58,10 +58,13 @@ export default function SeatMapViewer() {
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const isOrgOwner = useAppStore((state) => state.isOrgOwner);
+    const isTerminalMode = useAppStore((state) => state.isTerminalMode);
 
     // Check permissions
     const MANAGEMENT_ROLES = ["owner", "manager"];
-    const canEdit = isOrgOwner || (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role));
+    const canEdit = isTerminalMode
+        ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
+        : isOrgOwner || (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role));
     const [maps, setMaps] = useState<MapConfig[]>([]);
     const [servers, setServers] = useState<Server[]>([]);
     const [currentMap, setCurrentMap] = useState<MapConfig | null>(null);
@@ -628,8 +631,8 @@ export default function SeatMapViewer() {
                                             {/* Consolidated Label Rendering */}
                                             {(table.object_type !== 'structure' || table.shape === 'door') && (
                                                 <Text
-                                                    text={initials || table.label}
-                                                    fontSize={initials ? 18 : (table.object_type === 'seat' ? 12 : 16)}
+                                                    text={initials ? `${table.label}\n${initials}` : table.label}
+                                                    fontSize={initials ? 14 : (table.object_type === 'seat' ? 12 : 16)}
                                                     fontStyle="bold"
                                                     fill="white"
                                                     width={table.width}
@@ -638,6 +641,7 @@ export default function SeatMapViewer() {
                                                     align="center"
                                                     listening={false}
                                                     opacity={table.shape === 'door' ? 0.9 : 1}
+                                                    lineHeight={1.2}
                                                 />
                                             )}
                                         </Group>

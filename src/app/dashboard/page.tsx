@@ -22,6 +22,7 @@ export default function DashboardPage() {
     const currentLocation = useAppStore((state) => state.currentLocation);
     const isClockedIn = useAppStore((state) => state.isClockedIn);
     const activeEntry = useAppStore((state) => state.activeEntry);
+    const isTerminalMode = useAppStore((state) => state.isTerminalMode);
     const [stats, setStats] = useState({
         todayOrders: 0,
         todayRevenue: 0,
@@ -126,12 +127,14 @@ export default function DashboardPage() {
                 <AlertTriangle className="h-12 w-12 text-orange-500 mb-4" />
                 <h2 className="text-xl font-bold mb-2">No Location Selected</h2>
                 <p className="text-slate-400 mb-6">Please select a location to view the dashboard.</p>
-                <button
-                    onClick={() => window.location.href = "/dashboard/locations"}
-                    className="btn btn-primary"
-                >
-                    Go to Locations
-                </button>
+                {!isTerminalMode && (
+                    <button
+                        onClick={() => window.location.href = "/dashboard/locations"}
+                        className="btn btn-primary"
+                    >
+                        Go to Locations
+                    </button>
+                )}
             </div>
         );
     }
@@ -192,7 +195,7 @@ export default function DashboardPage() {
                                 <OrderRow
                                     key={order.id}
                                     table={order.table_number || "TBD"}
-                                    items={0} // TODO: Count items
+                                    items={order.items?.length || 0}
                                     time={new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     status={order.status === 'pending' ? 'sent' : order.status}
                                 />

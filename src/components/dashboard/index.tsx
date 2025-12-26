@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { DashboardSidebar } from "./sidebar";
 import { InviteHandler } from "./InviteHandler";
 import { SessionHandler } from "./SessionHandler";
+import { TerminalPortal } from "./terminal/TerminalPortal";
+import { TerminalSetupPrompt } from "./terminal/TerminalSetupPrompt";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const sidebarOpen = useAppStore((state) => state.sidebarOpen);
@@ -13,6 +15,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <div className="min-h-screen bg-slate-950">
             <SessionHandler />
             <InviteHandler />
+            <TerminalPortal />
+            <TerminalSetupPrompt />
             <DashboardSidebar />
             <main
                 className={cn(

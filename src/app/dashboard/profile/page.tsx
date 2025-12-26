@@ -53,10 +53,7 @@ export default function ProfilePage() {
         phone: ""
     });
 
-    const [isPinModalOpen, setIsPinModalOpen] = useState(false);
-    const [newPin, setNewPin] = useState("");
-    const [pinConfirm, setPinConfirm] = useState("");
-    const [pinSuccess, setPinSuccess] = useState(false);
+
 
 
     const [shifts, setShifts] = useState<any[]>([]);
@@ -234,40 +231,7 @@ export default function ProfilePage() {
         }
     };
 
-    const handleUpdatePin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!currentEmployeeFromStore) return;
-        if (newPin.length !== 4 || isNaN(Number(newPin))) {
-            setStatus("error");
-            setMessage("PIN must be 4 digits.");
-            return;
-        }
 
-        try {
-            setSaving(true);
-            const supabase = createClient();
-            const { error } = await (supabase as any)
-                .from("employees")
-                .update({ pin_code: newPin })
-                .eq("id", currentEmployeeFromStore.id);
-
-            if (error) throw error;
-
-            setPinSuccess(true);
-            setTimeout(() => {
-                setIsPinModalOpen(false);
-                setPinSuccess(false);
-                setNewPin("");
-                fetchProfileData(); // Refresh to see updated PIN state
-            }, 2000);
-        } catch (err) {
-            console.error("Error updating PIN:", err);
-            setStatus("error");
-            setMessage("Failed to update PIN.");
-        } finally {
-            setSaving(false);
-        }
-    };
 
 
 
@@ -474,23 +438,7 @@ export default function ProfilePage() {
                         </button>
                     </div>
 
-                    {/* Staff PIN Access */}
-                    <div className="card flex flex-col items-center justify-center p-8 bg-slate-900/50 rounded-2xl border border-dashed border-slate-700">
-                        <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-4">
-                            <Lock className="h-6 w-6 text-orange-500" />
-                        </div>
-                        <h3 className="text-lg font-bold text-white mb-2">Staff PIN Access</h3>
-                        <p className="text-xs text-slate-400 text-center max-w-sm mb-6">
-                            Your 4-digit PIN is required for clocking in and out. Keep it secure and do not share it with others.
-                        </p>
-                        <button
-                            onClick={() => setIsPinModalOpen(true)}
-                            className="btn btn-secondary gap-2 px-8 w-full"
-                        >
-                            <Key className="h-4 w-4" />
-                            {currentEmployeeFromStore?.pin_code ? "Reset Staff PIN" : "Set Staff PIN"}
-                        </button>
-                    </div>
+
                 </div>
 
                 {/* Right Column: Availability Calendar */}
@@ -701,69 +649,7 @@ export default function ProfilePage() {
                 </div>
             </div>
 
-            {/* PIN Modal */}
-            {isPinModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsPinModalOpen(false)} />
-                    <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-sm animate-slide-up shadow-2xl">
-                        <div className="text-center mb-8">
-                            <div className="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mx-auto mb-4">
-                                <Key className="h-8 w-8 text-orange-500" />
-                            </div>
-                            <h2 className="text-2xl font-bold mb-2">{currentEmployeeFromStore?.pin_code ? "Reset Your PIN" : "Set Your PIN"}</h2>
-                            <p className="text-slate-400 text-sm">Enter a 4-digit numeric code for quick access</p>
-                        </div>
 
-                        {pinSuccess ? (
-                            <div className="flex flex-col items-center justify-center py-8 space-y-4 animate-in zoom-in-95 duration-300">
-                                <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
-                                    <Check className="h-8 w-8 text-green-500" />
-                                </div>
-                                <p className="text-green-500 font-bold">PIN Updated Successfully!</p>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleUpdatePin} className="space-y-6">
-                                <div className="space-y-2">
-                                    <label className="label text-center block">Enter 4-Digit PIN</label>
-                                    <input
-                                        type="password"
-                                        maxLength={4}
-                                        pattern="[0-9]*"
-                                        inputMode="numeric"
-                                        className="input text-center text-4xl tracking-widest font-bold h-20 bg-slate-800 border-2 focus:border-orange-500"
-                                        value={newPin}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, "");
-                                            if (val.length <= 4) setNewPin(val);
-                                        }}
-                                        placeholder="••••"
-                                        required
-                                        autoFocus
-                                    />
-                                </div>
-
-                                <div className="flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsPinModalOpen(false)}
-                                        className="btn btn-secondary flex-1"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={saving || newPin.length !== 4}
-                                        className="btn btn-primary flex-1 gap-2"
-                                    >
-                                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                        Save PIN
-                                    </button>
-                                </div>
-                            </form>
-                        )}
-                    </div>
-                </div>
-            )}
             {/* Hours Worked Modal */}
             <HoursWorkedModal
                 isOpen={isHoursModalOpen}

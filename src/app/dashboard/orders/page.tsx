@@ -38,8 +38,7 @@ interface MenuItemType {
 }
 
 interface OrderItem {
-    id: string;
-    dbId?: string; // Database ID if existing
+    id: string; // Internal unique ID
     menuItemId: string;
     name: string;
     price: number;
@@ -48,6 +47,8 @@ interface OrderItem {
     isUpsell?: boolean;
     isEdited?: boolean;
     seatNumber: number;
+    status: 'pending' | 'preparing' | 'ready' | 'served';
+    category_name?: string;
 }
 
 function OrdersPageContent() {
@@ -166,13 +167,13 @@ function OrdersPageContent() {
             // Updating an existing item in the ticket
             setOrderItems(orderItems.map(oi =>
                 oi.id === editingTicketItem.id
-                    ? { ...oi, notes, isEdited: oi.dbId ? true : false }
+                    ? { ...oi, notes, isEdited: true }
                     : oi
             ));
             setEditingTicketItem(null);
         } else {
             const existingIndex = orderItems.findIndex(
-                (o) => o.menuItemId === item.id && o.notes === notes && !o.dbId // Only group with unsent items
+                (o) => o.menuItemId === item.id && o.notes === notes && o.status === 'pending' // Only group with unsent items
             );
 
             if (existingIndex !== -1) {
@@ -180,7 +181,7 @@ function OrdersPageContent() {
                 newItems[existingIndex] = {
                     ...newItems[existingIndex],
                     quantity: newItems[existingIndex].quantity + 1,
-                    isEdited: newItems[existingIndex].dbId ? true : false
+                    isEdited: true
                 };
                 setOrderItems(newItems);
             } else {
@@ -193,7 +194,9 @@ function OrdersPageContent() {
                         price: item.price,
                         quantity: 1,
                         notes: notes,
-                        seatNumber: selectedSeat
+                        seatNumber: selectedSeat,
+                        status: 'pending',
+                        category_name: item.category?.name
                     },
                 ]);
             }
@@ -229,7 +232,9 @@ function OrdersPageContent() {
                         price: menuItem.price,
                         quantity: 1,
                         isUpsell: true,
-                        seatNumber: selectedSeat
+                        seatNumber: selectedSeat,
+                        status: 'pending',
+                        category_name: menuItem.category?.name
                     },
                 ]);
             }
@@ -266,7 +271,7 @@ function OrdersPageContent() {
         setOrderItems(
             orderItems
                 .map((item) =>
-                    item.id === id ? { ...item, quantity: item.quantity + delta, isEdited: item.dbId ? true : item.isEdited } : item
+                    item.id === id ? { ...item, quantity: item.quantity + delta, isEdited: true } : item
                 )
                 .filter((item) => item.quantity > 0)
         );
@@ -292,6 +297,20 @@ function OrdersPageContent() {
             let orderId = activeOrderId;
             const isEditing = !!orderId;
 
+            // Prepare items for storage
+            const itemsToSave = orderItems.map(item => ({
+                id: item.id,
+                menu_item_id: item.menuItemId,
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                notes: item.notes || null,
+                status: item.status || "pending",
+                seat_number: item.seatNumber,
+                is_upsell: item.isUpsell || false,
+                category_name: item.category_name
+            }));
+
             if (!isEditing) {
                 // 1. Create a new order
                 const { data: order, error: orderError } = await (supabase
@@ -304,7 +323,8 @@ function OrdersPageContent() {
                         order_type: orderType,
                         subtotal: subtotal,
                         tax: tax,
-                        total: total
+                        total: total,
+                        items: itemsToSave
                     })
                     .select("id")
                     .single();
@@ -320,6 +340,7 @@ function OrdersPageContent() {
                         subtotal,
                         tax,
                         total,
+                        items: itemsToSave,
                         is_edited: true,
                         updated_at: new Date().toISOString()
                     })
@@ -327,47 +348,6 @@ function OrdersPageContent() {
 
                 if (orderUpdateError) throw orderUpdateError;
             }
-
-            // 2. Handle order items
-            const newItems = orderItems.filter(i => !i.dbId);
-            const existingItems = orderItems.filter(i => i.dbId);
-
-            // Insert new items
-            if (newItems.length > 0) {
-                const itemsToInsert = newItems.map(item => ({
-                    order_id: orderId,
-                    menu_item_id: item.menuItemId,
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.price,
-                    notes: item.notes || null,
-                    status: "pending",
-                    seat_number: item.seatNumber
-                }));
-
-                const { error: insertError } = await (supabase
-                    .from("order_items") as any)
-                    .insert(itemsToInsert);
-                if (insertError) throw insertError;
-            }
-
-            // Update existing items that were change
-            for (const item of existingItems) {
-                if (item.isEdited) {
-                    const { error: updateError } = await (supabase
-                        .from("order_items") as any)
-                        .update({
-                            quantity: item.quantity,
-                            notes: item.notes || null,
-                            is_edited: true
-                        })
-                        .eq("id", item.dbId);
-                    if (updateError) throw updateError;
-                }
-            }
-
-            // Handle deletions? (Items in DB but not in current state)
-            // For now, removing from state only. Proper deletion might need confirmation.
 
             toast.success(isEditing ? "Order updated!" : "Order sent to kitchen!");
             setOrderItems([]);
@@ -386,23 +366,19 @@ function OrdersPageContent() {
         setOrderType(order.order_type);
         setTableNumber(order.table_number || "");
 
-        // Fetch items for this order
-        const { data: items } = await supabase
-            .from("order_items")
-            .select("*")
-            .eq("order_id", order.id);
-
-        if (items) {
-            setOrderItems(items.map((i: any) => ({
-                id: crypto.randomUUID(),
-                dbId: i.id,
+        if (order.items && Array.isArray(order.items)) {
+            setOrderItems(order.items.map((i: any) => ({
+                id: i.id || crypto.randomUUID(),
                 menuItemId: i.menu_item_id,
                 name: i.name,
                 price: i.price,
                 quantity: i.quantity,
                 notes: i.notes || undefined,
                 isEdited: false,
-                seatNumber: i.seat_number || 1
+                seatNumber: i.seat_number || 1,
+                status: i.status || 'pending',
+                isUpsell: i.is_upsell || false,
+                category_name: i.category_name
             })));
         }
         setShowMyTickets(false);

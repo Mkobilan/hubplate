@@ -57,12 +57,15 @@ export default function KitchenPage() {
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const isOrgOwner = useAppStore((state) => state.isOrgOwner);
+    const isTerminalMode = useAppStore((state) => state.isTerminalMode);
     const supabase = createClient();
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // Check if current user can manage KDS screens
-    const canManageKds = isOrgOwner || (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role));
+    const canManageKds = isTerminalMode
+        ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
+        : isOrgOwner || (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role));
 
     // Fetch KDS screens
     const fetchKdsScreens = async () => {
@@ -142,7 +145,7 @@ export default function KitchenPage() {
         if (!currentLocation?.id) return;
 
         try {
-            // Fetch active orders with item-level status
+            // Fetch active orders with consolidated item details
             const { data: ordersData, error: ordersError } = await supabase
                 .from("orders")
                 .select(`
@@ -152,17 +155,8 @@ export default function KitchenPage() {
                     order_type,
                     created_at,
                     is_edited,
-                    server:employees(first_name, last_name),
-                    order_items (
-                        id,
-                        name,
-                        quantity,
-                        notes,
-                        status,
-                        is_edited,
-                        menu_item_id,
-                        seat_number
-                    )
+                    items,
+                    server:employees(first_name, last_name)
                 `)
                 .eq("location_id", currentLocation.id)
                 .in("status", ["pending", "in_progress", "ready"])
@@ -175,12 +169,12 @@ export default function KitchenPage() {
                 if (o.order_type === 'takeout') title = 'Takeout';
                 if (o.order_type === 'delivery') title = 'Delivery';
 
-                const items: KitchenOrderItem[] = o.order_items.map((oi: any) => ({
+                const items: KitchenOrderItem[] = (o.items || []).map((oi: any) => ({
                     id: oi.id,
                     name: oi.name || "Unknown Item",
                     quantity: oi.quantity,
                     notes: oi.notes,
-                    status: oi.status || 'pending',  // Use item-level status
+                    status: oi.status || 'pending',
                     isEdited: oi.is_edited,
                     menuItemId: oi.menu_item_id,
                     seatNumber: oi.seat_number
@@ -191,7 +185,7 @@ export default function KitchenPage() {
                     table: title,
                     orderType: o.order_type,
                     serverName: o.server ? `${o.server.first_name} ${o.server.last_name.charAt(0)}.` : "System",
-                    status: deriveOrderStatus(items),  // Derive from items
+                    status: deriveOrderStatus(items),
                     createdAt: new Date(o.created_at),
                     isEdited: o.is_edited,
                     items
@@ -236,18 +230,6 @@ export default function KitchenPage() {
                 {
                     event: "*",
                     schema: "public",
-                    table: "order_items"
-                },
-                () => {
-                    // Refresh on any order_items change
-                    fetchOrders();
-                }
-            )
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
                     table: "kds_screens",
                     filter: `location_id=eq.${currentLocation.id}`
                 },
@@ -279,19 +261,47 @@ export default function KitchenPage() {
         return "text-red-400";
     };
 
-    // Update status for specific items (the ones visible on this KDS screen)
+    // Update status for specific items within the orders.items JSONB column
     const updateItemsStatus = async (orderId: string, itemIds: string[], newStatus: string) => {
         try {
-            // Update each item's status
-            const { error } = await (supabase
-                .from("order_items") as any)
-                .update({ status: newStatus })
-                .in("id", itemIds);
+            // 1. Fetch current order to get items array
+            const { data: order, error: fetchError } = await (supabase
+                .from("orders") as any)
+                .select("items")
+                .eq("id", orderId)
+                .single();
 
-            if (error) throw error;
+            if (fetchError) throw fetchError;
 
-            // After updating items, recalculate and update order status
-            await syncOrderStatus(orderId);
+            // 2. Update status in the JSONB array
+            const updatedItems = (order.items || []).map((item: any) => {
+                if (itemIds.includes(item.id)) {
+                    return { ...item, status: newStatus };
+                }
+                return item;
+            });
+
+            // 3. Derive order-level status
+            const derivedStatus = deriveOrderStatus(updatedItems);
+            let orderStatus = derivedStatus;
+            if (derivedStatus === 'preparing') orderStatus = 'in_progress';
+
+            const updateData: any = {
+                items: updatedItems,
+                status: orderStatus
+            };
+
+            if (orderStatus === 'ready') {
+                updateData.completed_at = new Date().toISOString();
+            }
+
+            // 4. Update the order
+            const { error: updateError } = await (supabase
+                .from("orders") as any)
+                .update(updateData)
+                .eq("id", orderId);
+
+            if (updateError) throw updateError;
 
             toast.success(`Items marked as ${newStatus}`);
             fetchOrders();
@@ -301,39 +311,6 @@ export default function KitchenPage() {
         }
     };
 
-    // Sync order-level status based on all items
-    const syncOrderStatus = async (orderId: string) => {
-        try {
-            // Fetch all items for this order
-            const { data: allItems, error: fetchError } = await supabase
-                .from("order_items")
-                .select("status")
-                .eq("order_id", orderId);
-
-            if (fetchError) throw fetchError;
-
-            const items = (allItems || []) as { status: string }[];
-            const derivedStatus = deriveOrderStatus(items.map(i => ({ ...i, id: '', name: '', quantity: 1 })));
-
-            // Map derived status to order status values
-            let orderStatus = derivedStatus;
-            if (derivedStatus === 'preparing') orderStatus = 'in_progress';
-
-            const updateData: any = { status: orderStatus };
-
-            // Set completed_at when all items are ready
-            if (orderStatus === 'ready') {
-                updateData.completed_at = new Date().toISOString();
-            }
-
-            await (supabase
-                .from("orders") as any)
-                .update(updateData)
-                .eq("id", orderId);
-        } catch (error) {
-            console.error("Error syncing order status:", error);
-        }
-    };
 
     // Handle Start button - mark visible items as 'preparing'
     const handleStartItems = (orderId: string, visibleItems: KitchenOrderItem[]) => {

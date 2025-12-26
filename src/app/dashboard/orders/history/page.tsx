@@ -37,13 +37,16 @@ export default function OrderHistoryPage() {
     const [loading, setLoading] = useState(true);
     const [selectedOrder, setSelectedOrder] = useState<any>(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
-    const [orderItems, setOrderItems] = useState<any[]>([]);
     const [loadingItems, setLoadingItems] = useState(false);
 
-    // Comp logic states
     const [compingItem, setCompingItem] = useState<any>(null);
     const [compReason, setCompReason] = useState("");
     const [showCompModal, setShowCompModal] = useState(false);
+
+    const isTerminalMode = useAppStore((state) => state.isTerminalMode);
+    const canComp = isTerminalMode
+        ? (currentEmployee?.role === "owner" || currentEmployee?.role === "manager")
+        : isOrgOwner || currentEmployee?.role === "owner" || currentEmployee?.role === "manager";
 
     const fetchOrders = useCallback(async () => {
         if (!currentLocation) return;
@@ -81,28 +84,10 @@ export default function OrderHistoryPage() {
         fetchOrders();
     }, [fetchOrders]);
 
-    const fetchOrderItems = async (orderId: string) => {
-        try {
-            setLoadingItems(true);
-            const supabase = createClient();
-            const { data, error } = await supabase
-                .from("order_items")
-                .select("*")
-                .eq("order_id", orderId);
-
-            if (error) throw error;
-            setOrderItems(data || []);
-        } catch (err) {
-            console.error("Error fetching order items:", err);
-        } finally {
-            setLoadingItems(false);
-        }
-    };
 
     const handleViewDetails = (order: any) => {
         setSelectedOrder(order);
         setShowDetailModal(true);
-        fetchOrderItems(order.id);
     };
 
     const handleCompClick = (target: any = null) => {
@@ -114,7 +99,9 @@ export default function OrderHistoryPage() {
         if (isOrder) {
             setCompReason(selectedOrder.comp_reason || "");
         } else {
-            setCompReason(selectedOrder.comp_meta?.comped_items?.[item.id] || "");
+            // Check if the item is already comped in the comp_meta
+            const compedItemReason = selectedOrder.comp_meta?.comped_items?.[item.id];
+            setCompReason(compedItemReason || "");
         }
 
         setShowCompModal(true);
@@ -128,9 +115,10 @@ export default function OrderHistoryPage() {
             const isOrderLevel = compingItem.id === selectedOrder.id;
 
             let updatePayload: any = {};
-            let newSubtotal = selectedOrder.subtotal;
-            let newTax = selectedOrder.tax;
-            let newTotal = selectedOrder.total;
+            let newSubtotal = 0;
+            let newTax = 0;
+            let newTotal = 0;
+            let updatedItems = [...selectedOrder.items]; // Create a mutable copy
 
             if (isOrderLevel) {
                 const isRemovingComp = selectedOrder.is_comped;
@@ -142,50 +130,63 @@ export default function OrderHistoryPage() {
                 };
 
                 if (newCompStatus) {
+                    updatedItems = updatedItems.map((i: any) => ({
+                        ...i,
+                        // We do NOT change the status here, we rely on comp_meta being the source of truth for the whole order being comped
+                    }));
                     newSubtotal = 0;
                     newTax = 0;
                     newTotal = 0;
                 } else {
+                    // If un-comping the whole order, revert item statuses based on comp_meta or default
+                    const compedItemsMeta = selectedOrder.comp_meta?.comped_items || {};
+                    updatedItems = updatedItems.map((i: any) => ({
+                        ...i,
+                        status: compedItemsMeta[i.id] ? 'comped' : 'completed' // Or whatever default status is
+                    }));
+
                     // Recalculate based on items, respecting JSONB item-level comps from comp_meta
-                    const { data: allItems } = await supabase.from("order_items").select("*").eq("order_id", selectedOrder.id);
-                    if (allItems) {
-                        const compedItems = selectedOrder.comp_meta?.comped_items || {};
-                        newSubtotal = allItems.reduce((sum: number, i: any) => {
-                            const isItemComped = compedItems[i.id];
-                            return sum + (isItemComped ? 0 : (Number(i.unit_price || i.price) * i.quantity));
-                        }, 0);
-                        const taxRate = currentLocation?.tax_rate ?? 8.75;
-                        newTax = newSubtotal * (taxRate / 100);
-                        newTotal = newSubtotal + newTax + (selectedOrder.tip || 0);
-                    }
+                    const taxRate = currentLocation?.tax_rate ?? 8.75;
+                    newSubtotal = updatedItems.reduce((sum: number, i: any) => {
+                        const isItemComped = selectedOrder.comp_meta?.comped_items?.[i.id] || false;
+                        return sum + (isItemComped ? 0 : (Number(i.unit_price || i.price) * i.quantity));
+                    }, 0);
+                    newTax = newSubtotal * (taxRate / 100);
+                    newTotal = newSubtotal + newTax + (selectedOrder.tip || 0);
                 }
+                updatePayload.items = updatedItems; // Update the items array in the payload
             } else {
                 // Item level comp using the "Smart Column"
-                const compedItems = { ...(selectedOrder.comp_meta?.comped_items || {}) };
-                const isItemComped = compedItems[compingItem.id];
+                const compedItemsMeta = { ...(selectedOrder.comp_meta?.comped_items || {}) };
+                const isItemComped = compedItemsMeta[compingItem.id];
 
                 if (isItemComped) {
-                    delete compedItems[compingItem.id];
+                    delete compedItemsMeta[compingItem.id];
+                    // Reverting: No status change needed as we didn't change it to 'comped'
                 } else {
-                    compedItems[compingItem.id] = compReason;
+                    compedItemsMeta[compingItem.id] = compReason;
+                    // Apply: No status change needed
                 }
 
                 updatePayload = {
-                    comp_meta: { ...selectedOrder.comp_meta, comped_items: compedItems }
+                    comp_meta: { ...selectedOrder.comp_meta, comped_items: compedItemsMeta },
+                    items: updatedItems // Update the items array in the payload
                 };
 
                 // Recalculate totals (only if the whole order isn't comped)
                 if (!selectedOrder.is_comped) {
-                    const { data: allItems } = await supabase.from("order_items").select("*").eq("order_id", selectedOrder.id);
-                    if (allItems) {
-                        newSubtotal = allItems.reduce((sum: number, i: any) => {
-                            const isIComped = compedItems[i.id];
-                            return sum + (isIComped ? 0 : (Number(i.unit_price || i.price) * i.quantity));
-                        }, 0);
-                        const taxRate = currentLocation?.tax_rate ?? 8.75;
-                        newTax = newSubtotal * (taxRate / 100);
-                        newTotal = newSubtotal + newTax + (selectedOrder.tip || 0);
-                    }
+                    const taxRate = currentLocation?.tax_rate ?? 8.75;
+                    newSubtotal = updatedItems.reduce((sum: number, i: any) => {
+                        const isIComped = compedItemsMeta[i.id]; // Check comp_meta
+                        return sum + (isIComped ? 0 : (Number(i.unit_price || i.price) * i.quantity));
+                    }, 0);
+                    newTax = newSubtotal * (taxRate / 100);
+                    newTotal = newSubtotal + newTax + (selectedOrder.tip || 0);
+                } else {
+                    // If the whole order is comped, item-level comps don't change the total
+                    newSubtotal = 0;
+                    newTax = 0;
+                    newTotal = 0;
                 }
             }
 
@@ -392,12 +393,8 @@ export default function OrderHistoryPage() {
                                 <ClipboardList className="h-3 w-3" /> Items
                             </p>
                             <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2">
-                                {loadingItems ? (
-                                    <div className="flex justify-center py-8">
-                                        <Clock className="h-6 w-6 animate-spin text-orange-500" />
-                                    </div>
-                                ) : orderItems.length > 0 ? (
-                                    orderItems.map((item: any) => {
+                                {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                                    (selectedOrder.items || []).map((item: any) => {
                                         const isItemComped = selectedOrder.comp_meta?.comped_items?.[item.id];
                                         return (
                                             <div key={item.id} className={cn(
@@ -412,14 +409,14 @@ export default function OrderHistoryPage() {
                                                         {isItemComped && (
                                                             <div className="flex flex-col">
                                                                 <span className="badge badge-warning text-[8px] py-0 px-1 uppercase w-fit">Comped</span>
-                                                                <p className="text-[9px] text-slate-500 italic">"{isItemComped}"</p>
+                                                                <p className="text-[9px] text-slate-500 italic">"{selectedOrder.comp_meta?.comped_items?.[item.id]}"</p>
                                                             </div>
                                                         )}
                                                     </div>
                                                     {item.notes && <p className="text-xs text-orange-400 mt-0.5 italic">{item.notes}</p>}
                                                     {item.modifiers && (
                                                         <div className="flex flex-wrap gap-1 mt-1">
-                                                            {(item.modifiers as string[]).map((mod, idx) => (
+                                                            {(item.modifiers as string[]).map((mod: string, idx: number) => (
                                                                 <span key={idx} className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">{mod}</span>
                                                             ))}
                                                         </div>
@@ -435,7 +432,7 @@ export default function OrderHistoryPage() {
                                                         )}
                                                     </div>
 
-                                                    {(isOrgOwner || currentEmployee?.role === "owner" || currentEmployee?.role === "manager") && (
+                                                    {canComp && (
                                                         <button
                                                             onClick={() => handleCompClick(item)}
                                                             className={cn(
@@ -487,7 +484,7 @@ export default function OrderHistoryPage() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className="text-orange-400">{formatCurrency(selectedOrder.total)}</span>
-                                    {(isOrgOwner || currentEmployee?.role === "owner" || currentEmployee?.role === "manager") && (
+                                    {canComp && (
                                         <button
                                             onClick={() => handleCompClick()}
                                             className={cn(

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
     ChefHat,
@@ -25,7 +26,8 @@ import {
     Activity,
     User,
     Armchair,
-    CalendarClock
+    CalendarClock,
+    Lock
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
@@ -47,10 +49,30 @@ export function DashboardSidebar() {
     const toggleSidebar = useAppStore((state) => state.toggleSidebar);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const isOrgOwner = useAppStore((state) => state.isOrgOwner);
+    const isTerminalMode = useAppStore((state) => state.isTerminalMode);
+    const isTerminalLocked = useAppStore((state) => state.isTerminalLocked);
+    const setTerminalLocked = useAppStore((state) => state.setTerminalLocked);
+    const setCurrentEmployee = useAppStore((state) => state.setCurrentEmployee);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const router = useRouter();
 
-    // Check if current user has management access (employee with role OR organization owner)
-    const isManager = (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
+    const handleLogout = async () => {
+        if (isTerminalMode) {
+            setCurrentEmployee(null);
+            setTerminalLocked(true);
+            return;
+        }
+
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        router.push("/");
+    };
+
+    // Check if current user has management access
+    // In terminal mode, we ONLY care about the current employee's role, not the hidden org owner session
+    const isManager = isTerminalMode
+        ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
+        : (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
 
     const allNavItems: NavItem[] = [
         {
@@ -194,13 +216,13 @@ export function DashboardSidebar() {
             {/* Logout */}
             <div className="p-4 border-t border-slate-800 space-y-4">
                 <ClockInOut />
-                <Link
-                    href="/logout"
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all"
+                <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all text-left"
                 >
                     <LogOut className="h-5 w-5" />
                     {sidebarOpen && <span className="font-medium">{t("auth.logout")}</span>}
-                </Link>
+                </button>
             </div>
         </>
     );

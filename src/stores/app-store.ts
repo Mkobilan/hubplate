@@ -24,6 +24,10 @@ interface AppState {
     isOnBreak: boolean;
     breakType: string | null;
 
+    // Terminal state
+    isTerminalMode: boolean;
+    isTerminalLocked: boolean;
+
     // Actions
     setCurrentLocation: (location: Location | null) => void;
     setCurrentEmployee: (employee: Employee | null) => void;
@@ -38,6 +42,10 @@ interface AppState {
     setClockStatus: (status: { isClockedIn: boolean; activeEntry: any | null; isOnBreak: boolean; breakType: string | null }) => void;
     refreshClockStatus: (supabase: any, employeeId: string) => Promise<void>;
     reset: () => void;
+
+    // Terminal actions
+    setTerminalMode: (enabled: boolean) => void;
+    setTerminalLocked: (locked: boolean) => void;
 }
 
 const initialState = {
@@ -53,6 +61,8 @@ const initialState = {
     activeEntry: null,
     isOnBreak: false,
     breakType: null,
+    isTerminalMode: false,
+    isTerminalLocked: false,
 };
 
 export const useAppStore = create<AppState>()(
@@ -115,6 +125,10 @@ export const useAppStore = create<AppState>()(
                 }
             },
 
+            setTerminalMode: (enabled) => set({ isTerminalMode: enabled }),
+
+            setTerminalLocked: (locked) => set({ isTerminalLocked: locked }),
+
             reset: () => set(initialState),
         }),
         {
@@ -125,6 +139,7 @@ export const useAppStore = create<AppState>()(
                 sidebarOpen: state.sidebarOpen,
                 currentLocation: state.currentLocation,
                 currentEmployee: state.currentEmployee,
+                isTerminalMode: state.isTerminalMode,
             }),
         }
     )
