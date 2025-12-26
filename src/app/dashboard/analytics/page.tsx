@@ -99,9 +99,6 @@ export default function AnalyticsPage() {
         items: [],
         topSeller: "N/A",
         totalItemsSold: 0,
-        items: [],
-        topSeller: "N/A",
-        totalItemsSold: 0,
         topItems: [],
         topCategories: []
     });
@@ -330,37 +327,14 @@ export default function AnalyticsPage() {
                 });
             }
 
-            // Try to fetch legacy order_items
-            let legacyItems: any[] = [];
-            try {
-                const { data: li, error } = await supabase
-                    .from("order_items")
-                    .select("name, quantity, price, menu_item_id, order_id, orders!inner(created_at, status)")
-                    .eq("orders.location_id", currentLocation.id)
-                    .gte("orders.created_at", startISO)
-                    .lte("orders.created_at", endISO);
-
-                if (!error && li) legacyItems = li;
-            } catch (err) {
-                // Ignore error if table doesn't exist
-                console.log("Legacy items table not found or error", err);
-            }
-
-            // Aggregate by item name using the items JSONB in each order AND legacy items
+            // Aggregate by item name using the items JSONB in each order
             const itemGroups = (orders || []).reduce((acc: any, order: any) => {
                 // Skip cancelled orders for menu performance
                 if (order.status === "cancelled") return acc;
 
-                // If items JSONB is populated, use it
-                if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+                // Use items JSONB
+                if (order.items && Array.isArray(order.items)) {
                     order.items.forEach((item: any) => {
-                        processItemForStats(acc, item, menuItemsMap);
-                    });
-                }
-                // If items JSONB is empty, check if we have legacy items for this order
-                else {
-                    const orderLegacyItems = legacyItems.filter((li: any) => li.order_id === order.id);
-                    orderLegacyItems.forEach((item: any) => {
                         processItemForStats(acc, item, menuItemsMap);
                     });
                 }
@@ -398,7 +372,7 @@ export default function AnalyticsPage() {
                 }));
 
             // Calculate Category Performance
-            const categoryGroups = Object.values(itemGroups).reduce((acc: any, item: any) => {
+            const categoryGroups = (Object.values(itemGroups) as any[]).reduce((acc: any, item: any) => {
                 const cat = item.category || "Uncategorized";
                 if (!acc[cat]) acc[cat] = { name: cat, quantity: 0, revenue: 0 };
                 acc[cat].quantity += item.quantity;
@@ -406,7 +380,7 @@ export default function AnalyticsPage() {
                 return acc;
             }, {});
 
-            const topCategories = Object.values(categoryGroups)
+            const topCategories = (Object.values(categoryGroups) as any[])
                 .sort((a: any, b: any) => b.revenue - a.revenue) // Sort categories by revenue usually makes more sense, or quantity
                 .map((cat: any, i) => ({
                     label: cat.name,
