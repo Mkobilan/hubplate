@@ -389,13 +389,13 @@ function OrdersPageContent() {
             {/* Menu Section */}
             <div className="flex-1 flex flex-col">
                 {/* Category Tabs */}
-                <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 md:mx-0 md:px-0">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 pb-3">
                     {categories.map((cat) => (
                         <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
                             className={cn(
-                                "btn whitespace-nowrap",
+                                "btn w-full h-auto min-h-[40px] whitespace-normal py-2 px-2 text-sm leading-tight break-words",
                                 selectedCategory === cat ? "btn-primary" : "btn-secondary"
                             )}
                         >
