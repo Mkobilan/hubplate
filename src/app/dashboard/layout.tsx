@@ -1,9 +1,14 @@
 import { DashboardLayout } from "@/components/dashboard";
+import { NotificationProvider } from "@/components/providers/NotificationContext";
 
 export default function DashboardRootLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    return <DashboardLayout>{children}</DashboardLayout>;
+    return (
+        <NotificationProvider>
+            <DashboardLayout>{children}</DashboardLayout>
+        </NotificationProvider>
+    );
 }

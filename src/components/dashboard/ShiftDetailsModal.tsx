@@ -59,13 +59,18 @@ export function ShiftDetailsModal({
             setStatus("idle");
             const supabase = createClient();
 
-            const orgId = (currentEmployee as any)?.organization_id;
+            // Ensure we have currentEmployee organization_id
+            const orgId = currentEmployee?.organization_id;
+            if (!orgId || !currentLocation?.id || !currentEmployee?.id) {
+                console.error("Missing required data for offer up:", { orgId, locationId: currentLocation?.id, employeeId: currentEmployee?.id });
+                throw new Error("Missing required data");
+            }
 
-            const { error } = await (supabase.from("shift_swap_requests") as any).insert({
+            const { error }: { error: any } = await (supabase.from("shift_swap_requests") as any).insert({
                 organization_id: orgId,
-                location_id: currentLocation?.id,
+                location_id: currentLocation.id,
                 shift_id: shift.id,
-                requester_id: currentEmployee?.id,
+                requester_id: currentEmployee.id,
                 target_employee_id: null, // Open offer - no specific target
                 request_type: "open_offer",
                 status: "pending",
@@ -75,6 +80,29 @@ export function ShiftDetailsModal({
 
             setStatus("success");
             setMessage("Shift offered up! Anyone qualified can claim it.");
+
+            // Notify other eligible staff (same role, same location, excluding self)
+            // 1. Fetch eligible staff
+            const { data: eligibleStaff } = await supabase
+                .from("employees")
+                .select("id")
+                .eq("location_id", currentLocation.id)
+                .eq("role", shift.role as any) // Cast if shift.role is just string
+                .neq("id", currentEmployee.id);
+
+            if (eligibleStaff && eligibleStaff.length > 0) {
+                const notis = eligibleStaff.map(emp => ({
+                    recipient_id: emp.id,
+                    location_id: currentLocation.id,
+                    type: 'shift_offer' as const,
+                    title: 'New Shift Offer',
+                    message: `${currentEmployee.first_name} ${currentEmployee.last_name} offered up their ${format(new Date(shift.date), "MMM d")} shift.`,
+                    link: '/dashboard/schedule', // Link to schedule where they can claim it? Or maybe a requests page
+                    is_read: false
+                }));
+
+                await supabase.from("notifications").insert(notis);
+            }
 
             setTimeout(() => {
                 onClose();

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
+import { NotificationBell } from "./notifications/NotificationBell";
 
 interface NavItem {
     href: string;
@@ -164,12 +165,16 @@ export function DashboardSidebar() {
 
     const SidebarContent = () => (
         <>
+
             {/* Logo */}
-            <div className="flex items-center gap-2 px-4 py-5 border-b border-slate-800">
-                <ChefHat className="h-8 w-8 text-orange-500" />
-                {sidebarOpen && (
-                    <span className="text-xl font-bold gradient-text">HubPlate</span>
-                )}
+            <div className="flex items-center justify-between px-4 py-5 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                    <ChefHat className="h-8 w-8 text-orange-500" />
+                    {sidebarOpen && (
+                        <span className="text-xl font-bold gradient-text">HubPlate</span>
+                    )}
+                </div>
+                {sidebarOpen && <NotificationBell />}
             </div>
 
             {/* Navigation */}

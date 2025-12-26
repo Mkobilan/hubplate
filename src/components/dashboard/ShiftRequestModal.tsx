@@ -152,6 +152,16 @@ export function ShiftRequestModal({
 
             if (error) throw error;
 
+            // Notify target employee
+            await supabase.from("notifications").insert({
+                recipient_id: targetEmployee.id,
+                location_id: currentLocation.id,
+                type: 'shift_request',
+                title: requestType === 'swap' ? 'Shift Swap Request' : 'Shift Cover Request',
+                message: `${currentEmployee.first_name} ${currentEmployee.last_name} requested a ${requestType === 'swap' ? 'shift swap' : 'cover'} for ${format(new Date(targetDate), "MMM d")}.`,
+                is_read: false
+            });
+
             setStatus("success");
             setMessage("Request sent successfully!");
 

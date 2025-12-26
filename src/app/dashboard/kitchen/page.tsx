@@ -267,7 +267,7 @@ export default function KitchenPage() {
             // 1. Fetch current order to get items array
             const { data: order, error: fetchError } = await (supabase
                 .from("orders") as any)
-                .select("items")
+                .select("items, server_id, table_number")
                 .eq("id", orderId)
                 .single();
 
@@ -302,6 +302,19 @@ export default function KitchenPage() {
                 .eq("id", orderId);
 
             if (updateError) throw updateError;
+
+            // Notify server if ready
+            if (newStatus === 'ready' && order.server_id) {
+                await supabase.from("notifications").insert({
+                    recipient_id: order.server_id,
+                    location_id: currentLocation.id,
+                    type: 'order_ready',
+                    title: 'Order Ready',
+                    message: `Order for ${order.table_number ? 'Table ' + order.table_number : 'Takeout/Delivery'} is ready!`,
+                    link: '/dashboard/orders',
+                    is_read: false
+                });
+            }
 
             toast.success(`Items marked as ${newStatus}`);
             fetchOrders();

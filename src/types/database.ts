@@ -412,6 +412,94 @@ export interface Database {
                     updated_at?: string;
                 };
             };
+            notifications: {
+                Row: {
+                    id: string;
+                    recipient_id: string;
+                    location_id: string;
+                    type: "schedule" | "clock_in" | "clock_out" | "shift_offer" | "shift_request" | "order_ready";
+                    title: string;
+                    message: string;
+                    link: string | null;
+                    is_read: boolean;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    recipient_id: string;
+                    location_id: string;
+                    type: "schedule" | "clock_in" | "clock_out" | "shift_offer" | "shift_request" | "order_ready";
+                    title: string;
+                    message: string;
+                    link?: string | null;
+                    is_read?: boolean;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    recipient_id?: string;
+                    location_id?: string;
+                    type?: "schedule" | "clock_in" | "clock_out" | "shift_offer" | "shift_request" | "order_ready";
+                    title?: string;
+                    message?: string;
+                    link?: string | null;
+                    is_read?: boolean;
+                    created_at?: string;
+                };
+            };
+            shift_swap_requests: {
+                Row: {
+                    id: string;
+                    organization_id: string;
+                    location_id: string;
+                    shift_id: string;
+                    requester_id: string;
+                    target_employee_id: string | null;
+                    request_type: "swap" | "cover" | "open_offer";
+                    swap_shift_id: string | null;
+                    status: "pending" | "accepted" | "denied" | "cancelled" | "manager_pending";
+                    accepted_by: string | null;
+                    requester_note: string | null;
+                    response_note: string | null;
+                    dismissed_by_ids: string[] | null;
+                    created_at: string;
+                    responded_at: string | null;
+                };
+                Insert: {
+                    id?: string;
+                    organization_id: string;
+                    location_id: string;
+                    shift_id: string;
+                    requester_id: string;
+                    target_employee_id?: string | null;
+                    request_type: "swap" | "cover" | "open_offer";
+                    swap_shift_id?: string | null;
+                    status?: "pending" | "accepted" | "denied" | "cancelled" | "manager_pending";
+                    accepted_by?: string | null;
+                    requester_note?: string | null;
+                    response_note?: string | null;
+                    dismissed_by_ids?: string[] | null;
+                    created_at?: string;
+                    responded_at?: string | null;
+                };
+                Update: {
+                    id?: string;
+                    organization_id?: string;
+                    location_id?: string;
+                    shift_id?: string;
+                    requester_id?: string;
+                    target_employee_id?: string | null;
+                    request_type?: "swap" | "cover" | "open_offer";
+                    swap_shift_id?: string | null;
+                    status?: "pending" | "accepted" | "denied" | "cancelled" | "manager_pending";
+                    accepted_by?: string | null;
+                    requester_note?: string | null;
+                    response_note?: string | null;
+                    dismissed_by_ids?: string[] | null;
+                    created_at?: string;
+                    responded_at?: string | null;
+                };
+            };
         };
         Views: {};
         Functions: {};

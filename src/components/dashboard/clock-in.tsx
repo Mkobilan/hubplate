@@ -121,6 +121,26 @@ export function ClockInOut() {
                         hourly_rate: currentEmployee.hourly_rate || 0
                     }]);
                 if (error) throw error;
+
+                // Let's refine the query to be precise:
+                const { data: recipients } = await (supabase as any)
+                    .from("employees")
+                    .select("id, role, location_id")
+                    .eq("organization_id", currentEmployee.organization_id)
+                    .or(`role.eq.owner,and(role.in.(manager),location_id.eq.${currentLocation.id})`);
+
+                if (recipients && recipients.length > 0) {
+                    const notis = recipients.map((m: any) => ({
+                        recipient_id: m.id,
+                        location_id: currentLocation.id,
+                        type: 'clock_in',
+                        title: 'Staff Clock In',
+                        message: `${currentEmployee.first_name} ${currentEmployee.last_name} clocked in.`,
+                        is_read: false
+                    }));
+                    await (supabase.from("notifications") as any).insert(notis);
+                }
+
                 setStatus("success");
                 setMessage("Clocked in successfully!");
             } else if (action === 'clock_out') {
@@ -151,6 +171,26 @@ export function ClockInOut() {
                     })
                     .eq("id", activeEntry.id);
                 if (error) throw error;
+
+                // Notify GMs/Owners
+                const { data: recipients } = await (supabase as any)
+                    .from("employees")
+                    .select("id, role, location_id")
+                    .eq("organization_id", currentEmployee.organization_id)
+                    .or(`role.eq.owner,and(role.in.(manager),location_id.eq.${currentLocation.id})`);
+
+                if (recipients && recipients.length > 0) {
+                    const notis = recipients.map((m: any) => ({
+                        recipient_id: m.id,
+                        location_id: currentLocation.id,
+                        type: 'clock_out',
+                        title: 'Staff Clock Out',
+                        message: `${currentEmployee.first_name} ${currentEmployee.last_name} clocked out.`,
+                        is_read: false
+                    }));
+                    await (supabase.from("notifications") as any).insert(notis);
+                }
+
                 setStatus("success");
                 setMessage("Clocked out successfully!");
             } else if (action === 'start_break') {
