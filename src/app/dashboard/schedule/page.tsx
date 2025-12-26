@@ -141,9 +141,9 @@ export default function SchedulePage() {
             if (error) throw error;
 
             // Notify the employee
-            await supabase.from("notifications").insert({
+            await (supabase.from("notifications") as any).insert({
                 recipient_id: newShift.employee_id,
-                location_id: currentLocation.id,
+                location_id: currentLocation!.id,
                 type: 'schedule',
                 title: 'New Shift Added',
                 message: `You have been assigned a new shift on ${newShift.date} (${newShift.start_time} - ${newShift.end_time})`,
@@ -193,9 +193,9 @@ export default function SchedulePage() {
             if (error) throw error;
 
             // Notify the employee
-            await supabase.from("notifications").insert({
+            await (supabase.from("notifications") as any).insert({
                 recipient_id: selectedShift.employee_id,
-                location_id: currentLocation.id,
+                location_id: currentLocation!.id,
                 type: 'schedule',
                 title: 'Shift Updated',
                 message: `Your shift on ${selectedShift.date} has been updated.`,

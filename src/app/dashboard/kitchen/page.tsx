@@ -304,8 +304,8 @@ export default function KitchenPage() {
             if (updateError) throw updateError;
 
             // Notify server if ready
-            if (newStatus === 'ready' && order.server_id) {
-                await supabase.from("notifications").insert({
+            if (newStatus === 'ready' && order.server_id && currentLocation?.id) {
+                await (supabase.from("notifications") as any).insert({
                     recipient_id: order.server_id,
                     location_id: currentLocation.id,
                     type: 'order_ready',
