@@ -140,7 +140,7 @@ export function ShiftRequestModal({
 
             const { error } = await (supabase as any).from("shift_swap_requests").insert({
                 organization_id: orgId,
-                location_id: currentLocation?.id,
+                location_id: currentLocation!.id,
                 shift_id: selectedShift!.id,
                 requester_id: currentEmployee.id,
                 target_employee_id: targetEmployee.id,
@@ -153,9 +153,9 @@ export function ShiftRequestModal({
             if (error) throw error;
 
             // Notify target employee
-            await supabase.from("notifications").insert({
+            await (supabase.from("notifications") as any).insert({
                 recipient_id: targetEmployee.id,
-                location_id: currentLocation.id,
+                location_id: currentLocation!.id,
                 type: 'shift_request',
                 title: requestType === 'swap' ? 'Shift Swap Request' : 'Shift Cover Request',
                 message: `${currentEmployee.first_name} ${currentEmployee.last_name} requested a ${requestType === 'swap' ? 'shift swap' : 'cover'} for ${format(new Date(targetDate), "MMM d")}.`,
