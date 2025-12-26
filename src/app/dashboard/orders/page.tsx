@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
     Plus,
@@ -21,6 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { Suspense } from "react";
 import MyTicketsModal from "./components/MyTicketsModal";
 import CloseTicketModal from "./components/CloseTicketModal";
 
@@ -45,13 +47,17 @@ interface OrderItem {
     notes?: string;
     isUpsell?: boolean;
     isEdited?: boolean;
+    seatNumber: number;
 }
 
-export default function OrdersPage() {
+function OrdersPageContent() {
+    const searchParams = useSearchParams();
+    const tableFromUrl = searchParams.get("table");
+
     const { t } = useTranslation();
     const [selectedCategory, setSelectedCategory] = useState("");
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-    const [tableNumber, setTableNumber] = useState("5");
+    const [tableNumber, setTableNumber] = useState(tableFromUrl || "5");
     const [orderType, setOrderType] = useState<"dine_in" | "takeout" | "delivery">("dine_in");
     const [upsellSuggestions, setUpsellSuggestions] = useState<any[]>([]);
     const [showUpsells, setShowUpsells] = useState(false);
@@ -60,6 +66,8 @@ export default function OrdersPage() {
     const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
     const [showMyTickets, setShowMyTickets] = useState(false);
     const [showCloseTicket, setShowCloseTicket] = useState(false);
+    const [selectedSeat, setSelectedSeat] = useState(1);
+    const [tableCapacity, setTableCapacity] = useState(4); // Default to 4
 
     const [categories, setCategories] = useState<string[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
@@ -184,7 +192,8 @@ export default function OrdersPage() {
                         name: item.name,
                         price: item.price,
                         quantity: 1,
-                        notes: notes
+                        notes: notes,
+                        seatNumber: selectedSeat
                     },
                 ]);
             }
@@ -220,12 +229,38 @@ export default function OrdersPage() {
                         price: menuItem.price,
                         quantity: 1,
                         isUpsell: true,
+                        seatNumber: selectedSeat
                     },
                 ]);
             }
         }
         setShowUpsells(false);
     };
+
+    // Auto-fetch table capacity when table number changes
+    useEffect(() => {
+        const fetchTableCapacity = async () => {
+            if (orderType !== "dine_in" || !tableNumber.trim() || !currentLocation?.id) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from("seating_tables")
+                    .select("capacity")
+                    .eq("label", tableNumber.trim())
+                    .eq("is_active", true)
+                    .maybeSingle() as { data: { capacity: number } | null, error: any };
+
+                if (data && !error) {
+                    setTableCapacity(data.capacity || 4);
+                }
+            } catch (err) {
+                console.error("Error fetching table capacity:", err);
+            }
+        };
+
+        const timer = setTimeout(fetchTableCapacity, 500); // Debounce
+        return () => clearTimeout(timer);
+    }, [tableNumber, orderType, currentLocation?.id]);
 
     const updateQuantity = (id: string, delta: number) => {
         setOrderItems(
@@ -306,7 +341,8 @@ export default function OrdersPage() {
                     quantity: item.quantity,
                     price: item.price,
                     notes: item.notes || null,
-                    status: "pending"
+                    status: "pending",
+                    seat_number: item.seatNumber
                 }));
 
                 const { error: insertError } = await (supabase
@@ -365,7 +401,8 @@ export default function OrdersPage() {
                 price: i.price,
                 quantity: i.quantity,
                 notes: i.notes || undefined,
-                isEdited: false
+                isEdited: false,
+                seatNumber: i.seat_number || 1
             })));
         }
         setShowMyTickets(false);
@@ -470,15 +507,36 @@ export default function OrdersPage() {
                         </div>
 
                         {orderType === "dine_in" && (
-                            <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                <span className="text-sm font-semibold text-slate-400 uppercase tracking-wider">{t("pos.table")}</span>
-                                <input
-                                    type="text"
-                                    value={tableNumber}
-                                    onChange={(e) => setTableNumber(e.target.value)}
-                                    className="w-16 bg-slate-900 rounded-md border border-slate-700 px-2 py-1 text-center font-bold text-orange-400 focus:border-orange-500 outline-none transition-all"
-                                    placeholder="?"
-                                />
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <span className="text-sm font-semibold text-slate-400 uppercase tracking-wider">{t("pos.table")}</span>
+                                    <input
+                                        type="text"
+                                        value={tableNumber}
+                                        onChange={(e) => setTableNumber(e.target.value)}
+                                        className="w-16 bg-slate-900 rounded-md border border-slate-700 px-2 py-1 text-center font-bold text-orange-400 focus:border-orange-500 outline-none transition-all"
+                                        placeholder="?"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-500 uppercase font-bold px-1">Active Seat</label>
+                                    <div className="flex gap-1 overflow-x-auto pb-1">
+                                        {[...Array(tableCapacity)].map((_, i) => (
+                                            <button
+                                                key={i + 1}
+                                                onClick={() => setSelectedSeat(i + 1)}
+                                                className={cn(
+                                                    "min-w-[40px] h-10 rounded-lg border font-bold transition-all",
+                                                    selectedSeat === i + 1
+                                                        ? "bg-orange-500 border-orange-400 text-white shadow-lg shadow-orange-500/20"
+                                                        : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                                                )}
+                                            >
+                                                {i + 1}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -492,60 +550,80 @@ export default function OrdersPage() {
                             <p className="text-sm mt-1">Tap menu items to add</p>
                         </div>
                     ) : (
-                        orderItems.map((item) => (
-                            <div
-                                key={item.id}
-                                className={cn(
-                                    "flex items-center gap-3 py-2 border-b border-slate-800 last:border-0",
-                                    item.isUpsell && "bg-green-500/5 -mx-4 px-4 rounded"
-                                )}
-                            >
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium">{item.name}</span>
-                                        {item.isUpsell && (
-                                            <span className="badge badge-success text-xs">Upsell</span>
-                                        )}
+                        (() => {
+                            const groupedBySeat = orderItems.reduce((acc, item) => {
+                                const seat = item.seatNumber || 1;
+                                if (!acc[seat]) acc[seat] = [];
+                                acc[seat].push(item);
+                                return acc;
+                            }, {} as Record<number, OrderItem[]>);
+
+                            return Object.keys(groupedBySeat).sort((a, b) => Number(a) - Number(b)).map((seatNum) => (
+                                <div key={seatNum} className="space-y-1 mb-4">
+                                    <div className="flex items-center gap-2 px-1">
+                                        <div className="h-[1px] flex-1 bg-slate-800"></div>
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Seat {seatNum}</span>
+                                        <div className="h-[1px] flex-1 bg-slate-800"></div>
                                     </div>
-                                    <span className="text-sm text-slate-400">
-                                        {formatCurrency(item.price)} each
-                                    </span>
-                                    {item.notes && (
-                                        <div className="mt-1 text-xs text-orange-400 font-medium">
-                                            {item.notes}
+                                    {groupedBySeat[Number(seatNum)].map((item) => (
+                                        <div
+                                            key={item.id}
+                                            className={cn(
+                                                "flex items-center gap-3 py-2 border-b border-slate-800/50 last:border-0",
+                                                item.isUpsell && "bg-green-500/5 -mx-4 px-4 rounded"
+                                            )}
+                                        >
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-sm">{item.name}</span>
+                                                    {item.isUpsell && (
+                                                        <span className="badge badge-success text-[10px] px-1 py-0 h-4">Upsell</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                                    <span>{formatCurrency(item.price)} each</span>
+                                                </div>
+                                                {item.notes && (
+                                                    <div className="mt-0.5 text-[10px] text-orange-400 font-medium italic">
+                                                        {item.notes}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-1.5 text-slate-300">
+                                                <button
+                                                    onClick={() => updateQuantity(item.id, -1)}
+                                                    className="p-1 bg-slate-800 rounded hover:bg-slate-700 transition-colors"
+                                                >
+                                                    <Minus className="h-3 w-3" />
+                                                </button>
+                                                <span className="w-5 text-center font-bold text-sm">{item.quantity}</span>
+                                                <button
+                                                    onClick={() => updateQuantity(item.id, 1)}
+                                                    className="p-1 bg-slate-800 rounded hover:bg-slate-700 transition-colors"
+                                                >
+                                                    <Plus className="h-3 w-3" />
+                                                </button>
+                                                <div className="flex border-l border-slate-800 ml-1 pl-1">
+                                                    <button
+                                                        onClick={() => handleEditTicketItem(item)}
+                                                        className="p-1 text-slate-500 hover:text-white transition-colors"
+                                                        title="Edit item"
+                                                    >
+                                                        <Pencil className="h-3 w-3" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => removeItem(item.id)}
+                                                        className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+                                                    >
+                                                        <Trash2 className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => handleEditTicketItem(item)}
-                                        className="p-1 text-slate-400 hover:text-white"
-                                        title="Edit item"
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => updateQuantity(item.id, -1)}
-                                        className="p-1 bg-slate-800 rounded hover:bg-slate-700"
-                                    >
-                                        <Minus className="h-4 w-4" />
-                                    </button>
-                                    <span className="w-8 text-center font-bold">{item.quantity}</span>
-                                    <button
-                                        onClick={() => updateQuantity(item.id, 1)}
-                                        className="p-1 bg-slate-800 rounded hover:bg-slate-700"
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => removeItem(item.id)}
-                                        className="p-1 text-red-400 hover:text-red-300"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))
+                            ));
+                        })()
                     )}
                 </div>
 
@@ -618,6 +696,18 @@ export default function OrdersPage() {
                 />
             )}
         </div>
+    );
+}
+
+export default function OrdersPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex flex-col items-center justify-center p-12 text-center h-full">
+                <p className="text-slate-400">Initializing POS...</p>
+            </div>
+        }>
+            <OrdersPageContent />
+        </Suspense>
     );
 }
 

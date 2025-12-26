@@ -33,6 +33,7 @@
         "orders": "Orders",
         "menu": "Menu",
         "kitchen": "Kitchen",
+        "reservations": "Reservations",
         "schedule": "Schedule",
         "inventory": "Inventory",
         "reports": "Reports",

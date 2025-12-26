@@ -105,6 +105,7 @@ export interface Database {
                     pin_code: string | null;
                     hourly_rate: number | null;
                     is_active: boolean;
+                    server_color: string | null;
                     created_at: string;
                 };
                 Insert: {
@@ -118,6 +119,7 @@ export interface Database {
                     pin_code?: string | null;
                     hourly_rate?: number | null;
                     is_active?: boolean;
+                    server_color?: string | null;
                     created_at?: string;
                 };
                 Update: {
@@ -131,6 +133,7 @@ export interface Database {
                     pin_code?: string | null;
                     hourly_rate?: number | null;
                     is_active?: boolean;
+                    server_color?: string | null;
                     created_at?: string;
                 };
             };
@@ -258,6 +261,7 @@ export interface Database {
                     modifiers: Json | null;
                     notes: string | null;
                     status: "pending" | "preparing" | "ready" | "served";
+                    seat_number: number;
                     is_edited: boolean;
                     created_at: string;
                 };
@@ -272,6 +276,7 @@ export interface Database {
                     modifiers?: Json | null;
                     notes?: string | null;
                     status?: "pending" | "preparing" | "ready" | "served";
+                    seat_number?: number;
                     is_edited?: boolean;
                     created_at?: string;
                 };
@@ -286,6 +291,7 @@ export interface Database {
                     modifiers?: Json | null;
                     notes?: string | null;
                     status?: "pending" | "preparing" | "ready" | "served";
+                    seat_number?: number;
                     is_edited?: boolean;
                     created_at?: string;
                 };
@@ -359,13 +365,15 @@ export interface Database {
                     id: string;
                     map_id: string;
                     label: string;
-                    shape: "rect" | "circle";
+                    shape: "rect" | "circle" | "oval" | "booth" | "chair" | "door" | "wall";
+                    object_type: "table" | "structure" | "seat";
                     x: number;
                     y: number;
                     width: number;
                     height: number;
                     rotation: number;
                     capacity: number;
+                    assigned_server_id: string | null;
                     is_active: boolean;
                     created_at: string;
                     updated_at: string;
@@ -374,13 +382,15 @@ export interface Database {
                     id?: string;
                     map_id: string;
                     label: string;
-                    shape: "rect" | "circle";
+                    shape: "rect" | "circle" | "oval" | "booth" | "chair" | "door" | "wall";
+                    object_type?: "table" | "structure" | "seat";
                     x: number;
                     y: number;
                     width: number;
                     height: number;
                     rotation?: number;
                     capacity?: number;
+                    assigned_server_id?: string | null;
                     is_active?: boolean;
                     created_at?: string;
                     updated_at?: string;
@@ -389,13 +399,15 @@ export interface Database {
                     id?: string;
                     map_id?: string;
                     label?: string;
-                    shape?: "rect" | "circle";
+                    shape?: "rect" | "circle" | "oval" | "booth" | "chair" | "door" | "wall";
+                    object_type?: "table" | "structure" | "seat";
                     x?: number;
                     y?: number;
                     width?: number;
                     height?: number;
                     rotation?: number;
                     capacity?: number;
+                    assigned_server_id?: string | null;
                     is_active?: boolean;
                     updated_at?: string;
                 };

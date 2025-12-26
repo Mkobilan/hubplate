@@ -5,20 +5,30 @@ import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
 import { toast } from "react-hot-toast";
 import { Order } from "@/types/database";
-import { Loader2, PenLine, X, UserCheck, Trash2 } from "lucide-react";
-import { Stage, Layer, Rect, Circle, Text, Group } from "react-konva";
 import Link from "next/link";
-
+import { useRouter } from "next/navigation";
+import { Loader2, PenLine, X, UserCheck, Trash2, ChefHat, CalendarClock } from "lucide-react";
+import { Stage, Layer, Rect, Circle, Text, Group } from "react-konva";
+import { format, addMinutes, isWithinInterval } from "date-fns";
 interface TableConfig {
     id: string;
     label: string;
-    shape: "rect" | "circle";
+    shape: "rect" | "circle" | "oval" | "booth" | "chair" | "door" | "wall";
+    object_type?: "table" | "structure" | "seat";
     x: number;
     y: number;
     width: number;
     height: number;
     rotation: number;
     capacity: number;
+    assigned_server_id?: string | null;
+}
+
+interface Server {
+    id: string;
+    first_name: string;
+    last_name: string;
+    server_color: string | null;
 }
 
 interface MapConfig {
@@ -27,18 +37,38 @@ interface MapConfig {
     location_id: string;
 }
 
+interface Reservation {
+    id: string;
+    customer_name: string;
+    reservation_date: string;
+    reservation_time: string;
+    duration_minutes: number;
+    party_size: number;
+    status: string;
+    table_ids: string[];
+}
+
+interface ReservationSettings {
+    reservation_color: string;
+    advance_indicator_minutes: number;
+}
+
 export default function SeatMapViewer() {
+    const router = useRouter();
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const isOrgOwner = useAppStore((state) => state.isOrgOwner);
-    const [maps, setMaps] = useState<MapConfig[]>([]);
 
     // Check permissions
     const MANAGEMENT_ROLES = ["owner", "manager"];
     const canEdit = isOrgOwner || (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role));
+    const [maps, setMaps] = useState<MapConfig[]>([]);
+    const [servers, setServers] = useState<Server[]>([]);
     const [currentMap, setCurrentMap] = useState<MapConfig | null>(null);
     const [tables, setTables] = useState<TableConfig[]>([]);
     const [activeOrders, setActiveOrders] = useState<Order[]>([]);
+    const [upcomingReservations, setUpcomingReservations] = useState<Reservation[]>([]);
+    const [reservationSettings, setReservationSettings] = useState<ReservationSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedTable, setSelectedTable] = useState<TableConfig | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
@@ -59,7 +89,10 @@ export default function SeatMapViewer() {
             console.log("SeatMapViewer: Initializing for location", currentLocation.id);
             const init = async () => {
                 await fetchMaps();
+                await fetchServers();
                 await fetchActiveOrders();
+                await fetchReservationSettings();
+                await fetchUpcomingReservations();
             };
             init();
 
@@ -143,6 +176,24 @@ export default function SeatMapViewer() {
             toast.error("Failed to load maps");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchServers = async () => {
+        const locId = locationRef.current?.id;
+        if (!locId) return;
+
+        try {
+            const { data, error } = await supabaseRef.current
+                .from("employees")
+                .select("id, first_name, last_name, server_color")
+                .eq("location_id", locId)
+                .eq("is_active", true);
+
+            if (error) throw error;
+            setServers(data || []);
+        } catch (err) {
+            console.error("Error fetching servers:", err);
         }
     };
 
@@ -250,10 +301,114 @@ export default function SeatMapViewer() {
         }
     };
 
-    const getTableStatus = (label: string) => {
-        const trimmedLabel = label.trim();
+    const handleAssignServer = async (employeeId: string | null) => {
+        if (!selectedTable) return;
+
+        setActionLoading(true);
+        try {
+            const { error } = await (supabaseRef.current
+                .from("seating_tables") as any)
+                .update({ assigned_server_id: employeeId })
+                .eq('id', selectedTable.id);
+
+            if (error) throw error;
+
+            toast.success(employeeId ? "Server assigned" : "Server unassigned");
+            // Update local tables state
+            setTables(tables.map(t => t.id === selectedTable.id ? { ...t, assigned_server_id: employeeId } : t));
+            setSelectedTable(null);
+        } catch (err) {
+            console.error("Error assigning server:", err);
+            toast.error("Failed to assign server");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const fetchReservationSettings = async () => {
+        const locId = locationRef.current?.id;
+        if (!locId) return;
+
+        try {
+            const { data } = await supabaseRef.current
+                .from("reservation_settings")
+                .select("reservation_color, advance_indicator_minutes")
+                .eq("location_id", locId)
+                .single();
+
+            if (data) {
+                setReservationSettings(data);
+            }
+        } catch (err) {
+            console.error("Error fetching reservation settings:", err);
+        }
+    };
+
+    const fetchUpcomingReservations = async () => {
+        const locId = locationRef.current?.id;
+        if (!locId) return;
+
+        try {
+            const today = format(new Date(), "yyyy-MM-dd");
+
+            // Fetch today's reservations
+            const { data: resData, error: resError } = await supabaseRef.current
+                .from("reservations")
+                .select("id, customer_name, reservation_date, reservation_time, duration_minutes, party_size, status")
+                .eq("location_id", locId)
+                .eq("reservation_date", today)
+                .in("status", ["pending", "confirmed"]);
+
+            if (resError) throw resError;
+
+            if (resData && resData.length > 0) {
+                const resIds = resData.map((r: any) => r.id);
+                const { data: tablesData } = await supabaseRef.current
+                    .from("reservation_tables")
+                    .select("reservation_id, table_id")
+                    .in("reservation_id", resIds);
+
+                const reservationsWithTables = resData.map((res: any) => ({
+                    ...res,
+                    table_ids: (tablesData as any[])?.filter((t: any) => t.reservation_id === res.id).map((t: any) => t.table_id) || []
+                }));
+
+                setUpcomingReservations(reservationsWithTables);
+            } else {
+                setUpcomingReservations([]);
+            }
+        } catch (err) {
+            console.error("Error fetching upcoming reservations:", err);
+        }
+    };
+
+    const getTableReservation = (tableId: string) => {
+        const now = new Date();
+        const advanceMinutes = reservationSettings?.advance_indicator_minutes || 15;
+
+        for (const res of upcomingReservations) {
+            if (!res.table_ids.includes(tableId)) continue;
+
+            const resDateTime = new Date(`${res.reservation_date}T${res.reservation_time}`);
+            const resEndTime = addMinutes(resDateTime, res.duration_minutes);
+            const showFromTime = addMinutes(resDateTime, -advanceMinutes);
+
+            // Show if we're within the advance window or during the reservation
+            if (now >= showFromTime && now <= resEndTime) {
+                return res;
+            }
+        }
+        return null;
+    };
+
+    const getTableStatus = (table: TableConfig) => {
+        const trimmedLabel = table.label.trim();
         const order = activeOrders.find(o => (o.table_number || "").trim() === trimmedLabel);
-        return order ? { status: "occupied", order } : { status: "available", order: null };
+        const reservation = getTableReservation(table.id);
+
+        if (order) return { status: "occupied", order, reservation: null };
+        if (reservation) return { status: "reserved", order: null, reservation };
+        return { status: "available", order: null, reservation: null };
     };
 
     if (loading && maps.length === 0) {
@@ -261,13 +416,14 @@ export default function SeatMapViewer() {
     }
 
     // Helper calculate stats
-    const totalTables = tables.length;
-    const occupiedTables = tables.filter(t => getTableStatus(t.label).status === "occupied").length;
-    const availableTables = totalTables - occupiedTables;
+    const totalTables = tables.filter(t => t.object_type !== 'structure').length;
+    const occupiedTables = tables.filter(t => t.object_type !== 'structure' && getTableStatus(t).status === "occupied").length;
+    const reservedTables = tables.filter(t => t.object_type !== 'structure' && getTableStatus(t).status === "reserved").length;
+    const availableTables = totalTables - occupiedTables - reservedTables;
 
-    const StatusBadge = ({ status, count }: { status: string, count: number }) => (
+    const StatusBadge = ({ status, count, color }: { status: string, count: number, color?: string }) => (
         <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-            <div className={`w-2 h-2 rounded-full ${status === 'Available' ? 'bg-slate-400' : 'bg-red-500'}`}></div>
+            <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: color || (status === 'Available' ? '#64748b' : status === 'Reserved' ? (reservationSettings?.reservation_color || '#3b82f6') : '#ef4444') }}></div>
             <span className="text-xs text-slate-300 font-medium">{status}: {count}</span>
         </div>
     );
@@ -308,6 +464,7 @@ export default function SeatMapViewer() {
                     )}
                     <div className="h-6 w-px bg-slate-800 mx-2"></div>
                     <StatusBadge status="Available" count={availableTables} />
+                    <StatusBadge status="Reserved" count={reservedTables} />
                     <StatusBadge status="Occupied" count={occupiedTables} />
                 </div>
             </div>
@@ -324,8 +481,19 @@ export default function SeatMapViewer() {
                         <Layer>
                             <Group>
                                 {tables.map((table) => {
-                                    const { status, order } = getTableStatus(table.label);
+                                    const { status, order, reservation } = getTableStatus(table);
                                     const isOccupied = status === "occupied";
+                                    const isReserved = status === "reserved";
+                                    const assignedServer = servers.find(s => s.id === table.assigned_server_id);
+                                    const initials = assignedServer ? `${assignedServer.first_name[0]}${assignedServer.last_name[0]}`.toUpperCase() : "";
+
+                                    // Color priority: Occupied (red) > Reserved (custom) > Server color > Default gray
+                                    const tableColor = isOccupied
+                                        ? "#ef4444"
+                                        : isReserved
+                                            ? (reservationSettings?.reservation_color || "#3b82f6")
+                                            : (assignedServer?.server_color || "#334155");
+                                    const strokeColor = isOccupied ? "#b91c1c" : isReserved ? "#1e40af" : "#1e293b";
 
                                     return (
                                         <Group
@@ -333,8 +501,9 @@ export default function SeatMapViewer() {
                                             x={table.x}
                                             y={table.y}
                                             rotation={table.rotation}
-                                            onClick={() => setSelectedTable(table)}
+                                            onClick={() => table.object_type !== 'structure' && setSelectedTable(table)}
                                             onMouseEnter={(e) => {
+                                                if (table.object_type === 'structure') return;
                                                 const container = e.target.getStage()?.container();
                                                 if (container) container.style.cursor = "pointer";
                                             }}
@@ -343,42 +512,134 @@ export default function SeatMapViewer() {
                                                 if (container) container.style.cursor = "default";
                                             }}
                                         >
-                                            {table.shape === "rect" ? (
-                                                <Rect
+                                            {(() => {
+                                                const commonProps = {
+                                                    width: table.width,
+                                                    height: table.height,
+                                                    fill: tableColor,
+                                                    stroke: strokeColor,
+                                                    strokeWidth: 1,
+                                                    shadowColor: "black",
+                                                    shadowBlur: 4,
+                                                    shadowOpacity: 0.3,
+                                                };
+
+                                                switch (table.shape) {
+                                                    case "circle":
+                                                        return (
+                                                            <Circle
+                                                                {...commonProps}
+                                                                x={table.width / 2}
+                                                                y={table.height / 2}
+                                                                radius={table.width / 2}
+                                                            />
+                                                        );
+                                                    case "oval":
+                                                        return (
+                                                            <Circle
+                                                                {...commonProps}
+                                                                x={table.width / 2}
+                                                                y={table.height / 2}
+                                                                radiusX={table.width / 2}
+                                                                radiusY={table.height / 2}
+                                                            />
+                                                        );
+                                                    case "booth":
+                                                        return (
+                                                            <Group>
+                                                                {/* Table surface (center) */}
+                                                                <Rect
+                                                                    {...commonProps}
+                                                                    y={15}
+                                                                    height={table.height - 30}
+                                                                    cornerRadius={2}
+                                                                    fill={tableColor}
+                                                                />
+                                                                {/* Top Seat */}
+                                                                <Rect
+                                                                    x={0}
+                                                                    y={0}
+                                                                    width={table.width}
+                                                                    height={15}
+                                                                    fill={isOccupied ? "#ef4444" : "#1e293b"}
+                                                                    cornerRadius={[4, 4, 0, 0]}
+                                                                />
+                                                                {/* Bottom Seat */}
+                                                                <Rect
+                                                                    x={0}
+                                                                    y={table.height - 15}
+                                                                    width={table.width}
+                                                                    height={15}
+                                                                    fill={isOccupied ? "#ef4444" : "#1e293b"}
+                                                                    cornerRadius={[0, 0, 4, 4]}
+                                                                />
+                                                            </Group>
+                                                        );
+                                                    case "chair":
+                                                        return (
+                                                            <Group>
+                                                                <Circle
+                                                                    {...commonProps}
+                                                                    x={table.width / 2}
+                                                                    y={table.height / 2}
+                                                                    radius={table.width / 2}
+                                                                    fill={isOccupied ? "#ef4444" : "#475569"}
+                                                                />
+                                                                <Rect
+                                                                    x={0}
+                                                                    y={-2}
+                                                                    width={table.width}
+                                                                    height={6}
+                                                                    fill={tableColor}
+                                                                    cornerRadius={3}
+                                                                />
+                                                            </Group>
+                                                        );
+                                                    case "door":
+                                                        return (
+                                                            <Group>
+                                                                <Rect
+                                                                    {...commonProps}
+                                                                    fill="#fb923c"
+                                                                    opacity={0.6}
+                                                                />
+                                                                <Rect
+                                                                    x={0}
+                                                                    y={0}
+                                                                    width={4}
+                                                                    height={table.height}
+                                                                    fill="#ea580c"
+                                                                />
+                                                            </Group>
+                                                        );
+                                                    case "wall":
+                                                        return (
+                                                            <Rect
+                                                                {...commonProps}
+                                                                fill="#64748b"
+                                                                stroke="#475569"
+                                                                strokeWidth={2}
+                                                            />
+                                                        );
+                                                    default:
+                                                        return <Rect {...commonProps} cornerRadius={8} />;
+                                                }
+                                            })()}
+                                            {/* Consolidated Label Rendering */}
+                                            {(table.object_type !== 'structure' || table.shape === 'door') && (
+                                                <Text
+                                                    text={initials || table.label}
+                                                    fontSize={initials ? 18 : (table.object_type === 'seat' ? 12 : 16)}
+                                                    fontStyle="bold"
+                                                    fill="white"
                                                     width={table.width}
                                                     height={table.height}
-                                                    fill={isOccupied ? "#ef4444" : "#334155"}
-                                                    stroke={isOccupied ? "#b91c1c" : "#1e293b"}
-                                                    strokeWidth={1}
-                                                    cornerRadius={8}
-                                                    shadowColor="black"
-                                                    shadowBlur={4}
-                                                    shadowOpacity={0.3}
-                                                />
-                                            ) : (
-                                                <Circle
-                                                    x={table.width / 2}
-                                                    y={table.height / 2}
-                                                    radius={table.width / 2}
-                                                    fill={isOccupied ? "#ef4444" : "#334155"}
-                                                    stroke={isOccupied ? "#b91c1c" : "#1e293b"}
-                                                    strokeWidth={1}
-                                                    shadowColor="black"
-                                                    shadowBlur={4}
-                                                    shadowOpacity={0.3}
+                                                    verticalAlign="middle"
+                                                    align="center"
+                                                    listening={false}
+                                                    opacity={table.shape === 'door' ? 0.9 : 1}
                                                 />
                                             )}
-                                            <Text
-                                                text={table.label}
-                                                fontSize={16}
-                                                fontStyle="bold"
-                                                fill="white"
-                                                width={table.width}
-                                                height={table.height}
-                                                verticalAlign="middle"
-                                                align="center"
-                                                listening={false}
-                                            />
                                         </Group>
                                     );
                                 })}
@@ -405,13 +666,14 @@ export default function SeatMapViewer() {
                                 </div>
 
                                 {(() => {
-                                    const { status, order } = getTableStatus(selectedTable.label);
+                                    const { status, order, reservation } = getTableStatus(selectedTable);
                                     const isOccupied = status === "occupied";
+                                    const isReserved = status === "reserved";
 
                                     return (
                                         <div className="space-y-4">
                                             {isOccupied ? (
-                                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6">
+                                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
                                                     <div className="flex items-center justify-between mb-2">
                                                         <span className="text-red-400 text-sm font-medium uppercase tracking-wider">Currently Seated</span>
                                                         <span className="text-xs text-slate-500 font-mono">#{order?.id.slice(0, 8)}</span>
@@ -421,11 +683,42 @@ export default function SeatMapViewer() {
                                                         <span>${order?.total?.toFixed(2)}</span>
                                                     </div>
                                                 </div>
+                                            ) : isReserved ? (
+                                                <div className="border rounded-xl p-4" style={{ backgroundColor: `${reservationSettings?.reservation_color || '#3b82f6'}10`, borderColor: `${reservationSettings?.reservation_color || '#3b82f6'}30` }}>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <CalendarClock className="h-4 w-4" style={{ color: reservationSettings?.reservation_color || '#3b82f6' }} />
+                                                        <span className="text-sm font-medium uppercase tracking-wider" style={{ color: reservationSettings?.reservation_color || '#3b82f6' }}>Reserved</span>
+                                                    </div>
+                                                    <div className="text-white font-semibold">{reservation?.customer_name}</div>
+                                                    <div className="text-sm text-slate-400 mt-1">
+                                                        {reservation?.reservation_time?.slice(0, 5)} • Party of {reservation?.party_size}
+                                                    </div>
+                                                </div>
                                             ) : (
-                                                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6">
+                                                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
                                                     <p className="text-slate-400 text-sm text-center">
                                                         Table is currently available. Capacity: {selectedTable.capacity} guests.
                                                     </p>
+                                                </div>
+                                            )}
+
+                                            {/* Server Assignment Section (Manager Only) */}
+                                            {canEdit && (
+                                                <div className="space-y-2 pb-4">
+                                                    <label className="text-xs text-slate-500 uppercase font-bold px-1">Assign Server</label>
+                                                    <select
+                                                        value={selectedTable.assigned_server_id || ""}
+                                                        onChange={(e) => handleAssignServer(e.target.value || null)}
+                                                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 appearance-none cursor-pointer"
+                                                        disabled={actionLoading}
+                                                    >
+                                                        <option value="">Unassigned</option>
+                                                        {servers.map(s => (
+                                                            <option key={s.id} value={s.id}>
+                                                                {s.first_name} {s.last_name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                             )}
 
@@ -440,14 +733,23 @@ export default function SeatMapViewer() {
                                                         Sit Guest
                                                     </button>
                                                 ) : (
-                                                    <button
-                                                        onClick={() => handleClearTable(order!.id)}
-                                                        disabled={actionLoading}
-                                                        className="w-full flex items-center justify-center gap-2 py-4 bg-slate-100 hover:bg-white text-slate-900 rounded-xl font-bold transition-all transform active:scale-[0.98] disabled:opacity-50"
-                                                    >
-                                                        {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
-                                                        Clear Table
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => router.push(`/dashboard/orders?table=${selectedTable.label}`)}
+                                                            className="w-full flex items-center justify-center gap-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all transform active:scale-[0.98]"
+                                                        >
+                                                            <ChefHat className="h-5 w-5" />
+                                                            Go to Order
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleClearTable(order!.id)}
+                                                            disabled={actionLoading}
+                                                            className="w-full flex items-center justify-center gap-2 py-4 bg-slate-100 hover:bg-white text-slate-900 rounded-xl font-bold transition-all transform active:scale-[0.98] disabled:opacity-50"
+                                                        >
+                                                            {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
+                                                            Clear Table
+                                                        </button>
+                                                    </>
                                                 )}
 
                                                 <button
@@ -465,7 +767,7 @@ export default function SeatMapViewer() {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
 

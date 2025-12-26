@@ -44,6 +44,7 @@ type Employee = {
     tips_today?: number;
     clocked_in?: boolean;
     clock_in_time?: string;
+    server_color?: string;
     created_at?: string;
 };
 
@@ -313,6 +314,27 @@ export default function StaffPage() {
         } catch (err) {
             console.error("Error deleting time entry:", err);
             alert("Failed to delete time entry.");
+        }
+    };
+
+    const handleUpdateServerColor = async (employeeId: string, color: string) => {
+        try {
+            const supabase = createClient();
+            const { error } = await (supabase as any)
+                .from("employees")
+                .update({ server_color: color })
+                .eq("id", employeeId);
+
+            if (error) throw error;
+
+            // Update local state
+            setStaff(staff.map(emp => emp.id === employeeId ? { ...emp, server_color: color } : emp));
+            if (selectedStaff?.id === employeeId) {
+                setSelectedStaff({ ...selectedStaff, server_color: color });
+            }
+        } catch (err) {
+            console.error("Error updating server color:", err);
+            alert("Failed to update server color.");
         }
     };
 
@@ -730,6 +752,19 @@ export default function StaffPage() {
                                         )}>
                                             {selectedStaff.is_active ? "Active" : "Discontinued"}
                                         </span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-slate-500 uppercase font-bold">Table Color</p>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="color"
+                                                value={(selectedStaff as any).server_color || "#334155"}
+                                                onChange={(e) => handleUpdateServerColor(selectedStaff.id, e.target.value)}
+                                                className="w-8 h-8 rounded cursor-pointer bg-transparent border-slate-700 hover:border-slate-500 transition-colors"
+                                                title="Assign color to this server"
+                                            />
+                                            <span className="text-xs text-slate-400 font-mono uppercase">{(selectedStaff as any).server_color || "#334155"}</span>
+                                        </div>
                                     </div>
                                     {!selectedStaff.is_active && selectedStaff.termination_date && (
                                         <div className="space-y-1">

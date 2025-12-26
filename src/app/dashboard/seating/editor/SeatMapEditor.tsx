@@ -15,7 +15,8 @@ import { SupabaseClient } from "@supabase/supabase-js";
 interface TableConfig {
     id: string;
     label: string;
-    shape: "rect" | "circle";
+    shape: "rect" | "circle" | "oval" | "booth" | "chair" | "door" | "wall";
+    object_type: "table" | "structure" | "seat";
     x: number;
     y: number;
     width: number;
@@ -212,6 +213,7 @@ export default function SeatMapEditor() {
                 map_id: currentMap.id,
                 label: t.label,
                 shape: t.shape,
+                object_type: t.object_type,
                 x: t.x,
                 y: t.y,
                 width: t.width,
@@ -257,7 +259,7 @@ export default function SeatMapEditor() {
         }
     };
 
-    const addTable = (shape: "rect" | "circle") => {
+    const addTable = (shape: TableConfig["shape"], object_type: TableConfig["object_type"] = "table") => {
         // Calculate center of current view
         // View center = (-position / scale) + (screen_center / scale)
         const stage = stageRef.current;
@@ -272,14 +274,15 @@ export default function SeatMapEditor() {
 
         const newTable: TableConfig = {
             id: uuidv4(),
-            label: `T${tables.length + 1}`,
+            label: shape === "door" ? "Door" : (shape === "wall" ? "Wall" : (shape === "chair" ? `S${tables.filter(t => t.shape === 'chair').length + 1}` : `T${tables.filter(t => t.object_type === 'table').length + 1}`)),
             shape,
-            x: x - 50,
-            y: y - 50,
-            width: shape === "circle" ? 80 : 100,
-            height: 80,
+            object_type,
+            x: x - (shape === "wall" ? 100 : 50),
+            y: y - (shape === "wall" ? 10 : 50),
+            width: shape === "circle" || shape === "chair" ? 60 : (shape === "oval" ? 120 : (shape === "booth" ? 120 : (shape === "wall" ? 200 : (shape === "door" ? 80 : 100)))),
+            height: shape === "wall" ? 10 : (shape === "oval" ? 80 : (shape === "booth" ? 100 : (shape === "door" ? 10 : 60))),
             rotation: 0,
-            capacity: 4,
+            capacity: (shape === "door" || shape === "wall") ? 0 : (shape === "chair" ? 1 : 4),
             is_active: true
         };
         setTables([...tables, newTable]);
@@ -405,20 +408,71 @@ export default function SeatMapEditor() {
 
                     <div className="space-y-2">
                         <label className="text-xs font-semibold text-slate-500 uppercase">Add Table</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => addTable("rect", "table")}
+                                className="flex flex-col items-center gap-2 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-700"
+                                title="Square/Rect Table"
+                            >
+                                <div className="w-8 h-8 border-2 border-slate-400 rounded bg-slate-600"></div>
+                                <span className="text-[10px]">Square</span>
+                            </button>
+                            <button
+                                onClick={() => addTable("circle", "table")}
+                                className="flex flex-col items-center gap-2 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-700"
+                                title="Round Table"
+                            >
+                                <div className="w-8 h-8 border-2 border-slate-400 rounded-full bg-slate-600"></div>
+                                <span className="text-[10px]">Round</span>
+                            </button>
+                            <button
+                                onClick={() => addTable("oval", "table")}
+                                className="flex flex-col items-center gap-2 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-700"
+                                title="Oval Table"
+                            >
+                                <div className="w-10 h-6 border-2 border-slate-400 rounded-[50%] bg-slate-600"></div>
+                                <span className="text-[10px]">Oval</span>
+                            </button>
+                            <button
+                                onClick={() => addTable("booth", "table")}
+                                className="flex flex-col items-center gap-2 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-700"
+                                title="Booth"
+                            >
+                                <div className="w-8 h-8 border-x-4 border-y-2 border-slate-400 rounded bg-slate-600"></div>
+                                <span className="text-[10px]">Booth</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-semibold text-slate-500 uppercase">Seating</label>
                         <button
-                            onClick={() => addTable("rect")}
+                            onClick={() => addTable("chair", "seat")}
                             className="w-full flex items-center gap-3 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-700"
                         >
-                            <div className="w-6 h-6 border-2 border-slate-400 rounded bg-slate-600"></div>
-                            <span>Square / Rect</span>
+                            <div className="w-6 h-6 border-2 border-slate-400 rounded-sm bg-slate-500"></div>
+                            <span>Chair / Seat</span>
                         </button>
-                        <button
-                            onClick={() => addTable("circle")}
-                            className="w-full flex items-center gap-3 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-700"
-                        >
-                            <div className="w-6 h-6 border-2 border-slate-400 rounded-full bg-slate-600"></div>
-                            <span>Round / Circle</span>
-                        </button>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-semibold text-slate-500 uppercase">Structure</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => addTable("door", "structure")}
+                                className="flex flex-col items-center gap-2 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-700"
+                            >
+                                <div className="w-full h-2 bg-orange-400/50 rounded-full"></div>
+                                <span className="text-[10px]">Door</span>
+                            </button>
+                            <button
+                                onClick={() => addTable("wall", "structure")}
+                                className="flex flex-col items-center gap-2 p-3 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors border border-slate-700"
+                            >
+                                <div className="w-full h-2 bg-slate-400 rounded-full"></div>
+                                <span className="text-[10px]">Wall</span>
+                            </button>
+                        </div>
                     </div>
 
                     {selectedTable && (
@@ -603,49 +657,142 @@ const TableGroup = ({ table, isSelected, onSelect, onChange }: {
                     if (stage) stage.container().style.cursor = 'default';
                 }}
             >
-                {table.shape === "rect" ? (
-                    <Rect
-                        width={table.width}
-                        height={table.height}
-                        fill={isSelected ? "#f97316" : "#334155"}
-                        stroke="#1e293b"
-                        strokeWidth={1}
-                        cornerRadius={8}
-                        shadowColor="black"
-                        shadowBlur={5}
-                        shadowOpacity={0.3}
-                    />
-                ) : (
-                    <Circle
-                        // Center is at w/2, h/2 relative to Group 0,0
-                        x={table.width / 2}
-                        y={table.height / 2}
-                        radius={table.width / 2}
-                        fill={isSelected ? "#f97316" : "#334155"}
-                        stroke="#1e293b"
-                        strokeWidth={1}
-                        shadowColor="black"
-                        shadowBlur={5}
-                        shadowOpacity={0.3}
-                    />
-                )}
+                {(() => {
+                    const commonProps = {
+                        width: table.width,
+                        height: table.height,
+                        fill: isSelected ? "#f97316" : (table.object_type === 'structure' ? "#475569" : (table.object_type === 'seat' ? "#64748b" : "#334155")),
+                        stroke: isSelected ? "#ea580c" : "#1e293b",
+                        strokeWidth: 1,
+                        shadowColor: "black",
+                        shadowBlur: 5,
+                        shadowOpacity: 0.3,
+                    };
+
+                    switch (table.shape) {
+                        case "circle":
+                            return (
+                                <Circle
+                                    {...commonProps}
+                                    x={table.width / 2}
+                                    y={table.height / 2}
+                                    radius={table.width / 2}
+                                />
+                            );
+                        case "oval":
+                            return (
+                                <Circle
+                                    {...commonProps}
+                                    x={table.width / 2}
+                                    y={table.height / 2}
+                                    radiusX={table.width / 2}
+                                    radiusY={table.height / 2}
+                                />
+                            );
+                        case "booth":
+                            return (
+                                <Group>
+                                    {/* Table surface (center) */}
+                                    <Rect
+                                        {...commonProps}
+                                        y={15}
+                                        height={table.height - 30}
+                                        cornerRadius={2}
+                                        fill={isSelected ? "#f97316" : "#334155"}
+                                    />
+                                    {/* Top Seat */}
+                                    <Rect
+                                        x={0}
+                                        y={0}
+                                        width={table.width}
+                                        height={15}
+                                        fill={isSelected ? "#ea580c" : "#1e293b"}
+                                        cornerRadius={[4, 4, 0, 0]}
+                                    />
+                                    {/* Bottom Seat */}
+                                    <Rect
+                                        x={0}
+                                        y={table.height - 15}
+                                        width={table.width}
+                                        height={15}
+                                        fill={isSelected ? "#ea580c" : "#1e293b"}
+                                        cornerRadius={[0, 0, 4, 4]}
+                                    />
+                                </Group>
+                            );
+                        case "chair":
+                            return (
+                                <Group>
+                                    {/* Main seat cushion */}
+                                    <Circle
+                                        {...commonProps}
+                                        x={table.width / 2}
+                                        y={table.height / 2}
+                                        radius={table.width / 2}
+                                        fill={isSelected ? "#f97316" : "#475569"}
+                                    />
+                                    {/* Backrest */}
+                                    <Rect
+                                        x={0}
+                                        y={-2}
+                                        width={table.width}
+                                        height={8}
+                                        fill={isSelected ? "#ea580c" : "#1e293b"}
+                                        cornerRadius={4}
+                                    />
+                                </Group>
+                            );
+                        case "door":
+                            return (
+                                <Group>
+                                    <Rect
+                                        {...commonProps}
+                                        fill={isSelected ? "#f97316" : "#fb923c"}
+                                        opacity={0.6}
+                                    />
+                                    {/* Door hinge/indicator */}
+                                    <Rect
+                                        x={0}
+                                        y={0}
+                                        width={4}
+                                        height={table.height}
+                                        fill="#ea580c"
+                                    />
+                                </Group>
+                            );
+                        case "wall":
+                            return (
+                                <Rect
+                                    {...commonProps}
+                                    fill={isSelected ? "#f97316" : "#64748b"}
+                                    stroke="#475569"
+                                    strokeWidth={2}
+                                />
+                            );
+                        default:
+                            return <Rect {...commonProps} cornerRadius={8} />;
+                    }
+                })()}
                 <Text
                     text={table.label}
-                    fontSize={16}
+                    fontSize={Math.max(8, table.height / 4)}
                     fontStyle="bold"
                     fill="white"
                     width={table.width}
                     height={table.height}
                     verticalAlign="middle"
                     align="center"
-                    listening={false} // Let clicks pass to Group
+                    listening={false}
                 />
             </Group>
             {isSelected && (
                 <Transformer
                     ref={trRef}
+                    rotateEnabled={true}
+                    enabledAnchors={['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right']}
                     boundBoxFunc={(oldBox, newBox) => {
-                        if (newBox.width < 30 || newBox.height < 30) return oldBox;
+                        // Limit minimum size
+                        if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) return oldBox;
                         return newBox;
                     }}
                     onTransformEnd={() => {

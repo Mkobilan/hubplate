@@ -24,7 +24,8 @@ import {
     Building2,
     Activity,
     User,
-    Armchair
+    Armchair,
+    CalendarClock
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
@@ -58,6 +59,11 @@ export function DashboardSidebar() {
             label: t("nav.dashboard"),
         },
         {
+            href: "/dashboard/seating",
+            icon: <Armchair className="h-5 w-5" />,
+            label: t("nav.seating"),
+        },
+        {
             href: "/dashboard/orders",
             icon: <ClipboardList className="h-5 w-5" />,
             label: t("nav.orders"),
@@ -71,6 +77,11 @@ export function DashboardSidebar() {
             href: "/dashboard/kitchen",
             icon: <ChefHat className="h-5 w-5" />,
             label: t("nav.kitchen"),
+        },
+        {
+            href: "/dashboard/reservations",
+            icon: <CalendarClock className="h-5 w-5" />,
+            label: t("nav.reservations"),
         },
         {
             href: "/dashboard/settings/payments",
@@ -93,11 +104,6 @@ export function DashboardSidebar() {
             href: "/dashboard/schedule",
             icon: <Calendar className="h-5 w-5" />,
             label: t("nav.schedule"),
-        },
-        {
-            href: "/dashboard/seating",
-            icon: <Armchair className="h-5 w-5" />,
-            label: t("nav.seating"),
         },
         {
             href: "/dashboard/profile",

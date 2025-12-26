@@ -16,6 +16,7 @@ interface KitchenOrderItem {
     status: string;  // 'pending' | 'preparing' | 'ready' | 'served'
     isEdited?: boolean;
     menuItemId?: string;
+    seatNumber?: number;
 }
 
 interface KitchenOrder {
@@ -159,7 +160,8 @@ export default function KitchenPage() {
                         notes,
                         status,
                         is_edited,
-                        menu_item_id
+                        menu_item_id,
+                        seat_number
                     )
                 `)
                 .eq("location_id", currentLocation.id)
@@ -180,7 +182,8 @@ export default function KitchenPage() {
                     notes: oi.notes,
                     status: oi.status || 'pending',  // Use item-level status
                     isEdited: oi.is_edited,
-                    menuItemId: oi.menu_item_id
+                    menuItemId: oi.menu_item_id,
+                    seatNumber: oi.seat_number
                 }));
 
                 return {
@@ -659,6 +662,11 @@ export default function KitchenPage() {
                                                 <div className="flex-1 pt-1">
                                                     <div className="flex flex-wrap items-center gap-2 mb-1">
                                                         <p className="font-bold text-slate-100 text-lg leading-tight">{item.name}</p>
+                                                        {item.seatNumber && (
+                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-bold">
+                                                                S{item.seatNumber}
+                                                            </span>
+                                                        )}
                                                         {getItemStatusBadge(item.status)}
                                                     </div>
                                                     {item.notes && (
