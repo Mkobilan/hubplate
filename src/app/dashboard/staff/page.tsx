@@ -47,13 +47,21 @@ type Employee = {
     server_color?: string;
     pin_code?: string;
     created_at?: string;
+    employee_roles?: Array<{ role: string; rank: number; hourly_rate?: number }>;
+    active_role?: string;
+    active_hourly_rate?: number;
 };
+
+const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "driver", "expo", "manager", "owner"];
 
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { Modal } from "@/components/ui/modal";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect } from "react";
+import { Database } from "@/types/database";
+
+type Role = Database["public"]["Tables"]["employee_roles"]["Row"]["role"];
 
 export default function StaffPage() {
     const { t } = useTranslation();
@@ -103,7 +111,7 @@ export default function StaffPage() {
 
             const { data: employees, error: staffError } = await supabase
                 .from("employees")
-                .select("*")
+                .select("*, employee_roles(*)")
                 .eq("location_id", currentLocation.id)
                 .order("first_name");
             if (staffError) throw staffError;
@@ -111,17 +119,22 @@ export default function StaffPage() {
             // 2. Fetch Active Time Entries
             const { data: activeEntries, error: timeError } = await supabase
                 .from("time_entries")
-                .select("employee_id")
+                .select("employee_id, role, hourly_rate")
                 .eq("location_id", currentLocation.id)
                 .is("clock_out", null);
             if (timeError) throw timeError;
 
-            const clockedInIds = new Set((activeEntries as any[] || []).map(entry => entry.employee_id));
+            const clockedInMap = new Map((activeEntries as any[] || []).map(entry => [entry.employee_id, entry]));
 
-            setStaff((employees as any[] || []).map(emp => ({
-                ...emp,
-                clocked_in: clockedInIds.has(emp.id)
-            })));
+            setStaff((employees as any[] || []).map(emp => {
+                const activeEntry = clockedInMap.get(emp.id);
+                return {
+                    ...emp,
+                    clocked_in: !!activeEntry,
+                    active_role: activeEntry?.role,
+                    active_hourly_rate: activeEntry?.hourly_rate
+                };
+            }));
         } catch (err) {
             console.error("Error fetching staff:", err);
         } finally {
@@ -474,7 +487,9 @@ export default function StaffPage() {
                                                     "badge text-[10px]",
                                                     emp.clocked_in ? "badge-success" : "badge-secondary"
                                                 )}>
-                                                    {emp.clocked_in ? "Clocked In" : "Clocked Out"}
+                                                    {emp.clocked_in
+                                                        ? `Clocked In${emp.active_role ? ` (${emp.active_role})` : ''}`
+                                                        : "Clocked Out"}
                                                 </span>
                                             </div>
                                         </td>
@@ -482,7 +497,7 @@ export default function StaffPage() {
                                             <span className="text-xs text-slate-600">Tracked via POS</span>
                                         </td>
                                         <td className="px-6 py-4 text-sm font-mono text-slate-300">
-                                            {formatCurrency(emp.hourly_rate)}/hr
+                                            {formatCurrency(emp.clocked_in && emp.active_hourly_rate ? emp.active_hourly_rate : emp.hourly_rate)}/hr
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex gap-2">
@@ -552,13 +567,9 @@ export default function StaffPage() {
                                             value={inviteForm.role}
                                             onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
                                         >
-                                            <option value="server">Server</option>
-                                            <option value="cook">Cook</option>
-                                            <option value="manager">Manager</option>
-                                            <option value="bartender">Bartender</option>
-                                            <option value="host">Host</option>
-                                            <option value="busser">Busser</option>
-                                            <option value="dishwasher">Dishwasher</option>
+                                            {ROLES.map(role => (
+                                                <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>
+                                            ))}
                                         </select>
                                     </div>
                                     <div className="space-y-2">
@@ -731,104 +742,287 @@ export default function StaffPage() {
                         {activeTab === "info" ? (
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-slate-500 uppercase font-bold">Role</p>
-                                        <p className="capitalize">{selectedStaff.role}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-slate-500 uppercase font-bold">Hourly Rate</p>
-                                        <p>{formatCurrency(selectedStaff.hourly_rate)}/hr</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-slate-500 uppercase font-bold">
-                                            {selectedStaff.hire_date ? "Hire Date" : "Joined Date"}
-                                        </p>
-                                        <p>{selectedStaff.hire_date ? format(new Date(selectedStaff.hire_date), "MMM d, yyyy") : (selectedStaff.created_at ? format(new Date(selectedStaff.created_at), "MMM d, yyyy") : "N/A")}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-slate-500 uppercase font-bold">Status</p>
-                                        <span className={cn(
-                                            "badge text-[10px]",
-                                            selectedStaff.is_active ? "badge-success" : "badge-danger"
-                                        )}>
-                                            {selectedStaff.is_active ? "Active" : "Discontinued"}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-slate-500 uppercase font-bold">Table Color</p>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="color"
-                                                value={(selectedStaff as any).server_color || "#334155"}
-                                                onChange={(e) => handleUpdateServerColor(selectedStaff.id, e.target.value)}
-                                                className="w-8 h-8 rounded cursor-pointer bg-transparent border-slate-700 hover:border-slate-500 transition-colors"
-                                                title="Assign color to this server"
-                                            />
-                                            <span className="text-xs text-slate-400 font-mono uppercase">{(selectedStaff as any).server_color || "#334155"}</span>
-                                        </div>
-                                    </div>
-                                    {!selectedStaff.is_active && selectedStaff.termination_date && (
-                                        <div className="space-y-1">
-                                            <p className="text-xs text-slate-500 uppercase font-bold text-red-400">Termination Date</p>
-                                            <p className="text-red-400">{format(new Date(selectedStaff.termination_date), "MMM d, yyyy")}</p>
-                                        </div>
-                                    )}
-                                </div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <p className="text-xs text-slate-500 uppercase font-bold mb-3">Roles & Priorities</p>
+                                            <div className="space-y-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
+                                                {/* Primary Role (Rank 1) */}
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <div>
+                                                        <p className="text-[10px] text-orange-500 uppercase font-bold">Primary Role (Rank 1)</p>
+                                                        <p className="font-bold capitalize">{selectedStaff.role}</p>
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 italic">Managed via profile</div>
+                                                </div>
 
-                                <div className="grid grid-cols-1 gap-4 pt-4 border-t border-slate-800">
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-slate-500 uppercase font-bold">Terminal PIN Code</label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                maxLength={6}
-                                                placeholder="Enter 4 or 6 digit PIN"
-                                                className="input font-mono tracking-widest"
-                                                value={selectedStaff.pin_code || ""}
-                                                onChange={async (e) => {
-                                                    const newPin = e.target.value.replace(/\D/g, "");
-                                                    if (newPin.length <= 6) {
-                                                        const updatedStaff = { ...selectedStaff, pin_code: newPin };
-                                                        setSelectedStaff(updatedStaff);
-
-                                                        // Auto-save when PIN is 4 or 6 digits
-                                                        if (newPin.length === 4 || newPin.length === 6) {
-                                                            try {
+                                                {/* Secondary Role (Rank 2) */}
+                                                <div className="flex items-center justify-between gap-4 pt-3 border-t border-slate-800">
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 uppercase font-bold">Secondary Role (Rank 2)</p>
+                                                        <select
+                                                            className="bg-transparent border-none text-sm font-bold p-0 focus:ring-0 capitalize cursor-pointer hover:text-orange-400 transition-colors"
+                                                            value={selectedStaff.employee_roles?.find(r => r.rank === 2)?.role || "none"}
+                                                            onChange={async (e) => {
+                                                                const newRole = e.target.value;
                                                                 const supabase = createClient();
-                                                                const { error } = await (supabase as any)
-                                                                    .from("employees")
-                                                                    .update({ pin_code: newPin })
-                                                                    .eq("id", selectedStaff.id);
-                                                                if (error) throw error;
-                                                                setStaff(staff.map(emp => emp.id === selectedStaff.id ? { ...emp, pin_code: newPin } : emp));
-                                                            } catch (err) {
-                                                                console.error("Error saving PIN:", err);
-                                                                alert("Failed to save PIN. It might already be in use.");
-                                                            }
-                                                        }
-                                                    }
-                                                }}
-                                            />
-                                            <p className="text-[10px] text-slate-500 self-center">
-                                                Used for Terminal Mode login and clock-in.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                                                                const existing = selectedStaff.employee_roles?.find(r => r.rank === 2);
 
-                                <div className="pt-4 border-t border-slate-800">
-                                    <p className="text-xs text-slate-500 uppercase font-bold mb-2">Contact Info</p>
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2 text-sm text-slate-300">
-                                            <Mail className="h-4 w-4 text-slate-500" />
-                                            {selectedStaff.email}
+                                                                try {
+                                                                    if (newRole === "none") {
+                                                                        if (existing) {
+                                                                            await (supabase as any).from("employee_roles").delete().eq("employee_id", selectedStaff.id).eq("rank", 2);
+                                                                        }
+                                                                    } else {
+                                                                        if (existing) {
+                                                                            await (supabase as any).from("employee_roles").update({ role: newRole }).eq("employee_id", selectedStaff.id).eq("rank", 2);
+                                                                        } else {
+                                                                            await (supabase as any).from("employee_roles").insert({ employee_id: selectedStaff.id, role: newRole, rank: 2, hourly_rate: selectedStaff.hourly_rate });
+                                                                        }
+                                                                    }
+                                                                    fetchStaff();
+                                                                    setSelectedStaff(prev => prev ? {
+                                                                        ...prev,
+                                                                        employee_roles: newRole === "none"
+                                                                            ? (prev.employee_roles || []).filter(r => r.rank !== 2)
+                                                                            : [
+                                                                                ...(prev.employee_roles || []).filter(r => r.rank !== 2),
+                                                                                { ...existing!, role: newRole, rank: 2, hourly_rate: existing?.hourly_rate || selectedStaff.hourly_rate }
+                                                                            ]
+                                                                    } : null);
+                                                                } catch (err) {
+                                                                    console.error("Error updating secondary role:", err);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <option value="none">-- None --</option>
+                                                            {ROLES.filter(r => r !== selectedStaff.role).map(role => (
+                                                                <option key={role} value={role}>{role}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    {selectedStaff.employee_roles?.find(r => r.rank === 2) && (
+                                                        <div className="flex items-center gap-1">
+                                                            <DollarSign className="w-3 h-3 text-slate-500" />
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                className="w-16 bg-transparent border-none text-sm text-right p-0 focus:ring-0"
+                                                                value={selectedStaff.employee_roles?.find(r => r.rank === 2)?.hourly_rate || ""}
+                                                                placeholder="0.00"
+                                                                onChange={async (e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    if (isNaN(val)) return;
+
+                                                                    const roleEntry = selectedStaff.employee_roles?.find(r => r.rank === 2);
+                                                                    if (!roleEntry) return;
+
+                                                                    // Optimistic update
+                                                                    setSelectedStaff(prev => {
+                                                                        if (!prev) return null;
+                                                                        const newRoles = prev.employee_roles?.map(r =>
+                                                                            r.rank === 2 ? { ...r, hourly_rate: val } : r
+                                                                        ) || [];
+                                                                        return { ...prev, employee_roles: newRoles };
+                                                                    });
+
+                                                                    // Save to DB
+                                                                    const supabase = createClient();
+                                                                    await (supabase as any).from("employee_roles")
+                                                                        .update({ hourly_rate: val })
+                                                                        .eq("employee_id", selectedStaff.id)
+                                                                        .eq("rank", 2);
+
+                                                                    await fetchStaff();
+                                                                }}
+                                                            />
+                                                            <span className="text-xs text-slate-500">/hr</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Third Role (Rank 3) */}
+                                                <div className="flex items-center justify-between gap-4 pt-3 border-t border-slate-800">
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 uppercase font-bold">Third Role (Rank 3)</p>
+                                                        <select
+                                                            className="bg-transparent border-none text-sm font-bold p-0 focus:ring-0 capitalize cursor-pointer hover:text-orange-400 transition-colors"
+                                                            value={selectedStaff.employee_roles?.find(r => r.rank === 3)?.role || "none"}
+                                                            onChange={async (e) => {
+                                                                const newRole = e.target.value;
+                                                                const supabase = createClient();
+                                                                const existing = selectedStaff.employee_roles?.find(r => r.rank === 3);
+
+                                                                try {
+                                                                    if (newRole === "none") {
+                                                                        if (existing) {
+                                                                            await (supabase as any).from("employee_roles").delete().eq("employee_id", selectedStaff.id).eq("rank", 3);
+                                                                        }
+                                                                    } else {
+                                                                        if (existing) {
+                                                                            await (supabase as any).from("employee_roles").update({ role: newRole }).eq("employee_id", selectedStaff.id).eq("rank", 3);
+                                                                        } else {
+                                                                            await (supabase as any).from("employee_roles").insert({ employee_id: selectedStaff.id, role: newRole, rank: 3, hourly_rate: selectedStaff.hourly_rate });
+                                                                        }
+                                                                    }
+                                                                    fetchStaff();
+                                                                    setSelectedStaff(prev => prev ? {
+                                                                        ...prev,
+                                                                        employee_roles: newRole === "none"
+                                                                            ? (prev.employee_roles || []).filter(r => r.rank !== 3)
+                                                                            : [
+                                                                                ...(prev.employee_roles || []).filter(r => r.rank !== 3),
+                                                                                { ...existing!, role: newRole, rank: 3, hourly_rate: existing?.hourly_rate || selectedStaff.hourly_rate }
+                                                                            ]
+                                                                    } : null);
+                                                                } catch (err) {
+                                                                    console.error("Error updating third role:", err);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <option value="none">-- None --</option>
+                                                            {ROLES.filter(r => r !== selectedStaff.role && r !== selectedStaff.employee_roles?.find(x => x.rank === 2)?.role).map(role => (
+                                                                <option key={role} value={role}>{role}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    {selectedStaff.employee_roles?.find(r => r.rank === 3) && (
+                                                        <div className="flex items-center gap-1">
+                                                            <DollarSign className="w-3 h-3 text-slate-500" />
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                className="w-16 bg-transparent border-none text-sm text-right p-0 focus:ring-0"
+                                                                value={selectedStaff.employee_roles?.find(r => r.rank === 3)?.hourly_rate || ""}
+                                                                placeholder="0.00"
+                                                                onChange={async (e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    if (isNaN(val)) return;
+
+                                                                    const roleEntry = selectedStaff.employee_roles?.find(r => r.rank === 3);
+                                                                    if (!roleEntry) return;
+
+                                                                    // Optimistic update
+                                                                    setSelectedStaff(prev => {
+                                                                        if (!prev) return null;
+                                                                        const newRoles = prev.employee_roles?.map(r =>
+                                                                            r.rank === 3 ? { ...r, hourly_rate: val } : r
+                                                                        ) || [];
+                                                                        return { ...prev, employee_roles: newRoles };
+                                                                    });
+
+                                                                    // Save to DB
+                                                                    const supabase = createClient();
+                                                                    await (supabase as any).from("employee_roles")
+                                                                        .update({ hourly_rate: val })
+                                                                        .eq("employee_id", selectedStaff.id)
+                                                                        .eq("rank", 3);
+
+                                                                    await fetchStaff();
+                                                                }}
+                                                            />
+                                                            <span className="text-xs text-slate-500">/hr</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                        {selectedStaff.phone && (
-                                            <div className="flex items-center gap-2 text-sm text-slate-300">
-                                                <Phone className="h-4 w-4 text-slate-500" />
-                                                {selectedStaff.phone}
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-slate-500 uppercase font-bold">Hourly Rate</p>
+                                            <p>{formatCurrency(selectedStaff.hourly_rate)}/hr</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-slate-500 uppercase font-bold">
+                                                {selectedStaff.hire_date ? "Hire Date" : "Joined Date"}
+                                            </p>
+                                            <p>{selectedStaff.hire_date ? format(new Date(selectedStaff.hire_date), "MMM d, yyyy") : (selectedStaff.created_at ? format(new Date(selectedStaff.created_at), "MMM d, yyyy") : "N/A")}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-slate-500 uppercase font-bold">Status</p>
+                                            <span className={cn(
+                                                "badge text-[10px]",
+                                                selectedStaff.is_active ? "badge-success" : "badge-danger"
+                                            )}>
+                                                {selectedStaff.is_active ? "Active" : "Discontinued"}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-slate-500 uppercase font-bold">Table Color</p>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="color"
+                                                    value={(selectedStaff as any).server_color || "#334155"}
+                                                    onChange={(e) => handleUpdateServerColor(selectedStaff.id, e.target.value)}
+                                                    className="w-8 h-8 rounded cursor-pointer bg-transparent border-slate-700 hover:border-slate-500 transition-colors"
+                                                    title="Assign color to this server"
+                                                />
+                                                <span className="text-xs text-slate-400 font-mono uppercase">{(selectedStaff as any).server_color || "#334155"}</span>
+                                            </div>
+                                        </div>
+                                        {!selectedStaff.is_active && selectedStaff.termination_date && (
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-slate-500 uppercase font-bold text-red-400">Termination Date</p>
+                                                <p className="text-red-400">{format(new Date(selectedStaff.termination_date), "MMM d, yyyy")}</p>
                                             </div>
                                         )}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-4 pt-4 border-t border-slate-800">
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-slate-500 uppercase font-bold">Terminal PIN Code</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    maxLength={6}
+                                                    placeholder="Enter 4 or 6 digit PIN"
+                                                    className="input font-mono tracking-widest"
+                                                    value={selectedStaff.pin_code || ""}
+                                                    onChange={async (e) => {
+                                                        const newPin = e.target.value.replace(/\D/g, "");
+                                                        if (newPin.length <= 6) {
+                                                            const updatedStaff = { ...selectedStaff, pin_code: newPin };
+                                                            setSelectedStaff(updatedStaff);
+
+                                                            // Auto-save when PIN is 4 or 6 digits
+                                                            if (newPin.length === 4 || newPin.length === 6) {
+                                                                try {
+                                                                    const supabase = createClient();
+                                                                    const { error } = await (supabase as any)
+                                                                        .from("employees")
+                                                                        .update({ pin_code: newPin })
+                                                                        .eq("id", selectedStaff.id);
+                                                                    if (error) throw error;
+                                                                    setStaff(staff.map(emp => emp.id === selectedStaff.id ? { ...emp, pin_code: newPin } : emp));
+                                                                } catch (err) {
+                                                                    console.error("Error saving PIN:", err);
+                                                                    alert("Failed to save PIN. It might already be in use.");
+                                                                }
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                                <p className="text-[10px] text-slate-500 self-center">
+                                                    Used for Terminal Mode login and clock-in.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-4 border-t border-slate-800">
+                                        <p className="text-xs text-slate-500 uppercase font-bold mb-2">Contact Info</p>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-sm text-slate-300">
+                                                <Mail className="h-4 w-4 text-slate-500" />
+                                                {selectedStaff.email}
+                                            </div>
+                                            {selectedStaff.phone && (
+                                                <div className="flex items-center gap-2 text-sm text-slate-300">
+                                                    <Phone className="h-4 w-4 text-slate-500" />
+                                                    {selectedStaff.phone}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

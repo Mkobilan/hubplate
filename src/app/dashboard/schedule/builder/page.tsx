@@ -45,12 +45,14 @@ type StaffingRule = {
     days_of_week: number[];
 };
 
+const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "expo"];
+
 type Employee = {
     id: string;
     first_name: string;
     last_name: string;
     role: string;
-    secondary_roles: string[];
+    employee_roles?: Array<{ role: string; rank: number }>;
     max_weekly_hours: number;
     hourly_rate: number;
     is_active: boolean;
@@ -74,7 +76,7 @@ type GeneratedShift = {
     warning?: string;
 };
 
-const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher"];
+// ROLES moved up
 
 export default function ScheduleBuilderPage() {
     const router = useRouter();
@@ -171,7 +173,7 @@ export default function ScheduleBuilderPage() {
             // Fetch employees
             const { data: employeesData } = await (supabase
                 .from("employees") as any)
-                .select("*")
+                .select("*, employee_roles(*)")
                 .eq("location_id", currentLocation.id)
                 .eq("is_active", true);
 
@@ -349,10 +351,14 @@ export default function ScheduleBuilderPage() {
         // Employee must be available for the entire shift
         if (shiftStart < availStart || shiftEnd > availEnd) return false;
 
-        // Check if employee can work this role
-        if (employee.role !== role && !(employee.secondary_roles || []).includes(role)) {
-            return false;
-        }
+        const getRank = (emp: Employee, role: string) => {
+            if (emp.role === role) return 1;
+            const extra = emp.employee_roles?.find(er => er.role === role);
+            return extra ? extra.rank : Infinity;
+        };
+
+        // Check if employee can work this role at all
+        if (getRank(employee, role) === Infinity) return false;
 
         return true;
     };
@@ -396,11 +402,22 @@ export default function ScheduleBuilderPage() {
                     const shiftHours = calculateHours(rule.start_time, rule.end_time);
                     let scheduledCount = 0;
 
+                    const getRank = (emp: Employee, role: string) => {
+                        if (emp.role === role) return 1;
+                        const extra = emp.employee_roles?.find(er => er.role === role);
+                        return extra ? extra.rank : Infinity;
+                    };
+
                     // Find available employees for this role and time slot
                     const availableEmployees = employees
                         .filter(emp => canEmployeeWorkShift(emp, day, rule.start_time, rule.end_time, rule.role))
                         .sort((a, b) => {
-                            // Prioritize by: lowest hours first (fairness)
+                            // 1. Prioritize by Rank (Primary > Secondary > Third)
+                            const rankA = getRank(a, rule.role);
+                            const rankB = getRank(b, rule.role);
+                            if (rankA !== rankB) return rankA - rankB;
+
+                            // 2. Then prioritize by lowest hours first (fairness)
                             const hoursA = employeeHours[a.id] || 0;
                             const hoursB = employeeHours[b.id] || 0;
                             return hoursA - hoursB;

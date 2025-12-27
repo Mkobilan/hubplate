@@ -19,7 +19,7 @@ import {
 import { cn, formatCurrency } from "@/lib/utils";
 
 // Type definitions for Supabase integration
-type StaffMember = { id: string; first_name: string; last_name: string; role: string; color: string; secondary_roles?: string[] };
+type StaffMember = { id: string; first_name: string; last_name: string; role: string; color: string; employee_roles?: Array<{ role: string; rank: number }> };
 type Shift = { id: string; staffId: string; day: number; start: string; end: string; role: string };
 
 import { useEffect } from "react";
@@ -46,7 +46,7 @@ export default function SchedulePage() {
     const isManagerOrOwner = isTerminalMode
         ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
         : (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
-    const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher"];
+    const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "expo"];
 
     // Add Shift Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -86,7 +86,7 @@ export default function SchedulePage() {
             // 1. Fetch Staff
             const { data: staffData, error: staffError } = await supabase
                 .from("employees")
-                .select("*")
+                .select("*, employee_roles(*)")
                 .eq("location_id", currentLocation.id);
 
             if (staffError) throw staffError;

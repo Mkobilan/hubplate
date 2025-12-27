@@ -25,7 +25,9 @@ export function ClockInOut() {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
     const [message, setMessage] = useState("");
-    const [actionStage, setActionStage] = useState<"pin" | "actions">("pin");
+    const [actionStage, setActionStage] = useState<"pin" | "role" | "actions">("pin");
+    const [selectedRole, setSelectedRole] = useState<{ role: string; hourly_rate: number } | null>(null);
+    const [employeeRoles, setEmployeeRoles] = useState<Array<{ role: string; rank: number; hourly_rate: number | null }> | null>(null);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const currentLocation = useAppStore((state) => state.currentLocation);
     const isClockedIn = useAppStore((state) => state.isClockedIn);
@@ -90,8 +92,43 @@ export function ClockInOut() {
                 return;
             }
 
-            // PIN verified, move to actions
-            setActionStage("actions");
+            // PIN verified, check for multiple roles
+            // Fetch roles for this employee - fetching FRESH data
+            console.log("Fetching roles for:", currentEmployee.id);
+            const { data: roles, error: roleError } = await (supabase as any)
+                .from("employee_roles")
+                .select("role, rank, hourly_rate")
+                .eq("employee_id", currentEmployee.id)
+                .order("rank");
+
+            if (roleError) console.error("Error fetching roles:", roleError);
+            console.log("Fetched roles:", roles);
+
+            // Get the primary role from the FRESH employee fetch we did earlier or current store
+            // Ideally we re-fetch the employee to be safe about their primary role/rate
+            const { data: primaryEmp } = await (supabase as any)
+                .from("employees")
+                .select("role, hourly_rate")
+                .eq("id", currentEmployee.id)
+                .single();
+
+            const allRoles = [
+                { role: primaryEmp?.role || (currentEmployee as any).role, rank: 1, hourly_rate: primaryEmp?.hourly_rate ?? (currentEmployee as any).hourly_rate },
+                ...(roles || [])
+            ];
+
+            console.log("All combined roles:", allRoles);
+
+            if (isClockedIn) {
+                setActionStage("actions");
+            } else if (allRoles.length > 1) {
+                setEmployeeRoles(allRoles);
+                setActionStage("role");
+            } else {
+                setSelectedRole(allRoles[0]);
+                setActionStage("actions");
+            }
+
             setPin("");
             setStatus("idle");
             setMessage("");
@@ -111,6 +148,12 @@ export function ClockInOut() {
 
         try {
             if (action === 'clock_in') {
+                if (!selectedRole) {
+                    setStatus("error");
+                    setMessage("Please select a role.");
+                    setLoading(false);
+                    return;
+                }
                 const { error } = await (supabase as any)
                     .from("time_entries")
                     .insert([{
@@ -118,7 +161,8 @@ export function ClockInOut() {
                         location_id: currentLocation.id,
                         organization_id: currentEmployee.organization_id,
                         clock_in: new Date().toISOString(),
-                        hourly_rate: currentEmployee.hourly_rate || 0
+                        hourly_rate: selectedRole.hourly_rate || 0,
+                        role: selectedRole.role
                     }]);
                 if (error) throw error;
 
@@ -269,6 +313,8 @@ export function ClockInOut() {
                         setActionStage("pin");
                         setPin("");
                         setStatus("idle");
+                        setSelectedRole(null);
+                        setEmployeeRoles(null);
                     }} />
                     <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-sm animate-slide-up shadow-2xl">
                         {actionStage === "pin" ? (
@@ -331,6 +377,28 @@ export function ClockInOut() {
                                     <div />
                                 </div>
                             </>
+                        ) : actionStage === "role" ? (
+                            <div className="space-y-6">
+                                <div className="text-center">
+                                    <h2 className="text-2xl font-bold text-white">Select Role</h2>
+                                    <p className="text-slate-400 text-sm">Which role are you working as?</p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {employeeRoles?.map((r) => (
+                                        <button
+                                            key={r.role}
+                                            onClick={() => {
+                                                setSelectedRole(r as any);
+                                                setActionStage("actions");
+                                            }}
+                                            className="p-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-left transition-all hover:scale-[1.02]"
+                                        >
+                                            <p className="font-bold text-white capitalize">{r.role}</p>
+                                            <p className="text-xs text-slate-400">Rate: ${r.hourly_rate?.toFixed(2) || "0.00"}/hr</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         ) : (
                             <div className="space-y-6">
                                 <div className="text-center">

@@ -101,7 +101,7 @@ export interface Database {
                     user_id: string | null;
                     first_name: string;
                     last_name: string;
-                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser";
+                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     pin_code: string | null;
                     hourly_rate: number | null;
                     is_active: boolean;
@@ -115,7 +115,7 @@ export interface Database {
                     user_id?: string | null;
                     first_name: string;
                     last_name: string;
-                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser";
+                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     pin_code?: string | null;
                     hourly_rate?: number | null;
                     is_active?: boolean;
@@ -129,11 +129,37 @@ export interface Database {
                     user_id?: string | null;
                     first_name?: string;
                     last_name?: string;
-                    role?: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser";
+                    role?: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     pin_code?: string | null;
                     hourly_rate?: number | null;
                     is_active?: boolean;
                     server_color?: string | null;
+                    created_at?: string;
+                };
+            };
+            employee_roles: {
+                Row: {
+                    id: string;
+                    employee_id: string;
+                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    rank: number;
+                    hourly_rate: number | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    employee_id: string;
+                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    rank: number;
+                    hourly_rate?: number | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    employee_id?: string;
+                    role?: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    rank?: number;
+                    hourly_rate?: number | null;
                     created_at?: string;
                 };
             };
@@ -296,6 +322,59 @@ export interface Database {
                     created_at?: string;
                 };
             };
+            time_entries: {
+                Row: {
+                    id: string;
+                    employee_id: string;
+                    location_id: string;
+                    organization_id: string | null;
+                    clock_in: string;
+                    clock_out: string | null;
+                    break_minutes: number;
+                    total_hours: number | null;
+                    hourly_rate: number | null;
+                    total_pay: number | null;
+                    role: string | null;
+                    notes: string | null;
+                    current_break_start: string | null;
+                    current_break_type: string | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    employee_id: string;
+                    location_id: string;
+                    organization_id?: string | null;
+                    clock_in: string;
+                    clock_out?: string | null;
+                    break_minutes?: number;
+                    total_hours?: number | null;
+                    hourly_rate?: number | null;
+                    total_pay?: number | null;
+                    role?: string | null;
+                    notes?: string | null;
+                    current_break_start?: string | null;
+                    current_break_type?: string | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    employee_id?: string;
+                    location_id?: string;
+                    organization_id?: string | null;
+                    clock_in?: string;
+                    clock_out?: string | null;
+                    break_minutes?: number;
+                    total_hours?: number | null;
+                    hourly_rate?: number | null;
+                    total_pay?: number | null;
+                    role?: string | null;
+                    notes?: string | null;
+                    current_break_start?: string | null;
+                    current_break_type?: string | null;
+                    created_at?: string;
+                };
+            };
             employee_invites: {
                 Row: {
                     id: string;
@@ -303,7 +382,7 @@ export interface Database {
                     location_id: string;
                     token: string;
                     email: string | null;
-                    role: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser";
+                    role: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser" | "dishwasher" | "driver" | "expo";
                     hourly_rate: number | null;
                     status: "pending" | "accepted" | "expired";
                     created_by: string;
@@ -316,7 +395,7 @@ export interface Database {
                     location_id: string;
                     token?: string;
                     email?: string | null;
-                    role: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser";
+                    role: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser" | "dishwasher" | "driver" | "expo";
                     hourly_rate?: number | null;
                     status?: "pending" | "accepted" | "expired";
                     created_by: string;
@@ -328,7 +407,7 @@ export interface Database {
                     location_id?: string;
                     token?: string;
                     email?: string | null;
-                    role?: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser";
+                    role?: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser" | "dishwasher" | "driver" | "expo";
                     hourly_rate?: number | null;
                     status?: "pending" | "accepted" | "expired";
                     created_by?: string;
@@ -660,5 +739,6 @@ export type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row
 export type IngredientLink = Database["public"]["Tables"]["ingredient_links"]["Row"];
 export type PurchaseOrder = Database["public"]["Tables"]["purchase_orders"]["Row"];
 export type PurchaseOrderItem = Database["public"]["Tables"]["purchase_order_items"]["Row"];
+export type TimeEntry = Database["public"]["Tables"]["time_entries"]["Row"];
 
 
