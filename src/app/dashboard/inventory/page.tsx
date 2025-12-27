@@ -115,10 +115,11 @@ export default function InventoryPage() {
             // Remove synthetic fields
             const { status, ...cleanUpdates } = updates;
 
-            const { error } = await supabase
-                .from("inventory_items" as any)
+            const { error } = await (supabase as any)
+                .from("inventory_items")
                 .update(cleanUpdates)
                 .eq("id", id);
+
 
 
             if (error) throw error;
