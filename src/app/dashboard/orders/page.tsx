@@ -41,10 +41,18 @@ interface MenuItemType {
 }
 
 interface OrderItem {
+    id: string;
+    menuItemId: string;
+    name: string;
+    price: number;
+    quantity: number;
+    notes?: string;
+    addOns?: { name: string; price: number }[];
     seatNumber: number;
     status: 'pending' | 'preparing' | 'ready' | 'served';
     category_name?: string;
-    addOns?: { name: string; price: number }[];
+    isEdited?: boolean;
+    isUpsell?: boolean;
 }
 
 function OrdersPageContent() {
