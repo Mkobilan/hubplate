@@ -17,6 +17,7 @@ interface KitchenOrderItem {
     isEdited?: boolean;
     menuItemId?: string;
     seatNumber?: number;
+    addOns?: { name: string; price: number }[];
 }
 
 interface KitchenOrder {
@@ -177,7 +178,8 @@ export default function KitchenPage() {
                     status: oi.status || 'pending',
                     isEdited: oi.is_edited,
                     menuItemId: oi.menu_item_id,
-                    seatNumber: oi.seat_number
+                    seatNumber: oi.seat_number,
+                    addOns: oi.add_ons
                 }));
 
                 return {
@@ -675,6 +677,15 @@ export default function KitchenPage() {
                                                             <p className="text-xs text-amber-400 font-semibold flex items-center gap-1.5 italic">
                                                                 <Bell className="h-3 w-3" /> {item.notes}
                                                             </p>
+                                                        </div>
+                                                    )}
+                                                    {item.addOns && item.addOns.length > 0 && (
+                                                        <div className="mt-1 flex flex-wrap gap-1">
+                                                            {item.addOns.map((addon, idx) => (
+                                                                <span key={idx} className="text-[10px] bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/20 font-bold uppercase">
+                                                                    + {addon.name}
+                                                                </span>
+                                                            ))}
                                                         </div>
                                                     )}
                                                     {item.isEdited && (

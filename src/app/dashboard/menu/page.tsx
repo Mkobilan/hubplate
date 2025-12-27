@@ -16,6 +16,7 @@ import {
     Check,
     X,
     Layers,
+    Sparkles,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -130,13 +131,31 @@ export default function MenuPage() {
                         <Clock className="h-4 w-4" />
                         {t("menu.happyHour")}
                     </Link>
-                    <button
-                        onClick={() => setShowScanModal(true)}
-                        className="btn btn-secondary"
-                    >
-                        <Camera className="h-4 w-4" />
-                        {t("menu.scanMenu")}
-                    </button>
+                    {canEdit && (
+                        <>
+                            <Link
+                                href="/dashboard/menu/add-ons"
+                                className="btn btn-secondary"
+                            >
+                                <Layers className="h-4 w-4" />
+                                Add Ons
+                            </Link>
+                            <Link
+                                href="/dashboard/menu/upsells"
+                                className="btn btn-secondary"
+                            >
+                                <Sparkles className="h-4 w-4" />
+                                Upsells
+                            </Link>
+                            <button
+                                onClick={() => setShowScanModal(true)}
+                                className="btn btn-secondary"
+                            >
+                                <Camera className="h-4 w-4" />
+                                {t("menu.scanMenu")}
+                            </button>
+                        </>
+                    )}
                     {canEdit && (
                         <button
                             onClick={() => {
@@ -161,13 +180,15 @@ export default function MenuPage() {
                             )}
                         </button>
                     )}
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="btn btn-primary"
-                    >
-                        <Plus className="h-4 w-4" />
-                        {t("menu.addItem")}
-                    </button>
+                    {canEdit && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="btn btn-primary"
+                        >
+                            <Plus className="h-4 w-4" />
+                            {t("menu.addItem")}
+                        </button>
+                    )}
                 </div>
             </div>
 

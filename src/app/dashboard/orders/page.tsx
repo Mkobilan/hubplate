@@ -16,6 +16,7 @@ import {
     LayoutList,
     Receipt,
     Split,
+    Loader2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -40,17 +41,10 @@ interface MenuItemType {
 }
 
 interface OrderItem {
-    id: string; // Internal unique ID
-    menuItemId: string;
-    name: string;
-    price: number;
-    quantity: number;
-    notes?: string;
-    isUpsell?: boolean;
-    isEdited?: boolean;
     seatNumber: number;
     status: 'pending' | 'preparing' | 'ready' | 'served';
     category_name?: string;
+    addOns?: { name: string; price: number }[];
 }
 
 function OrdersPageContent() {
@@ -163,20 +157,23 @@ function OrdersPageContent() {
         (item) => (item.category?.name || "Uncategorized") === selectedCategory && !item.is_86d
     );
 
-    const handleAddToOrder = (item: MenuItemType, modifiers: string[]) => {
-        const notes = modifiers.length > 0 ? modifiers.join(", ") : undefined;
+    const handleAddToOrder = (item: MenuItemType, notesList: string[], selectedAddOns: { name: string; price: number }[]) => {
+        const notes = notesList.length > 0 ? notesList.join(", ") : undefined;
 
         if (editingTicketItem) {
             // Updating an existing item in the ticket
             setOrderItems(orderItems.map(oi =>
                 oi.id === editingTicketItem.id
-                    ? { ...oi, notes, isEdited: true }
+                    ? { ...oi, notes, addOns: selectedAddOns, isEdited: true }
                     : oi
             ));
             setEditingTicketItem(null);
         } else {
             const existingIndex = orderItems.findIndex(
-                (o) => o.menuItemId === item.id && o.notes === notes && o.status === 'pending' // Only group with unsent items
+                (o) => o.menuItemId === item.id &&
+                    o.notes === notes &&
+                    o.status === 'pending' &&
+                    JSON.stringify(o.addOns) === JSON.stringify(selectedAddOns)
             );
 
             if (existingIndex !== -1) {
@@ -197,6 +194,7 @@ function OrdersPageContent() {
                         price: item.price,
                         quantity: 1,
                         notes: notes,
+                        addOns: selectedAddOns,
                         seatNumber: selectedSeat,
                         status: 'pending',
                         category_name: item.category?.name
@@ -213,36 +211,6 @@ function OrdersPageContent() {
             setEditingTicketItem(item);
             setCustomizingItem(menuItem);
         }
-    };
-
-    const addUpsell = (upsell: { name: string; price: number }) => {
-        const menuItem = menuItems.find((i) => i.name === upsell.name);
-        if (menuItem) {
-            const existing = orderItems.find((o) => o.menuItemId === menuItem.id);
-            if (existing) {
-                setOrderItems(
-                    orderItems.map((o) =>
-                        o.menuItemId === menuItem.id ? { ...o, quantity: o.quantity + 1 } : o
-                    )
-                );
-            } else {
-                setOrderItems([
-                    ...orderItems,
-                    {
-                        id: crypto.randomUUID(),
-                        menuItemId: menuItem.id,
-                        name: menuItem.name,
-                        price: menuItem.price,
-                        quantity: 1,
-                        isUpsell: true,
-                        seatNumber: selectedSeat,
-                        status: 'pending',
-                        category_name: menuItem.category?.name
-                    },
-                ]);
-            }
-        }
-        setShowUpsells(false);
     };
 
     // Auto-fetch table capacity when table number changes
@@ -312,7 +280,10 @@ function OrdersPageContent() {
     };
 
     const subtotal = orderItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
+        (sum, item) => {
+            const addOnsTotal = (item.addOns || []).reduce((s, a) => s + a.price, 0);
+            return sum + (item.price + addOnsTotal) * item.quantity;
+        },
         0
     );
     const taxRate = currentLocation?.tax_rate ?? 8.75;
@@ -339,6 +310,7 @@ function OrdersPageContent() {
                 seat_number: item.seatNumber,
                 is_upsell: item.isUpsell || false,
                 category_name: item.category_name,
+                add_ons: item.addOns || [],
                 sent_at: new Date().toISOString()
             }));
 
@@ -411,7 +383,8 @@ function OrdersPageContent() {
                 seatNumber: i.seat_number || 1,
                 status: i.status || 'pending',
                 isUpsell: i.is_upsell || false,
-                category_name: i.category_name
+                category_name: i.category_name,
+                addOns: i.add_ons || []
             })));
         }
         setShowMyTickets(false);
@@ -597,6 +570,15 @@ function OrdersPageContent() {
                                                         {item.notes}
                                                     </div>
                                                 )}
+                                                {(item.addOns || []).length > 0 && (
+                                                    <div className="mt-1 flex flex-wrap gap-1">
+                                                        {item.addOns?.map((ao, idx) => (
+                                                            <span key={idx} className="text-[10px] bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
+                                                                + {ao.name}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-1.5 text-slate-300">
                                                 <button
@@ -687,11 +669,12 @@ function OrdersPageContent() {
                 <ItemCustomizationModal
                     item={customizingItem}
                     initialNotes={editingTicketItem?.notes}
+                    initialAddOns={editingTicketItem?.addOns}
                     onClose={() => {
                         setCustomizingItem(null);
                         setEditingTicketItem(null);
                     }}
-                    onConfirm={(modifiers) => handleAddToOrder(customizingItem, modifiers)}
+                    onConfirm={(notes, addOns) => handleAddToOrder(customizingItem, notes, addOns)}
                 />
             )}
 
@@ -750,39 +733,102 @@ export default function OrdersPage() {
 function ItemCustomizationModal({
     item,
     initialNotes,
+    initialAddOns,
     onClose,
-    onConfirm
+    onConfirm,
 }: {
     item: MenuItemType;
     initialNotes?: string;
+    initialAddOns?: { name: string; price: number }[];
     onClose: () => void;
-    onConfirm: (modifiers: string[]) => void;
+    onConfirm: (notes: string[], addOns: { name: string; price: number }[]) => void;
 }) {
     const { t } = useTranslation();
-    const [modifiers, setModifiers] = useState<string[]>([]);
+    const [notes, setNotes] = useState<string[]>([]);
+    const [selectedAddOns, setSelectedAddOns] = useState<{ name: string; price: number }[]>(initialAddOns || []);
     const [customText, setCustomText] = useState("");
 
-    const addModifier = () => {
+    const [availableAddOns, setAvailableAddOns] = useState<{ name: string; price: number }[]>([]);
+    const [availableUpsells, setAvailableUpsells] = useState<{ name: string; price: number }[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const supabase = createClient();
+    const currentLocation = useAppStore((state) => state.currentLocation);
+
+    useEffect(() => {
+        const fetchOptions = async () => {
+            if (!currentLocation?.id) return;
+            setLoading(true);
+            try {
+                // 1. Fetch relevant Add Ons for the category
+                const { data: assignments } = await (supabase.from("add_on_category_assignments") as any)
+                    .select("add_on_id")
+                    .eq("category_id", item.category_id);
+
+                const addOnIds = (assignments || []).map((a: any) => a.add_on_id);
+
+                if (addOnIds.length > 0) {
+                    const { data: addOnsData } = await (supabase.from("add_ons") as any)
+                        .select("name, price")
+                        .eq("location_id", currentLocation.id)
+                        .eq("is_active", true)
+                        .in("id", addOnIds);
+                    setAvailableAddOns(addOnsData || []);
+                } else {
+                    setAvailableAddOns([]);
+                }
+
+                // 2. Fetch relevant Upsells for the item or category
+                const { data: upsellAssignments } = await (supabase.from("upsell_assignments") as any)
+                    .select("upsell_id")
+                    .or(`menu_item_id.eq.${item.id},category_id.eq.${item.category_id}`);
+
+                const upsellIds = (upsellAssignments || []).map((a: any) => a.upsell_id);
+
+                if (upsellIds.length > 0) {
+                    const { data: upsellsData } = await (supabase.from("upsells") as any)
+                        .select("name, price")
+                        .eq("location_id", currentLocation.id)
+                        .eq("is_active", true)
+                        .in("id", upsellIds);
+                    setAvailableUpsells(upsellsData || []);
+                } else {
+                    setAvailableUpsells([]);
+                }
+            } catch (error) {
+                console.error("Error fetching options:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchOptions();
+    }, [item.id, item.category_id, currentLocation?.id]);
+
+    useEffect(() => {
+        if (initialNotes) {
+            setNotes(initialNotes.split(", ").filter((n: string) => n.length > 0));
+        }
+    }, [initialNotes]);
+
+    const addNote = () => {
         if (customText.trim()) {
-            setModifiers([...modifiers, customText.trim()]);
+            setNotes([...notes, customText.trim()]);
             setCustomText("");
         }
     };
 
-    useEffect(() => {
-        if (initialNotes) {
-            setModifiers(initialNotes.split(", ").filter((n: string) => n.length > 0));
-        }
-    }, [initialNotes]);
-
-    const removeModifier = (index: number) => {
-        setModifiers(modifiers.filter((_, i) => i !== index));
+    const toggleAddOn = (addon: { name: string; price: number }) => {
+        setSelectedAddOns(prev =>
+            prev.some(a => a.name === addon.name)
+                ? prev.filter(a => a.name !== addon.name)
+                : [...prev, addon]
+        );
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative card w-full max-w-md animate-in zoom-in-95 duration-200">
+            <div className="relative card w-full max-w-xl animate-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h2 className="text-xl font-bold text-slate-100">{item.name}</h2>
@@ -793,70 +839,73 @@ function ItemCustomizationModal({
                     </button>
                 </div>
 
-                {item.description && (
-                    <div className="mb-6 text-sm text-slate-400 italic">
-                        &quot;{item.description}&quot;
-                    </div>
-                )}
-
-                <div className="space-y-4">
+                <div className="space-y-6">
+                    {/* Notes Section */}
                     <div>
-                        <label className="label text-xs uppercase tracking-wider text-slate-500 font-bold">Customizations</label>
-                        <div className="flex gap-2 mt-1">
+                        <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2">Special Instructions</label>
+                        <div className="flex gap-2">
                             <input
                                 type="text"
-                                placeholder="e.g. No Onions, Extra Sauce"
+                                placeholder="e.g. No Onions..."
                                 className="input flex-1"
                                 value={customText}
                                 onChange={(e) => setCustomText(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && addModifier()}
+                                onKeyDown={(e) => e.key === "Enter" && addNote()}
                                 autoFocus
                             />
-                            <button
-                                onClick={addModifier}
-                                className="btn btn-primary"
-                                disabled={!customText.trim()}
-                            >
+                            <button onClick={addNote} className="btn btn-primary px-4" disabled={!customText.trim()}>
                                 <Plus className="h-5 w-5" />
-                                Add
                             </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            {notes.map((note, i) => (
+                                <span key={i} className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-full pl-3 pr-1.5 py-1 text-xs text-slate-300">
+                                    {note}
+                                    <button onClick={() => setNotes(notes.filter((_, idx) => idx !== i))} className="hover:text-red-400"><X className="h-3 w-3" /></button>
+                                </span>
+                            ))}
                         </div>
                     </div>
 
-                    <div className="min-h-[100px] max-h-[200px] overflow-y-auto space-y-2">
-                        {modifiers.length === 0 ? (
-                            <div className="h-[100px] flex items-center justify-center border-2 border-dashed border-slate-800 rounded-lg text-slate-600 text-sm">
-                                No customizations added
+                    {/* Add Ons & Upsells Section */}
+                    <div>
+                        <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2">Add Ons & Extras</label>
+                        {loading ? (
+                            <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Fetching options...
                             </div>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {modifiers.map((mod, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-full pl-3 pr-1 py-1 text-sm text-slate-200"
+                        ) : (availableAddOns.length > 0 || availableUpsells.length > 0) ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[250px] overflow-y-auto pr-1">
+                                {[...availableAddOns, ...availableUpsells].map((ao, idx) => (
+                                    <button
+                                        key={`${ao.name}-${idx}`}
+                                        onClick={() => toggleAddOn(ao)}
+                                        className={cn(
+                                            "flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-all",
+                                            selectedAddOns.some(a => a.name === ao.name)
+                                                ? "bg-orange-500 border-orange-400 text-white"
+                                                : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                                        )}
                                     >
-                                        <span>{mod}</span>
-                                        <button
-                                            onClick={() => removeModifier(i)}
-                                            className="p-1 hover:text-red-400 transition-colors"
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </div>
+                                        <span>{ao.name}</span>
+                                        <span className="font-bold">+{formatCurrency(ao.price)}</span>
+                                    </button>
                                 ))}
                             </div>
+                        ) : (
+                            <p className="text-xs text-slate-600 italic">No extras available for this item</p>
                         )}
                     </div>
 
-                    <div className="flex gap-3 pt-2">
+                    <div className="flex gap-3 pt-4 border-t border-slate-800">
                         <button onClick={onClose} className="btn btn-secondary flex-1">
                             Cancel
                         </button>
                         <button
-                            onClick={() => onConfirm(modifiers)}
+                            onClick={() => onConfirm(notes, selectedAddOns)}
                             className="btn btn-primary flex-[2] text-lg font-bold"
                         >
-                            Add to Order
+                            Confirm
                         </button>
                     </div>
                 </div>
