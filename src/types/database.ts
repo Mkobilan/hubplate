@@ -500,7 +500,149 @@ export interface Database {
                     responded_at?: string | null;
                 };
             };
+            inventory_items: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    name: string;
+                    category: string | null;
+                    unit: string;
+                    stock_quantity: number;
+                    par_level: number | null;
+                    reorder_quantity: number | null;
+                    cost_per_unit: number | null;
+                    supplier: string | null;
+                    avg_daily_usage: number | null;
+                    last_ordered_at: string | null;
+                    metadata: Json | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    name: string;
+                    category?: string | null;
+                    unit: string;
+                    stock_quantity?: number;
+                    par_level?: number | null;
+                    reorder_quantity?: number | null;
+                    cost_per_unit?: number | null;
+                    supplier?: string | null;
+                    avg_daily_usage?: number | null;
+                    last_ordered_at?: string | null;
+                    metadata?: Json | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    name?: string;
+                    category?: string | null;
+                    unit?: string;
+                    stock_quantity?: number;
+                    par_level?: number | null;
+                    reorder_quantity?: number | null;
+                    cost_per_unit?: number | null;
+                    supplier?: string | null;
+                    avg_daily_usage?: number | null;
+                    last_ordered_at?: string | null;
+                    metadata?: Json | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+
+            };
+            ingredient_links: {
+                Row: {
+                    id: string;
+                    menu_item_id: string;
+                    inventory_item_id: string;
+                    quantity_used: number;
+                    unit: string | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    menu_item_id: string;
+                    inventory_item_id: string;
+                    quantity_used: number;
+                    unit?: string | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    menu_item_id?: string;
+                    inventory_item_id?: string;
+                    quantity_used?: number;
+                    unit?: string | null;
+                    created_at?: string;
+                };
+            };
+            purchase_orders: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    supplier: string | null;
+                    status: "draft" | "sent" | "received" | "cancelled";
+                    total_amount: number;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    supplier?: string | null;
+                    status?: "draft" | "sent" | "received" | "cancelled";
+                    total_amount?: number;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    supplier?: string | null;
+                    status?: "draft" | "sent" | "received" | "cancelled";
+                    total_amount?: number;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+            };
+            purchase_order_items: {
+                Row: {
+                    id: string;
+                    po_id: string;
+                    inventory_item_id: string;
+                    quantity: number;
+                    cost_at_order: number | null;
+                    received_quantity: number;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    po_id: string;
+                    inventory_item_id: string;
+                    quantity: number;
+                    cost_at_order?: number | null;
+                    received_quantity?: number;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    po_id?: string;
+                    inventory_item_id?: string;
+                    quantity?: number;
+                    cost_at_order?: number | null;
+                    received_quantity?: number;
+                    created_at?: string;
+                };
+            };
         };
+
+
         Views: {};
         Functions: {};
         Enums: {};
@@ -514,3 +656,9 @@ export type Employee = Database["public"]["Tables"]["employees"]["Row"];
 export type MenuItem = Database["public"]["Tables"]["menu_items"]["Row"];
 export type Order = Database["public"]["Tables"]["orders"]["Row"];
 export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
+export type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
+export type IngredientLink = Database["public"]["Tables"]["ingredient_links"]["Row"];
+export type PurchaseOrder = Database["public"]["Tables"]["purchase_orders"]["Row"];
+export type PurchaseOrderItem = Database["public"]["Tables"]["purchase_order_items"]["Row"];
+
+
