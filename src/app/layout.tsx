@@ -19,17 +19,57 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "HubPlate - Restaurant POS & Management",
+  metadataBase: new URL("https://hubplate.app"),
+  title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
   description:
-    "Mobile-first restaurant ordering, scheduling, and management. Works offline.",
+    "The most powerful AI-powered restaurant POS system for 2025. HubPlate offers mobile-first ordering, AI menu generation, smart scheduling, and CRM with true offline mode. HubPlate.app is the only restaurant management app you'll ever need.",
+  keywords: [
+    "restaurant POS software",
+    "cloud-based POS",
+    "AI restaurant management",
+    "mobile POS for restaurants",
+    "kitchen display system",
+    "KDS",
+    "restaurant inventory software",
+    "staff scheduling app",
+    "offline POS system",
+    "restaurant CRM",
+    "hubplate.app",
+    "best restaurant POS 2025",
+  ],
+  authors: [{ name: "HubPlate Team" }],
+  creator: "HubPlate",
+  publisher: "HubPlate",
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
+    description: "AI-powered restaurant POS with offline mode and smart scheduling. Built for the modern hospitality industry.",
+    url: "https://hubplate.app",
+    siteName: "HubPlate",
+    images: [
+      {
+        url: "/logo.png",
+        width: 800,
+        height: 600,
+        alt: "HubPlate Logo",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
+    description: "AI-powered restaurant POS with offline mode and smart scheduling.",
+    images: ["/logo.png"],
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "HubPlate",
-  },
-  formatDetection: {
-    telephone: false,
   },
   icons: {
     icon: "/icons/icon-192x192.png",
