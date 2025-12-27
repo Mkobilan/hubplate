@@ -276,7 +276,18 @@ export default function KitchenPage() {
             // 2. Update status in the JSONB array
             const updatedItems = (order.items || []).map((item: any) => {
                 if (itemIds.includes(item.id)) {
-                    return { ...item, status: newStatus };
+                    const updatedItem = { ...item, status: newStatus };
+
+                    // Add timestamps based on new status
+                    if (newStatus === 'preparing' && !item.started_at) {
+                        updatedItem.started_at = new Date().toISOString();
+                    } else if (newStatus === 'ready' && !item.ready_at) {
+                        updatedItem.ready_at = new Date().toISOString();
+                    } else if (newStatus === 'served' && !item.served_at) {
+                        updatedItem.served_at = new Date().toISOString();
+                    }
+
+                    return updatedItem;
                 }
                 return item;
             });

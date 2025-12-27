@@ -21,7 +21,12 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
 
     useEffect(() => {
         const fetchMyTickets = async () => {
-            if (!currentLocation?.id || !currentEmployee?.id) return;
+            if (!currentLocation?.id || !currentEmployee?.id) {
+                // If we don't have IDs yet, we should still stop loading eventually 
+                // but let's wait a bit for them to potentially load
+                const timeout = setTimeout(() => setLoading(false), 2000);
+                return () => clearTimeout(timeout);
+            }
 
             try {
                 const { data, error } = await supabase
@@ -75,7 +80,9 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
                                 >
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="font-bold text-lg text-slate-100">
-                                            {order.order_type === 'dine_in' ? `Table ${order.table_number}` : order.order_type.toUpperCase()}
+                                            {order.order_type === 'dine_in'
+                                                ? `Table ${order.table_number}${order.seat_number ? ` (Seat ${order.seat_number})` : ''}`
+                                                : order.order_type.toUpperCase()}
                                         </div>
                                         <span className={cn(
                                             "badge text-[10px] uppercase",

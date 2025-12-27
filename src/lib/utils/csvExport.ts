@@ -221,3 +221,27 @@ export function exportMenuPerformanceCSV(
 
     downloadCSV({ filename, headers, rows });
 }
+
+/**
+ * Export Kitchen Performance Data to CSV
+ */
+export function exportKitchenPerformanceCSV(
+    data: {
+        item_name: string;
+        prep_time: number;
+        window_time: number;
+        total_time: number;
+    }[],
+    dateRange: { start: string; end: string }
+) {
+    const filename = `kitchen_performance_${dateRange.start}_to_${dateRange.end}`;
+    const headers = ['Item Name', 'Avg Prep Time (min)', 'Avg Window Time (min)', 'Avg Total Time (min)'];
+    const rows = data.map(item => [
+        item.item_name,
+        item.prep_time.toFixed(1),
+        item.window_time.toFixed(1),
+        item.total_time.toFixed(1)
+    ]);
+
+    downloadCSV({ filename, headers, rows });
+}

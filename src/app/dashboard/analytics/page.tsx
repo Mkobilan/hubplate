@@ -29,7 +29,8 @@ import {
     exportLaborCSV,
     exportInventoryCSV,
     exportFeedbackCSV,
-    exportMenuPerformanceCSV
+    exportMenuPerformanceCSV,
+    exportKitchenPerformanceCSV
 } from "@/lib/utils/csvExport";
 
 // Color palette for charts
@@ -101,6 +102,13 @@ export default function AnalyticsPage() {
         totalItemsSold: 0,
         topItems: [],
         topCategories: []
+    });
+
+    const [kitchenData, setKitchenData] = useState<any>({
+        avgPrepTime: 0,
+        avgWindowTime: 0,
+        avgTotalTime: 0,
+        itemPerformance: []
     });
 
     const fetchAllData = useCallback(async () => {
@@ -403,6 +411,53 @@ export default function AnalyticsPage() {
                 totalItemsSold,
                 topItems,
                 topCategories
+            });
+
+            // ========== KITCHEN PERFORMANCE ==========
+            const kitchenStats = (orders || []).reduce((acc: any, order: any) => {
+                if (order.items && Array.isArray(order.items)) {
+                    order.items.forEach((item: any) => {
+                        if (item.sent_at && item.served_at) {
+                            const name = item.name || "Unknown";
+                            if (!acc[name]) {
+                                acc[name] = { name, prepTimes: [], windowTimes: [], totalTimes: [] };
+                            }
+
+                            // Calculate times in minutes
+                            if (item.started_at && item.ready_at) {
+                                const prep = (new Date(item.ready_at).getTime() - new Date(item.started_at).getTime()) / 60000;
+                                acc[name].prepTimes.push(prep);
+                            }
+
+                            if (item.ready_at && item.served_at) {
+                                const window = (new Date(item.served_at).getTime() - new Date(item.ready_at).getTime()) / 60000;
+                                acc[name].windowTimes.push(window);
+                            }
+
+                            const total = (new Date(item.served_at).getTime() - new Date(item.sent_at).getTime()) / 60000;
+                            acc[name].totalTimes.push(total);
+                        }
+                    });
+                }
+                return acc;
+            }, {});
+
+            const itemPerformance = Object.values(kitchenStats).map((item: any) => ({
+                item_name: item.name,
+                prep_time: item.prepTimes.length > 0 ? item.prepTimes.reduce((a: number, b: number) => a + b, 0) / item.prepTimes.length : 0,
+                window_time: item.windowTimes.length > 0 ? item.windowTimes.reduce((a: number, b: number) => a + b, 0) / item.windowTimes.length : 0,
+                total_time: item.totalTimes.length > 0 ? item.totalTimes.reduce((a: number, b: number) => a + b, 0) / item.totalTimes.length : 0
+            })).sort((a, b) => b.total_time - a.total_time);
+
+            const allPrep = itemPerformance.flatMap(i => kitchenStats[i.item_name].prepTimes);
+            const allWindow = itemPerformance.flatMap(i => kitchenStats[i.item_name].windowTimes);
+            const allTotal = itemPerformance.flatMap(i => kitchenStats[i.item_name].totalTimes);
+
+            setKitchenData({
+                avgPrepTime: allPrep.length > 0 ? allPrep.reduce((a, b) => a + b, 0) / allPrep.length : 0,
+                avgWindowTime: allWindow.length > 0 ? allWindow.reduce((a, b) => a + b, 0) / allWindow.length : 0,
+                avgTotalTime: allTotal.length > 0 ? allTotal.reduce((a, b) => a + b, 0) / allTotal.length : 0,
+                itemPerformance
             });
 
 
@@ -786,6 +841,78 @@ export default function AnalyticsPage() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </CollapsibleCard>
+
+                    {/* SECTION 6: Kitchen Performance */}
+                    <CollapsibleCard
+                        title="Kitchen Performance"
+                        icon={<Clock className="h-5 w-5 text-red-400" />}
+                        accentColor="bg-red-500/20"
+                        onExportCSV={() => exportKitchenPerformanceCSV(kitchenData.itemPerformance, dateRange)}
+                    >
+                        {/* Metrics Row */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                            <MetricBox
+                                label="Avg Prep Time"
+                                value={`${kitchenData.avgPrepTime.toFixed(1)}m`}
+                                color="text-amber-400"
+                                subtext="Cooking Time"
+                            />
+                            <MetricBox
+                                label="Avg Window Time"
+                                value={`${kitchenData.avgWindowTime.toFixed(1)}m`}
+                                color="text-blue-400"
+                                subtext="Ready to Served"
+                            />
+                            <MetricBox
+                                label="Avg Total Ticket"
+                                value={`${kitchenData.avgTotalTime.toFixed(1)}m`}
+                                color="text-red-400"
+                                subtext="Order to Served"
+                            />
+                        </div>
+
+                        {/* Bottleneck Analysis */}
+                        <div className="bg-slate-800/30 rounded-xl p-4">
+                            <h4 className="font-semibold text-sm text-slate-400 mb-4 flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4 text-red-400" />
+                                Station Bottleneck Analysis (Longest Items)
+                            </h4>
+                            {kitchenData.itemPerformance.length > 0 ? (
+                                <div className="space-y-4">
+                                    {kitchenData.itemPerformance.slice(0, 5).map((item: any, i: number) => (
+                                        <div key={i} className="group">
+                                            <div className="flex justify-between text-sm mb-1">
+                                                <span className="font-medium text-slate-200">{item.item_name}</span>
+                                                <span className="font-bold text-red-400">
+                                                    {item.total_time.toFixed(1)}m total
+                                                </span>
+                                            </div>
+                                            <div className="flex h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-amber-500 transition-all duration-500"
+                                                    style={{ width: `${(item.prep_time / item.total_time) * 100}%` }}
+                                                    title={`Prep: ${item.prep_time.toFixed(1)}m`}
+                                                />
+                                                <div
+                                                    className="h-full bg-blue-500 transition-all duration-500"
+                                                    style={{ width: `${(item.window_time / item.total_time) * 100}%` }}
+                                                    title={`Window: ${item.window_time.toFixed(1)}m`}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between text-[10px] mt-1 text-slate-500 px-1">
+                                                <span>Prep: {item.prep_time.toFixed(1)}m</span>
+                                                <span>Window: {item.window_time.toFixed(1)}m</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-slate-500 text-sm text-center py-4">
+                                    No served orders in this period to analyze
+                                </p>
+                            )}
                         </div>
                     </CollapsibleCard>
 

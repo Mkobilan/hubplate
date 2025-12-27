@@ -15,6 +15,7 @@ import {
     Pencil,
     LayoutList,
     Receipt,
+    Split,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ import { toast } from "react-hot-toast";
 import { Suspense } from "react";
 import MyTicketsModal from "./components/MyTicketsModal";
 import CloseTicketModal from "./components/CloseTicketModal";
+import SplitCheckModal from "./components/SplitCheckModal";
 
 // Types for Supabase integration
 interface MenuItemType {
@@ -67,6 +69,7 @@ function OrdersPageContent() {
     const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
     const [showMyTickets, setShowMyTickets] = useState(false);
     const [showCloseTicket, setShowCloseTicket] = useState(false);
+    const [showSplitCheck, setShowSplitCheck] = useState(false);
     const [selectedSeat, setSelectedSeat] = useState(1);
     const [tableCapacity, setTableCapacity] = useState(4); // Default to 4
 
@@ -267,6 +270,33 @@ function OrdersPageContent() {
         return () => clearTimeout(timer);
     }, [tableNumber, orderType, currentLocation?.id]);
 
+    // Auto-load existing active order for table
+    useEffect(() => {
+        const fetchExistingOrder = async () => {
+            if (orderType !== "dine_in" || !tableNumber.trim() || !currentLocation?.id || activeOrderId) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from("orders")
+                    .select("*")
+                    .eq("location_id", currentLocation.id)
+                    .eq("table_number", tableNumber.trim())
+                    .in("status", ["pending", "in_progress", "ready", "served"])
+                    .maybeSingle();
+
+                if (data && !error) {
+                    // Load the order if we found one and aren't already editing one
+                    loadOrder(data);
+                }
+            } catch (err) {
+                console.error("Error fetching existing order for table:", err);
+            }
+        };
+
+        const timer = setTimeout(fetchExistingOrder, 300); // Small debounce
+        return () => clearTimeout(timer);
+    }, [tableNumber, orderType, currentLocation?.id]);
+
     const updateQuantity = (id: string, delta: number) => {
         setOrderItems(
             orderItems
@@ -308,7 +338,8 @@ function OrdersPageContent() {
                 status: item.status || "pending",
                 seat_number: item.seatNumber,
                 is_upsell: item.isUpsell || false,
-                category_name: item.category_name
+                category_name: item.category_name,
+                sent_at: new Date().toISOString()
             }));
 
             if (!isEditing) {
@@ -319,6 +350,7 @@ function OrdersPageContent() {
                         location_id: currentLocation.id,
                         server_id: currentEmployee?.id || null,
                         table_number: orderType === "dine_in" ? tableNumber : null,
+                        seat_number: orderType === "dine_in" ? selectedSeat : null,
                         status: "pending",
                         order_type: orderType,
                         subtotal: subtotal,
@@ -365,6 +397,7 @@ function OrdersPageContent() {
         setActiveOrderId(order.id);
         setOrderType(order.order_type);
         setTableNumber(order.table_number || "");
+        if (order.seat_number) setSelectedSeat(order.seat_number);
 
         if (order.items && Array.isArray(order.items)) {
             setOrderItems(order.items.map((i: any) => ({
@@ -637,6 +670,15 @@ function OrdersPageContent() {
                         <Receipt className="h-5 w-5" />
                         Close Ticket
                     </button>
+                    {activeOrderId && orderItems.length > 0 && (
+                        <button
+                            onClick={() => setShowSplitCheck(true)}
+                            className="btn btn-secondary w-full py-3 text-lg border-2 border-dashed border-orange-500/30 hover:border-orange-500/60"
+                        >
+                            <Split className="h-5 w-5 text-orange-500" />
+                            Split Check
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -669,6 +711,24 @@ function OrdersPageContent() {
                     orderType={orderType}
                     total={total}
                     onClose={() => setShowCloseTicket(false)}
+                />
+            )}
+
+            {showSplitCheck && activeOrderId && (
+                <SplitCheckModal
+                    orderId={activeOrderId}
+                    items={orderItems}
+                    locationId={currentLocation?.id || ""}
+                    taxRate={taxRate}
+                    serverId={currentEmployee?.id}
+                    tableNumber={tableNumber}
+                    orderType={orderType}
+                    onClose={() => setShowSplitCheck(false)}
+                    onSuccess={() => {
+                        setOrderItems([]);
+                        setActiveOrderId(null);
+                        setTableNumber("5");
+                    }}
                 />
             )}
         </div>

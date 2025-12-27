@@ -7,9 +7,26 @@ import { toast } from "react-hot-toast";
 import { Order } from "@/types/database";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, PenLine, X, UserCheck, Trash2, ChefHat, CalendarClock } from "lucide-react";
+import { format, addMinutes, isWithinInterval, differenceInMinutes } from "date-fns";
+import {
+    Loader2,
+    PenLine,
+    X,
+    UserCheck,
+    Trash2,
+    ChefHat,
+    CalendarClock,
+    Clock,
+    DollarSign,
+    Users,
+    Hourglass,
+    CheckCircle2,
+    Utensils,
+    Receipt
+} from "lucide-react";
 import { Stage, Layer, Rect, Circle, Text, Group } from "react-konva";
-import { format, addMinutes, isWithinInterval } from "date-fns";
+import { formatCurrency, cn } from "@/lib/utils";
+import CloseTicketModal from "../orders/components/CloseTicketModal";
 interface TableConfig {
     id: string;
     label: string;
@@ -62,9 +79,9 @@ export default function SeatMapViewer() {
 
     // Check permissions
     const MANAGEMENT_ROLES = ["owner", "manager"];
-    const canEdit = isTerminalMode
+    const canEdit = !!(isTerminalMode
         ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
-        : isOrgOwner || (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role));
+        : isOrgOwner || (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)));
     const [maps, setMaps] = useState<MapConfig[]>([]);
     const [servers, setServers] = useState<Server[]>([]);
     const [currentMap, setCurrentMap] = useState<MapConfig | null>(null);
@@ -74,6 +91,7 @@ export default function SeatMapViewer() {
     const [reservationSettings, setReservationSettings] = useState<ReservationSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedTable, setSelectedTable] = useState<TableConfig | null>(null);
+    const [payingOrder, setPayingOrder] = useState<any | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
 
     // Request tracking for race conditions
@@ -654,124 +672,317 @@ export default function SeatMapViewer() {
 
                 {/* Table Action Modal */}
                 {selectedTable && (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                        Table {selectedTable.label}
-                                    </h3>
-                                    <button
-                                        onClick={() => setSelectedTable(null)}
-                                        className="text-slate-400 hover:text-white transition-colors"
-                                    >
-                                        <X className="h-5 w-5" />
-                                    </button>
-                                </div>
+                    <TableStatusModal
+                        table={selectedTable}
+                        onClose={() => setSelectedTable(null)}
+                        status={getTableStatus(selectedTable)}
+                        servers={servers}
+                        canEdit={canEdit}
+                        onAssignServer={handleAssignServer}
+                        onSitTable={handleSitTable}
+                        onPay={(order) => {
+                            setPayingOrder(order);
+                            setSelectedTable(null);
+                        }}
+                        onGoToOrder={(tableLabel) => router.push(`/dashboard/orders?table=${tableLabel}`)}
+                        actionLoading={actionLoading}
+                        reservationSettings={reservationSettings}
+                    />
+                )}
 
-                                {(() => {
-                                    const { status, order, reservation } = getTableStatus(selectedTable);
-                                    const isOccupied = status === "occupied";
-                                    const isReserved = status === "reserved";
-
-                                    return (
-                                        <div className="space-y-4">
-                                            {isOccupied ? (
-                                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-red-400 text-sm font-medium uppercase tracking-wider">Currently Seated</span>
-                                                        <span className="text-xs text-slate-500 font-mono">#{order?.id.slice(0, 8)}</span>
-                                                    </div>
-                                                    <div className="text-white font-semibold flex items-center justify-between">
-                                                        <span>Current Total</span>
-                                                        <span>${order?.total?.toFixed(2)}</span>
-                                                    </div>
-                                                </div>
-                                            ) : isReserved ? (
-                                                <div className="border rounded-xl p-4" style={{ backgroundColor: `${reservationSettings?.reservation_color || '#3b82f6'}10`, borderColor: `${reservationSettings?.reservation_color || '#3b82f6'}30` }}>
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <CalendarClock className="h-4 w-4" style={{ color: reservationSettings?.reservation_color || '#3b82f6' }} />
-                                                        <span className="text-sm font-medium uppercase tracking-wider" style={{ color: reservationSettings?.reservation_color || '#3b82f6' }}>Reserved</span>
-                                                    </div>
-                                                    <div className="text-white font-semibold">{reservation?.customer_name}</div>
-                                                    <div className="text-sm text-slate-400 mt-1">
-                                                        {reservation?.reservation_time?.slice(0, 5)} • Party of {reservation?.party_size}
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-                                                    <p className="text-slate-400 text-sm text-center">
-                                                        Table is currently available. Capacity: {selectedTable.capacity} guests.
-                                                    </p>
-                                                </div>
-                                            )}
-
-                                            {/* Server Assignment Section (Manager Only) */}
-                                            {canEdit && (
-                                                <div className="space-y-2 pb-4">
-                                                    <label className="text-xs text-slate-500 uppercase font-bold px-1">Assign Server</label>
-                                                    <select
-                                                        value={selectedTable.assigned_server_id || ""}
-                                                        onChange={(e) => handleAssignServer(e.target.value || null)}
-                                                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 appearance-none cursor-pointer"
-                                                        disabled={actionLoading}
-                                                    >
-                                                        <option value="">Unassigned</option>
-                                                        {servers.map(s => (
-                                                            <option key={s.id} value={s.id}>
-                                                                {s.first_name} {s.last_name}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            )}
-
-                                            <div className="flex flex-col gap-3">
-                                                {!isOccupied ? (
-                                                    <button
-                                                        onClick={handleSitTable}
-                                                        disabled={actionLoading}
-                                                        className="w-full flex items-center justify-center gap-2 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-all transform active:scale-[0.98] disabled:opacity-50"
-                                                    >
-                                                        {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserCheck className="h-5 w-5" />}
-                                                        Sit Guest
-                                                    </button>
-                                                ) : (
-                                                    <>
-                                                        <button
-                                                            onClick={() => router.push(`/dashboard/orders?table=${selectedTable.label}`)}
-                                                            className="w-full flex items-center justify-center gap-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all transform active:scale-[0.98]"
-                                                        >
-                                                            <ChefHat className="h-5 w-5" />
-                                                            Go to Order
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleClearTable(order!.id)}
-                                                            disabled={actionLoading}
-                                                            className="w-full flex items-center justify-center gap-2 py-4 bg-slate-100 hover:bg-white text-slate-900 rounded-xl font-bold transition-all transform active:scale-[0.98] disabled:opacity-50"
-                                                        >
-                                                            {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
-                                                            Clear Table
-                                                        </button>
-                                                    </>
-                                                )}
-
-                                                <button
-                                                    onClick={() => setSelectedTable(null)}
-                                                    className="w-full py-4 text-slate-400 hover:text-white font-medium transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                    </div>
+                {/* Integration with CloseTicketModal */}
+                {payingOrder && (
+                    <CloseTicketModal
+                        orderId={payingOrder.id}
+                        tableNumber={payingOrder.table_number || ""}
+                        orderType={payingOrder.order_type || "dine_in"}
+                        total={payingOrder.total}
+                        onClose={() => setPayingOrder(null)}
+                        onPaymentComplete={() => {
+                            setPayingOrder(null);
+                            fetchActiveOrders();
+                        }}
+                    />
                 )}
             </div>
         </div >
+    );
+}
+
+interface TableStatusModalProps {
+    table: TableConfig;
+    onClose: () => void;
+    status: { status: string; order: any; reservation: any };
+    servers: Server[];
+    canEdit: boolean;
+    onAssignServer: (id: string | null) => void;
+    onSitTable: () => void;
+    onPay: (order: any) => void;
+    onGoToOrder: (label: string) => void;
+    actionLoading: boolean;
+    reservationSettings: ReservationSettings | null;
+}
+
+function TableStatusModal({
+    table,
+    onClose,
+    status,
+    servers,
+    canEdit,
+    onAssignServer,
+    onSitTable,
+    onPay,
+    onGoToOrder,
+    actionLoading,
+    reservationSettings
+}: TableStatusModalProps) {
+    const isOccupied = status.status === "occupied";
+    const isReserved = status.status === "reserved";
+    const order = status.order;
+    const reservation = status.reservation;
+
+    // Calculate camping time
+    const [now, setNow] = useState(new Date());
+    useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const campingMinutes = order?.created_at ? differenceInMinutes(now, new Date(order.created_at)) : 0;
+
+    // Process order items
+    const items = (order?.items || []) as any[];
+    const seatedGuests = new Set(items.map(i => i.seat_number).filter(Boolean)).size || (isOccupied ? 1 : 0);
+
+    const itemStatusCounts = items.reduce((acc, item) => {
+        const s = item.status || 'pending';
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
+
+    const totalItems = items.length;
+    const servedItems = itemStatusCounts['served'] || 0;
+    const progress = totalItems > 0 ? (servedItems / totalItems) * 100 : 0;
+
+    // Group items by seat
+    const groupedBySeat = items.reduce((acc, item) => {
+        const seat = item.seat_number || 1;
+        if (!acc[seat]) acc[seat] = [];
+        acc[seat].push(item);
+        return acc;
+    }, {} as Record<number, any[]>);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+                {/* Header Section */}
+                <div className="p-6 border-b border-slate-800 bg-slate-900/50">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h3 className="text-2xl font-black text-white tracking-tight">Table {table.label}</h3>
+                                {isOccupied && (
+                                    <span className="px-2 py-0.5 rounded bg-red-500 text-[10px] font-black uppercase tracking-widest text-white animate-pulse">
+                                        Occupied
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-4 mt-2 text-slate-400">
+                                <div className="flex items-center gap-1.5 text-xs font-medium">
+                                    <Users className="h-3.5 w-3.5" />
+                                    <span>Capacity: {table.capacity}</span>
+                                </div>
+                                {isOccupied && (
+                                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                                        <Hourglass className="h-3.5 w-3.5 text-orange-400" />
+                                        <span>Camping: {campingMinutes}m</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-full transition-all"
+                        >
+                            <X className="h-6 w-6" />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
+                    {/* Status Content */}
+                    {!isOccupied && !isReserved && (
+                        <div className="flex flex-col items-center justify-center py-8 text-center bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-800">
+                            <div className="bg-slate-800/50 p-4 rounded-full mb-4">
+                                <Utensils className="h-8 w-8 text-slate-600" />
+                            </div>
+                            <p className="text-slate-400 font-medium">Table is currently available</p>
+                            <p className="text-xs text-slate-500 mt-1">Ready to sit a new party</p>
+                        </div>
+                    )}
+
+                    {isReserved && (
+                        <div className="p-5 rounded-2xl border" style={{ backgroundColor: `${reservationSettings?.reservation_color || '#3b82f6'}10`, borderColor: `${reservationSettings?.reservation_color || '#3b82f6'}30` }}>
+                            <div className="flex items-center gap-2 mb-4">
+                                <CalendarClock className="h-5 w-5" style={{ color: reservationSettings?.reservation_color || '#3b82f6' }} />
+                                <span className="text-sm font-bold uppercase tracking-wider" style={{ color: reservationSettings?.reservation_color || '#3b82f6' }}>Upcoming Reservation</span>
+                            </div>
+                            <div className="space-y-3">
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-1">Guest Name</p>
+                                    <p className="text-xl font-bold text-white">{reservation.customer_name}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-1">Time</p>
+                                        <p className="text-white font-semibold">{reservation.reservation_time.slice(0, 5)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-1">Party Size</p>
+                                        <p className="text-white font-semibold">{reservation.party_size} People</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {isOccupied && (
+                        <div className="space-y-6">
+                            {/* Order Summary Card */}
+                            <div className="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-inner">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Order Progress</span>
+                                        <span className="text-slate-300 font-bold">{servedItems} of {totalItems} items served</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Current Total</span>
+                                        <p className="text-xl font-black text-orange-500 tracking-tighter">{formatCurrency(order.total)}</p>
+                                    </div>
+                                </div>
+                                <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+                                    <div
+                                        className="h-full bg-orange-500 transition-all duration-500 ease-out"
+                                        style={{ width: `${progress}%` }}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {['pending', 'preparing', 'ready', 'served'].map((s) => (
+                                        <div key={s} className="bg-slate-950/50 p-2 rounded-xl border border-slate-800/50 text-center">
+                                            <p className="text-[10px] font-black text-slate-500 uppercase mb-1">{s}</p>
+                                            <p className={cn(
+                                                "text-sm font-bold",
+                                                itemStatusCounts[s] > 0 ? "text-orange-400" : "text-slate-700"
+                                            )}>{itemStatusCounts[s] || 0}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Detailed Items List */}
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between px-1">
+                                    <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Item Details</h4>
+                                    <span className="text-xs text-slate-500">{seatedGuests} Seated Guests</span>
+                                </div>
+
+                                {Object.keys(groupedBySeat).length > 0 ? (
+                                    Object.entries(groupedBySeat).map(([seat, seatItems]: [any, any]) => (
+                                        <div key={seat} className="border-l-2 border-slate-800 ml-1 pl-4 space-y-2">
+                                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Seat {seat}</span>
+                                            {seatItems.map((item: any) => (
+                                                <div key={item.id} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-xl border border-slate-800/50">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-400">
+                                                            {item.quantity}x
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-white leading-tight">{item.name}</p>
+                                                            {item.notes && <p className="text-[10px] text-orange-400/80 italic mt-0.5">{item.notes}</p>}
+                                                        </div>
+                                                    </div>
+                                                    <div className={cn(
+                                                        "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter border",
+                                                        item.status === 'served' ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                                                            item.status === 'ready' ? "bg-orange-500/10 text-orange-400 border-orange-500/20 animate-pulse" :
+                                                                item.status === 'preparing' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                                                                    "bg-slate-800 text-slate-500 border-slate-700"
+                                                    )}>
+                                                        {item.status || 'pending'}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-4 text-slate-600 italic text-sm">
+                                        Waiting for first order...
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Management Section */}
+                    <div className="pt-6 border-t border-slate-800 space-y-4">
+                        {canEdit && (
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Assign Server</label>
+                                <div className="relative">
+                                    <select
+                                        value={table.assigned_server_id || ""}
+                                        onChange={(e) => onAssignServer(e.target.value || null)}
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/50 appearance-none cursor-pointer hover:bg-slate-800 transition-colors"
+                                        disabled={actionLoading}
+                                    >
+                                        <option value="">Unassigned</option>
+                                        {servers.map(s => (
+                                            <option key={s.id} value={s.id}>
+                                                {s.first_name} {s.last_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                        <PenLine className="h-4 w-4" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                            {!isOccupied ? (
+                                <button
+                                    onClick={onSitTable}
+                                    disabled={actionLoading}
+                                    className="sm:col-span-2 w-full flex items-center justify-center gap-2 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black uppercase tracking-widest transition-all transform active:scale-95 disabled:opacity-50 shadow-lg shadow-orange-600/20"
+                                >
+                                    {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserCheck className="h-5 w-5" />}
+                                    Sit Guest
+                                </button>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => onGoToOrder(table.label)}
+                                        className="w-full flex items-center justify-center gap-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all transform active:scale-95 shadow-lg shadow-blue-600/20"
+                                    >
+                                        <Utensils className="h-5 w-5" />
+                                        Update Order
+                                    </button>
+                                    <button
+                                        onClick={() => onPay(order)}
+                                        disabled={actionLoading}
+                                        className="w-full flex items-center justify-center gap-2 py-4 bg-slate-100 hover:bg-white text-slate-900 rounded-xl font-bold transition-all transform active:scale-95 disabled:opacity-50"
+                                    >
+                                        {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Receipt className="h-5 w-5" />}
+                                        Clear & Pay
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 
