@@ -253,7 +253,7 @@ export function DashboardSidebar() {
             {/* Mobile Sidebar */}
             <aside
                 className={cn(
-                    "fixed inset-y-0 left-0 z-50 w-64 bg-slate-950 border-r border-slate-800 flex flex-col transform transition-transform md:hidden",
+                    "fixed inset-y-0 left-0 z-50 w-64 bg-slate-950 border-r border-slate-800 flex flex-col transform transition-transform md:hidden pb-[env(safe-area-inset-bottom)]",
                     mobileOpen ? "translate-x-0" : "-translate-x-full"
                 )}
             >
@@ -269,7 +269,7 @@ export function DashboardSidebar() {
             {/* Desktop Sidebar */}
             <aside
                 className={cn(
-                    "hidden md:flex flex-col fixed inset-y-0 left-0 z-30 bg-slate-950 border-r border-slate-800 transition-all duration-300",
+                    "hidden md:flex flex-col fixed inset-y-0 left-0 z-30 bg-slate-950 border-r border-slate-800 transition-all duration-300 pb-[env(safe-area-inset-bottom)]",
                     sidebarOpen ? "w-64" : "w-16"
                 )}
             >

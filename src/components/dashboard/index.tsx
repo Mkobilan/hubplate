@@ -20,7 +20,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             <DashboardSidebar />
             <main
                 className={cn(
-                    "transition-all duration-300 pt-16 md:pt-0 min-h-screen",
+                    "transition-all duration-300 pt-16 md:pt-0 min-h-screen pb-[env(safe-area-inset-bottom)]",
                     sidebarOpen ? "md:ml-64" : "md:ml-16"
                 )}
             >

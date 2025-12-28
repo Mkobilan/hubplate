@@ -156,7 +156,7 @@ export default function InventoryPage() {
 
 
     const totalAssetValue = inventory.reduce((sum, i) =>
-        sum + (Number(i.unit || 0) * Number(i.cost_per_unit || 0)), 0
+        sum + (Number(i.stock_quantity || 0) * Number(i.cost_per_unit || 0)), 0
     );
 
 

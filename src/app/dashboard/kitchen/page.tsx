@@ -18,6 +18,10 @@ interface KitchenOrderItem {
     menuItemId?: string;
     seatNumber?: number;
     addOns?: { name: string; price: number }[];
+    sentAt?: string;
+    startedAt?: string;
+    readyAt?: string;
+    servedAt?: string;
 }
 
 interface KitchenOrder {
@@ -180,7 +184,11 @@ export default function KitchenPage() {
                     isEdited: oi.is_edited,
                     menuItemId: oi.menu_item_id,
                     seatNumber: oi.seat_number,
-                    addOns: oi.add_ons
+                    addOns: oi.add_ons,
+                    sentAt: oi.sent_at,
+                    startedAt: oi.started_at,
+                    readyAt: oi.ready_at,
+                    servedAt: oi.served_at
                 }));
 
                 return {
@@ -262,6 +270,19 @@ export default function KitchenPage() {
         if (minutes <= 5) return "text-green-400";
         if (minutes <= 10) return "text-amber-400";
         return "text-red-400";
+    };
+
+    const formatTime = (isoString?: string) => {
+        if (!isoString) return "-";
+        return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const getDuration = (start?: string, end?: string) => {
+        if (!start) return null;
+        const startTime = new Date(start).getTime();
+        const endTime = end ? new Date(end).getTime() : now.getTime();
+        const diff = Math.floor((endTime - startTime) / 60000); // minutes
+        return diff < 0 ? 0 : diff;
     };
 
     // Update status for specific items within the orders.items JSONB column
@@ -732,6 +753,49 @@ export default function KitchenPage() {
                                                         </span>
                                                     )}
                                                 </div>
+                                            </div>
+
+                                            {/* Timestamps & Performance stats */}
+                                            <div className="mt-2 flex items-center gap-3 text-[10px] text-slate-500 font-mono bg-slate-900/40 p-1.5 rounded-lg border border-slate-800/50">
+                                                <div className="flex flex-col">
+                                                    <span className="text-slate-600 uppercase tracking-tighter font-semibold">Sent</span>
+                                                    <span className="text-slate-300">{formatTime(item.sentAt)}</span>
+                                                </div>
+
+                                                {item.startedAt && (
+                                                    <>
+                                                        <div className="h-4 w-px bg-slate-700"></div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-600 uppercase tracking-tighter font-semibold">Started</span>
+                                                            <span className="text-amber-400">{formatTime(item.startedAt)}</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-600 uppercase tracking-tighter font-semibold">Wait</span>
+                                                            <span className="text-slate-300">{getDuration(item.sentAt, item.startedAt)}m</span>
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {item.readyAt && (
+                                                    <>
+                                                        <div className="h-4 w-px bg-slate-700"></div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-600 uppercase tracking-tighter font-semibold">Ready</span>
+                                                            <span className="text-green-400">{formatTime(item.readyAt)}</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-600 uppercase tracking-tighter font-semibold">Prep</span>
+                                                            <span className="text-slate-300">{getDuration(item.startedAt, item.readyAt)}m</span>
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {!item.startedAt && item.sentAt && (
+                                                    <div className="ml-auto flex items-center gap-1 text-slate-400">
+                                                        <Clock className="h-3 w-3" />
+                                                        <span>{getDuration(item.sentAt)}m ago</span>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Item-Level Actions */}

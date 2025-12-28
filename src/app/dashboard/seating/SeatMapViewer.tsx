@@ -452,7 +452,7 @@ export default function SeatMapViewer() {
     return (
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-950">
             {/* Header / Tabs */}
-            <div className="bg-slate-900 border-b border-slate-800 p-4 shrink-0 flex items-center justify-between z-10">
+            <div className="bg-slate-900 border-b border-slate-800 p-4 shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between z-10">
                 <div className="flex items-center gap-6">
                     <h1 className="font-bold text-lg text-white">Floor Plan</h1>
 
@@ -476,7 +476,7 @@ export default function SeatMapViewer() {
                     </div>
                 </div>
 
-                <div className="flex gap-4 items-center">
+                <div className="flex flex-wrap gap-4 items-center">
                     {canEdit && currentMap && (
                         <Link href={`/dashboard/seating/editor?mapId=${currentMap.id}`} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
                             <PenLine className="h-4 w-4" />
@@ -523,6 +523,7 @@ export default function SeatMapViewer() {
                                             y={table.y}
                                             rotation={table.rotation}
                                             onClick={() => table.object_type !== 'structure' && setSelectedTable(table)}
+                                            onTap={() => table.object_type !== 'structure' && setSelectedTable(table)}
                                             onMouseEnter={(e) => {
                                                 if (table.object_type === 'structure') return;
                                                 const container = e.target.getStage()?.container();

@@ -53,6 +53,10 @@ interface OrderItem {
     category_name?: string;
     isEdited?: boolean;
     isUpsell?: boolean;
+    sent_at?: string;
+    started_at?: string;
+    ready_at?: string;
+    served_at?: string;
 }
 
 function OrdersPageContent() {
@@ -320,7 +324,10 @@ function OrdersPageContent() {
                 is_upsell: item.isUpsell || false,
                 category_name: item.category_name,
                 add_ons: item.addOns || [],
-                sent_at: new Date().toISOString()
+                sent_at: item.sent_at || new Date().toISOString(),
+                started_at: item.started_at,
+                ready_at: item.ready_at,
+                served_at: item.served_at
             }));
 
             if (!isEditing) {
@@ -393,7 +400,11 @@ function OrdersPageContent() {
                 status: i.status || 'pending',
                 isUpsell: i.is_upsell || false,
                 category_name: i.category_name,
-                addOns: i.add_ons || []
+                addOns: i.add_ons || [],
+                sent_at: i.sent_at,
+                started_at: i.started_at,
+                ready_at: i.ready_at,
+                served_at: i.served_at
             })));
         }
         setShowMyTickets(false);

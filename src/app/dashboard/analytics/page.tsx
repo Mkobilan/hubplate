@@ -625,7 +625,7 @@ export default function AnalyticsPage() {
                         onExportCSV={() => exportLaborCSV(laborData.entries, dateRange)}
                     >
                         {/* Metrics Row */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                             <MetricBox
                                 label="Total Hours"
                                 value={`${laborData.totalHours.toFixed(1)}h`}
@@ -646,6 +646,12 @@ export default function AnalyticsPage() {
                                 label="Clocked In"
                                 value={laborData.clockedIn}
                                 color="text-green-400"
+                            />
+                            <MetricBox
+                                label="Sales / Labor Hr"
+                                value={formatCurrency(laborData.totalHours > 0 ? salesData.totalSales / laborData.totalHours : 0)}
+                                color="text-cyan-400"
+                                subtext="Target: $50+"
                             />
                         </div>
 
