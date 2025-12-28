@@ -12,6 +12,7 @@ export default function TerminalPage() {
     const { t } = useTranslation();
     const [showPinPad, setShowPinPad] = useState(false);
     const setCurrentEmployee = useAppStore((state) => state.setCurrentEmployee);
+    const setIsOrgOwner = useAppStore((state) => state.setIsOrgOwner);
     const setClockStatus = useAppStore((state) => state.setClockStatus);
     const isTerminalMode = useAppStore((state) => state.isTerminalMode);
 
@@ -23,8 +24,10 @@ export default function TerminalPage() {
     };
 
     const handlePinSuccess = async (employee: any) => {
-        // Set employee in store
+        // Set employee in store and clear org owner flag (unless we determine otherwise, but usually terminal sessions are employee-bound)
+        // Even for owners, they have an employee record (or virtual one) with role='owner', so isManagerOrOwner check works.
         setCurrentEmployee(employee);
+        setIsOrgOwner(false);
 
         // We might need to fetch clock status here too, or rely on dashboard to do it
         // The AppStore has a refreshClockStatus we can use if we had supabase client here, 

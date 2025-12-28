@@ -11,6 +11,7 @@ import {
     Check,
     AlertCircle,
     Building2,
+    Lock,
     Smartphone,
     Monitor,
     Bell,
@@ -36,13 +37,14 @@ export default function SettingsPage() {
     // Settings state
     const [settings, setSettings] = useState({
         require_manager_approval_for_swaps: false,
+        admin_pin: "",
     });
 
     const MANAGEMENT_ROLES = ["owner", "manager"];
     const isManagerOrOwner = (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
 
     const fetchSettings = async () => {
-        const orgId = (currentEmployee as any)?.organization_id;
+        const orgId = (currentEmployee as any)?.organization_id || currentLocation?.organization_id;
         if (!orgId) {
             setLoading(false);
             return;
@@ -54,7 +56,7 @@ export default function SettingsPage() {
 
             const { data, error } = await supabase
                 .from("organizations")
-                .select("require_manager_approval_for_swaps")
+                .select("require_manager_approval_for_swaps, admin_pin")
                 .eq("id", orgId)
                 .single();
 
@@ -63,6 +65,7 @@ export default function SettingsPage() {
             if (data) {
                 setSettings({
                     require_manager_approval_for_swaps: (data as any).require_manager_approval_for_swaps || false,
+                    admin_pin: (data as any).admin_pin || "",
                 });
             }
         } catch (err) {
@@ -88,12 +91,13 @@ export default function SettingsPage() {
             setStatus("idle");
             const supabase = createClient();
 
-            const orgId = (currentEmployee as any)?.organization_id;
+            const orgId = (currentEmployee as any)?.organization_id || currentLocation?.organization_id;
             if (!orgId) throw new Error("No organization found");
 
             const { error } = await (supabase.from("organizations") as any)
                 .update({
                     require_manager_approval_for_swaps: settings.require_manager_approval_for_swaps,
+                    admin_pin: settings.admin_pin || null,
                 })
                 .eq("id", orgId);
 
@@ -111,15 +115,7 @@ export default function SettingsPage() {
         }
     };
 
-    if (!isManagerOrOwner) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-                <SettingsIcon className="h-12 w-12 text-slate-500 mb-4" />
-                <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
-                <p className="text-slate-400">Only managers and owners can access settings.</p>
-            </div>
-        );
-    }
+
 
     if (loading) {
         return (
@@ -164,95 +160,136 @@ export default function SettingsPage() {
             )}
 
             {/* Shift Swaps Section */}
-            <div className="card space-y-6">
-                <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-                    <div className="p-2 bg-blue-500/10 rounded-xl">
-                        <RefreshCw className="h-6 w-6 text-blue-500" />
+            {isManagerOrOwner && (
+                <div className="card space-y-6">
+                    <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+                        <div className="p-2 bg-blue-500/10 rounded-xl">
+                            <RefreshCw className="h-6 w-6 text-blue-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-white">Shift Swaps</h2>
+                            <p className="text-xs text-slate-500">Configure how shift swaps are handled</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-white">Shift Swaps</h2>
-                        <p className="text-xs text-slate-500">Configure how shift swaps are handled</p>
+
+                    <div className="space-y-4">
+                        {/* Manager Approval Toggle */}
+                        <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors">
+                            <div className="flex items-center gap-4">
+                                <div className="p-2 bg-orange-500/10 rounded-lg">
+                                    <Users className="h-5 w-5 text-orange-400" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-white">Require Manager Approval</p>
+                                    <p className="text-xs text-slate-400 max-w-md">
+                                        When enabled, shift swaps will require a manager to approve before they take effect. When disabled, swaps auto-complete when the recipient accepts.
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSettings({
+                                    ...settings,
+                                    require_manager_approval_for_swaps: !settings.require_manager_approval_for_swaps
+                                })}
+                                className={cn(
+                                    "relative w-14 h-8 rounded-full transition-colors duration-200",
+                                    settings.require_manager_approval_for_swaps
+                                        ? "bg-orange-500"
+                                        : "bg-slate-700"
+                                )}
+                            >
+                                <span
+                                    className={cn(
+                                        "absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200",
+                                        settings.require_manager_approval_for_swaps
+                                            ? "translate-x-7"
+                                            : "translate-x-1"
+                                    )}
+                                />
+                            </button>
+                        </div>
                     </div>
                 </div>
+            )}
 
-                <div className="space-y-4">
-                    {/* Manager Approval Toggle */}
+            {/* Organization Master PIN */}
+            {isManagerOrOwner && (
+                <div className="card space-y-6">
+                    <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+                        <div className="p-2 bg-red-500/10 rounded-xl">
+                            <Lock className="h-6 w-6 text-red-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-white">Organization Master PIN</h2>
+                            <p className="text-xs text-slate-500">Master access for all terminals</p>
+                        </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-800">
+                        <div className="flex flex-col gap-4">
+                            <div>
+                                <label className="label">Master PIN Code</label>
+                                <p className="text-xs text-slate-400 mb-2">
+                                    This PIN allows owners to log in to ANY terminal within the organization, overriding location restrictions.
+                                </p>
+                                <input
+                                    type="text"
+                                    maxLength={6}
+                                    value={settings.admin_pin}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '');
+                                        setSettings({ ...settings, admin_pin: val });
+                                    }}
+                                    className="input max-w-xs"
+                                    placeholder="Enter 4-6 digit PIN"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Terminal Mode Section */}
+            {isManagerOrOwner && (
+                <div className="card space-y-6">
+                    <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+                        <div className="p-2 bg-purple-500/10 rounded-xl">
+                            <Smartphone className="h-6 w-6 text-purple-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-white">Terminal Mode</h2>
+                            <p className="text-xs text-slate-500">Configure device specific settings</p>
+                        </div>
+                    </div>
+
                     <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors">
                         <div className="flex items-center gap-4">
-                            <div className="p-2 bg-orange-500/10 rounded-lg">
-                                <Users className="h-5 w-5 text-orange-400" />
+                            <div className="p-2 bg-purple-500/10 rounded-lg">
+                                <Monitor className="h-5 w-5 text-purple-400" />
                             </div>
                             <div>
-                                <p className="font-medium text-white">Require Manager Approval</p>
+                                <p className="font-medium text-white">Enable Terminal Mode</p>
                                 <p className="text-xs text-slate-400 max-w-md">
-                                    When enabled, shift swaps will require a manager to approve before they take effect. When disabled, swaps auto-complete when the recipient accepts.
+                                    Lock this device into Terminal Mode. This will log you out and present the Terminal PIN pad for employee access.
                                 </p>
                             </div>
                         </div>
                         <button
-                            onClick={() => setSettings({
-                                ...settings,
-                                require_manager_approval_for_swaps: !settings.require_manager_approval_for_swaps
-                            })}
-                            className={cn(
-                                "relative w-14 h-8 rounded-full transition-colors duration-200",
-                                settings.require_manager_approval_for_swaps
-                                    ? "bg-orange-500"
-                                    : "bg-slate-700"
-                            )}
+                            onClick={() => {
+                                if (confirm("Are you sure you want to switch to Terminal Mode? You will need to log back in to access settings.")) {
+                                    const useAppStore = require("@/stores").useAppStore;
+                                    useAppStore.getState().setTerminalMode(true);
+                                    useAppStore.getState().setCurrentEmployee(null); // Logout current user
+                                    window.location.href = "/terminal";
+                                }
+                            }}
+                            className="btn btn-secondary text-sm"
                         >
-                            <span
-                                className={cn(
-                                    "absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200",
-                                    settings.require_manager_approval_for_swaps
-                                        ? "translate-x-7"
-                                        : "translate-x-1"
-                                )}
-                            />
+                            Switch to Terminal
                         </button>
                     </div>
                 </div>
-            </div>
-
-            {/* Terminal Mode Section */}
-            <div className="card space-y-6">
-                <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-                    <div className="p-2 bg-purple-500/10 rounded-xl">
-                        <Smartphone className="h-6 w-6 text-purple-500" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-white">Terminal Mode</h2>
-                        <p className="text-xs text-slate-500">Configure device specific settings</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors">
-                    <div className="flex items-center gap-4">
-                        <div className="p-2 bg-purple-500/10 rounded-lg">
-                            <Monitor className="h-5 w-5 text-purple-400" />
-                        </div>
-                        <div>
-                            <p className="font-medium text-white">Enable Terminal Mode</p>
-                            <p className="text-xs text-slate-400 max-w-md">
-                                Lock this device into Terminal Mode. This will log you out and present the Terminal PIN pad for employee access.
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => {
-                            if (confirm("Are you sure you want to switch to Terminal Mode? You will need to log back in to access settings.")) {
-                                const useAppStore = require("@/stores").useAppStore;
-                                useAppStore.getState().setTerminalMode(true);
-                                useAppStore.getState().setCurrentEmployee(null); // Logout current user
-                                window.location.href = "/terminal";
-                            }
-                        }}
-                        className="btn btn-secondary text-sm"
-                    >
-                        Switch to Terminal
-                    </button>
-                </div>
-            </div>
+            )}
 
             {/* Notifications Section */}
             <div className="card space-y-6">

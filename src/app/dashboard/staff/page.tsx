@@ -331,6 +331,43 @@ export default function StaffPage() {
         }
     };
 
+    const handleClockOut = async (entry: any) => {
+        if (!confirm("Are you sure you want to clock out this employee now?")) return;
+
+        try {
+            const supabase = createClient();
+            const now = new Date();
+            const clockIn = new Date(entry.clock_in);
+
+            // Calculate totals
+            const totalMs = now.getTime() - clockIn.getTime();
+            const totalHours = (totalMs / 3600000); // No break deduction for forced clock out unless we want to prompt? defaulting to 0 break for now or keeping existing break if any? usually active shift has 0 break yet.
+
+            // If they have a stored hourly rate on the entry use it, otherwise use current
+            const rate = entry.hourly_rate || selectedStaff?.active_hourly_rate || selectedStaff?.hourly_rate || 0;
+
+            const { error } = await (supabase as any)
+                .from("time_entries")
+                .update({
+                    clock_out: now.toISOString(),
+                    total_hours: Number(totalHours.toFixed(2)),
+                    total_pay: Number((totalHours * rate).toFixed(2))
+                })
+                .eq("id", entry.id);
+
+            if (error) throw error;
+
+            if (selectedStaff) {
+                fetchTimeEntries(selectedStaff.id);
+                // Also refresh main staff list to update status
+                fetchStaff();
+            }
+        } catch (err) {
+            console.error("Error clocking out:", err);
+            alert("Failed to clock out employee.");
+        }
+    };
+
     const handleUpdateServerColor = async (employeeId: string, color: string) => {
         try {
             const supabase = createClient();
@@ -750,9 +787,73 @@ export default function StaffPage() {
                                                 <div className="flex items-center justify-between gap-4">
                                                     <div>
                                                         <p className="text-[10px] text-orange-500 uppercase font-bold">Primary Role (Rank 1)</p>
-                                                        <p className="font-bold capitalize">{selectedStaff.role}</p>
+
+                                                        {isOwnerOrManager ? (
+                                                            <select
+                                                                className="bg-transparent border-none text-sm font-bold p-0 focus:ring-0 capitalize cursor-pointer hover:text-orange-400 transition-colors"
+                                                                value={selectedStaff.role}
+                                                                onChange={async (e) => {
+                                                                    const newRole = e.target.value;
+                                                                    const supabase = createClient();
+
+                                                                    try {
+                                                                        // Optimistic update
+                                                                        setSelectedStaff(prev => prev ? { ...prev, role: newRole } : null);
+
+                                                                        // Save to DB
+                                                                        const { error } = await (supabase as any)
+                                                                            .from("employees")
+                                                                            .update({ role: newRole })
+                                                                            .eq("id", selectedStaff.id);
+
+                                                                        if (error) throw error;
+                                                                        fetchStaff();
+                                                                    } catch (err) {
+                                                                        console.error("Error updating primary role:", err);
+                                                                        alert("Failed to update role");
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {ROLES.map(role => (
+                                                                    <option key={role} value={role}>{role}</option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            <p className="font-bold capitalize">{selectedStaff.role}</p>
+                                                        )}
                                                     </div>
-                                                    <div className="text-xs text-slate-500 italic">Managed via profile</div>
+
+                                                    {isOwnerOrManager ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <DollarSign className="w-3 h-3 text-slate-500" />
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0"
+                                                                className="w-16 bg-transparent border-none text-sm text-right p-0 focus:ring-0"
+                                                                value={selectedStaff.hourly_rate || ""}
+                                                                placeholder="0.00"
+                                                                onChange={async (e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    if (isNaN(val)) return;
+
+                                                                    // Optimistic update
+                                                                    setSelectedStaff(prev => prev ? { ...prev, hourly_rate: val } : null);
+
+                                                                    // Save to DB
+                                                                    const supabase = createClient();
+                                                                    await (supabase as any).from("employees")
+                                                                        .update({ hourly_rate: val })
+                                                                        .eq("id", selectedStaff.id);
+
+                                                                    await fetchStaff();
+                                                                }}
+                                                            />
+                                                            <span className="text-xs text-slate-500">/hr</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-xs text-slate-500 italic">Managed via profile</div>
+                                                    )}
                                                 </div>
 
                                                 {/* Secondary Role (Rank 2) */}
@@ -1099,6 +1200,15 @@ export default function StaffPage() {
                                                         </td>
                                                         <td className="px-3 py-2 text-right">
                                                             <div className="flex justify-end gap-1">
+                                                                {!entry.clock_out && (
+                                                                    <button
+                                                                        onClick={() => handleClockOut(entry)}
+                                                                        className="p-1.5 hover:bg-orange-500/20 rounded text-orange-400 hover:text-orange-300 mr-2"
+                                                                        title="Clock Out Employee"
+                                                                    >
+                                                                        <span className="text-[10px] font-bold uppercase border border-orange-500/50 px-1 rounded">Clock Out</span>
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     onClick={() => {
                                                                         setEditingEntry(entry);

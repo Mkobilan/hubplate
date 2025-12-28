@@ -26,7 +26,8 @@ export function SessionHandler() {
                 .limit(1);
 
             const org = orgData?.[0] as any;
-            if (org) {
+            // Only set org owner if NOT in terminal mode (in terminal mode, permissions are determined by PIN login)
+            if (org && !useAppStore.getState().isTerminalMode) {
                 setIsOrgOwner(true);
                 // If no location set, pick first location for this org
                 if (!currentLocation) {

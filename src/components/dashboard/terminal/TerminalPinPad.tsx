@@ -51,6 +51,63 @@ export function TerminalPinPad({ onClose, onSuccess }: TerminalPinPadProps) {
                 .single();
 
             if (fetchError || !data) {
+                // Check if this is the Organization Admin PIN
+                if (currentLocation.organization_id) {
+                    const { data: orgData, error: orgError } = await supabase
+                        .from("organizations")
+                        .select("id, admin_pin, owner_id")
+                        .eq("id", currentLocation.organization_id)
+                        .eq("admin_pin", pin)
+                        .maybeSingle() as { data: { id: string; admin_pin: string; owner_id: string } | null; error: any };
+
+                    if (orgData) {
+                        // It's an admin PIN match!
+                        // Now find the owner employee record for this location to log them in contextually
+                        const { data: ownerEmployee, error: ownerError } = await supabase
+                            .from("employees")
+                            .select("*")
+                            .eq("location_id", currentLocation.id)
+                            .eq("role", "owner")
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (ownerEmployee) {
+                            setSuccess(true);
+                            setTimeout(() => {
+                                onSuccess(ownerEmployee);
+                            }, 500);
+                            return;
+                        }
+
+                        // Fallback: If no owner record exists, create a virtual session for the owner
+                        // This allows owners to log in without explicit employee records
+                        if (orgData.owner_id) {
+                            const virtualOwner = {
+                                id: orgData.owner_id, // Use authentication user_id as employee_id for virtual session
+                                user_id: orgData.owner_id,
+                                organization_id: currentLocation.organization_id,
+                                location_id: currentLocation.id,
+                                first_name: "Organization",
+                                last_name: "Owner",
+                                role: "owner",
+                                pin_code: null,
+                                hourly_rate: null,
+                                is_active: true,
+                                server_color: null,
+                                created_at: new Date().toISOString(),
+                            };
+
+                            setSuccess(true);
+                            setTimeout(() => {
+                                onSuccess(virtualOwner);
+                            }, 500);
+                            return;
+                        }
+
+                        console.error("Admin PIN valid but no Owner ID found.");
+                    }
+                }
+
                 // If 4 digits failed, dont immediately error if we might be typing 6
                 if (pin.length === 4) {
                     // Start a tiny timeout to see if they keep typing

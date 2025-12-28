@@ -21,6 +21,7 @@ export interface Database {
                     is_active: boolean;
                     created_at: string;
                     updated_at: string;
+                    admin_pin: string | null;
                 };
                 Insert: {
                     id?: string;
@@ -30,6 +31,7 @@ export interface Database {
                     is_active?: boolean;
                     created_at?: string;
                     updated_at?: string;
+                    admin_pin?: string | null;
                 };
                 Update: {
                     id?: string;
@@ -211,6 +213,7 @@ export interface Database {
                 Row: {
                     id: string;
                     location_id: string;
+                    customer_id: string | null;
                     server_id: string | null;
                     table_number: string | null;
                     order_type: "dine_in" | "takeout" | "delivery";
@@ -233,6 +236,7 @@ export interface Database {
                 Insert: {
                     id?: string;
                     location_id: string;
+                    customer_id?: string | null;
                     server_id?: string | null;
                     table_number?: string | null;
                     order_type?: "dine_in" | "takeout" | "delivery";
@@ -255,6 +259,7 @@ export interface Database {
                 Update: {
                     id?: string;
                     location_id?: string;
+                    customer_id?: string | null;
                     server_id?: string | null;
                     table_number?: string | null;
                     order_type?: "dine_in" | "takeout" | "delivery";
@@ -719,6 +724,82 @@ export interface Database {
                     created_at?: string;
                 };
             };
+            customers: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    first_name: string | null;
+                    last_name: string | null;
+                    email: string | null;
+                    phone: string | null;
+                    is_loyalty_member: boolean;
+                    loyalty_tier: string | null;
+                    loyalty_points: number;
+                    total_visits: number;
+                    total_spent: number;
+                    notes: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    first_name?: string | null;
+                    last_name?: string | null;
+                    email?: string | null;
+                    phone?: string | null;
+                    is_loyalty_member?: boolean;
+                    loyalty_tier?: string | null;
+                    loyalty_points?: number;
+                    total_visits?: number;
+                    total_spent?: number;
+                    notes?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    first_name?: string | null;
+                    last_name?: string | null;
+                    email?: string | null;
+                    phone?: string | null;
+                    is_loyalty_member?: boolean;
+                    loyalty_tier?: string | null;
+                    loyalty_points?: number;
+                    total_visits?: number;
+                    total_spent?: number;
+                    notes?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+            };
+            customer_feedback: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    customer_id: string | null;
+                    rating: number;
+                    comment: string | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    customer_id?: string | null;
+                    rating: number;
+                    comment?: string | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    customer_id?: string | null;
+                    rating?: number;
+                    comment?: string | null;
+                    created_at?: string;
+                };
+            };
         };
 
 
@@ -740,5 +821,7 @@ export type IngredientLink = Database["public"]["Tables"]["ingredient_links"]["R
 export type PurchaseOrder = Database["public"]["Tables"]["purchase_orders"]["Row"];
 export type PurchaseOrderItem = Database["public"]["Tables"]["purchase_order_items"]["Row"];
 export type TimeEntry = Database["public"]["Tables"]["time_entries"]["Row"];
+export type Customer = Database["public"]["Tables"]["customers"]["Row"];
+export type CustomerFeedback = Database["public"]["Tables"]["customer_feedback"]["Row"];
 
 
