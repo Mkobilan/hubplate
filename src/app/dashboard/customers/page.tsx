@@ -52,6 +52,8 @@ const quickLinks = [
     },
 ];
 
+import { CustomerDetailModal } from "@/components/dashboard/customers/CustomerDetailModal";
+
 export default function CustomersPage() {
     const { t } = useTranslation();
     const currentLocation = useAppStore((state) => state.currentLocation);
@@ -62,6 +64,7 @@ export default function CustomersPage() {
         repeatRate: 0
     });
     const [topCustomers, setTopCustomers] = useState<any[]>([]);
+    const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [tableNumber, setTableNumber] = useState("");
@@ -263,7 +266,11 @@ export default function CustomersPage() {
                                 </tr>
                             ) : topCustomers.length > 0 ? (
                                 topCustomers.map((customer, i) => (
-                                    <tr key={i} className="hover:bg-slate-900/40 transition-colors">
+                                    <tr
+                                        key={i}
+                                        onClick={() => setSelectedCustomer(customer.id)}
+                                        className="hover:bg-slate-900/40 transition-colors cursor-pointer"
+                                    >
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold">
@@ -403,7 +410,11 @@ export default function CustomersPage() {
                                             `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(searchQuery.toLowerCase())
                                         )
                                         .map((customer, i) => (
-                                            <tr key={i} className="hover:bg-slate-900/40 transition-colors">
+                                            <tr
+                                                key={i}
+                                                onClick={() => setSelectedCustomer(customer.id)}
+                                                className="hover:bg-slate-900/40 transition-colors cursor-pointer"
+                                            >
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold">
@@ -429,6 +440,12 @@ export default function CustomersPage() {
                     </div>
                 </div>
             )}
+
+            <CustomerDetailModal
+                isOpen={!!selectedCustomer}
+                onClose={() => setSelectedCustomer(null)}
+                customerId={selectedCustomer}
+            />
         </div>
     );
 }
