@@ -74,6 +74,10 @@ export default function HomePage() {
               <Link href="/login" className="btn btn-secondary text-xl px-12 py-4 hover:bg-slate-800 transition-colors">
                 {t("auth.login")}
               </Link>
+              <a href="/hubplate.apk" download className="btn btn-secondary text-xl px-12 py-4 hover:bg-slate-800 transition-colors flex items-center gap-2">
+                <Smartphone className="h-6 w-6" />
+                <span>Download App</span>
+              </a>
             </div>
 
             <div className="flex flex-wrap justify-center gap-6 opacity-80">
