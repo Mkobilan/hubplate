@@ -5,8 +5,9 @@ const config: CapacitorConfig = {
   appName: 'Hubplate',
   webDir: 'public',
   server: {
-    url: 'https://hubplate.app', // POINT TO PRODUCTION FOR RELEASE
-    cleartext: true
+    url: 'https://hubplate.app',
+    cleartext: true,
+    allowNavigation: ['hubplate.app', '*.hubplate.app', 'localhost']
   }
 };
 
