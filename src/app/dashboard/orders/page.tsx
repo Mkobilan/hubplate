@@ -106,7 +106,7 @@ function OrdersPageContent() {
                 // Fetch menu items
                 const { data: items } = await supabase
                     .from("menu_items")
-                    .select("*, category:menu_categories(name)")
+                    .select("id, name, price, description, category_id, is_86d, location_id, category:menu_categories(name)")
                     .eq("location_id", currentLocation.id)
                     .order("name") as any;
 
@@ -179,6 +179,7 @@ function OrdersPageContent() {
         } else {
             const existingIndex = orderItems.findIndex(
                 (o) => o.menuItemId === item.id &&
+                    o.seatNumber === selectedSeat &&
                     o.notes === notes &&
                     o.status === 'pending' &&
                     JSON.stringify(o.addOns) === JSON.stringify(selectedAddOns)

@@ -54,6 +54,7 @@ export default function KitchenPage() {
     const [showManageKdsModal, setShowManageKdsModal] = useState(false);
     const [menuItemKdsMap, setMenuItemKdsMap] = useState<Map<string, string[]>>(new Map());
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+    const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
@@ -365,6 +366,31 @@ export default function KitchenPage() {
         updateItemsStatus(orderId, itemIds, 'served');
     };
 
+    const handleCancelOrder = async () => {
+        if (!orderToCancel) return;
+
+        // Optimistic update
+        const previousOrders = [...orders];
+        setOrders(orders.filter(o => o.id !== orderToCancel));
+        setOrderToCancel(null);
+
+        try {
+            const { error } = await (supabase
+                .from("orders") as any)
+                .update({ status: 'cancelled' })
+                .eq("id", orderToCancel);
+
+            if (error) throw error;
+
+            toast.success("Order cancelled");
+        } catch (error) {
+            console.error("Error cancelling order:", error);
+            toast.error("Failed to cancel order");
+            // Revert on error
+            setOrders(previousOrders);
+        }
+    };
+
     // Filter orders based on active KDS screen
     const getFilteredOrders = () => {
         if (!activeKdsScreenId || kdsScreens.length === 0) {
@@ -634,9 +660,21 @@ export default function KitchenPage() {
                                             )}
                                         </div>
                                     </div>
-                                    <div className={cn("flex items-center gap-1.5 font-mono font-bold text-lg px-2 py-1 rounded-lg bg-slate-800/50 border border-slate-700/50", timeColor)}>
-                                        <Clock className="h-4 w-4" />
-                                        <span>{ticketTime}m</span>
+                                    <div className="flex items-center gap-2">
+                                        <div className={cn("flex items-center gap-1.5 font-mono font-bold text-lg px-2 py-1 rounded-lg bg-slate-800/50 border border-slate-700/50", timeColor)}>
+                                            <Clock className="h-4 w-4" />
+                                            <span>{ticketTime}m</span>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOrderToCancel(order.id);
+                                            }}
+                                            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/80 rounded-lg transition-colors border border-transparent hover:border-red-500/50"
+                                            title="Cancel Order"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
                                     </div>
                                 </div>
 
@@ -783,6 +821,48 @@ export default function KitchenPage() {
                     setActiveScreenId={setActiveKdsScreenId}
                 />
             )}
+
+            {/* Cancel Order Confirmation Modal */}
+            {orderToCancel && (
+                <CancelOrderModal
+                    onClose={() => setOrderToCancel(null)}
+                    onConfirm={handleCancelOrder}
+                />
+            )}
+        </div>
+    );
+}
+
+// Cancel Order Modal Component
+function CancelOrderModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+            <div className="relative card w-full max-w-sm bg-slate-900 border border-slate-700 shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="p-6 text-center">
+                    <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                        <X className="h-6 w-6 text-red-500" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Cancel Order?</h3>
+                    <p className="text-slate-400 mb-6">
+                        Are you sure you want to cancel this order? This action cannot be undone.
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            className="btn btn-secondary flex-1"
+                        >
+                            No, Keep
+                        </button>
+                        <button
+                            onClick={onConfirm}
+                            className="btn bg-red-500 text-white hover:bg-red-600 flex-1"
+                        >
+                            Yes, Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
