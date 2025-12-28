@@ -11,6 +11,12 @@ import {
     Check,
     AlertCircle,
     Building2,
+    Smartphone,
+    Monitor,
+    Bell,
+    BellRing,
+    Mail,
+    MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores";
@@ -208,6 +214,112 @@ export default function SettingsPage() {
                 </div>
             </div>
 
+            {/* Terminal Mode Section */}
+            <div className="card space-y-6">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+                    <div className="p-2 bg-purple-500/10 rounded-xl">
+                        <Smartphone className="h-6 w-6 text-purple-500" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Terminal Mode</h2>
+                        <p className="text-xs text-slate-500">Configure device specific settings</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 bg-purple-500/10 rounded-lg">
+                            <Monitor className="h-5 w-5 text-purple-400" />
+                        </div>
+                        <div>
+                            <p className="font-medium text-white">Enable Terminal Mode</p>
+                            <p className="text-xs text-slate-400 max-w-md">
+                                Lock this device into Terminal Mode. This will log you out and present the Terminal PIN pad for employee access.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => {
+                            if (confirm("Are you sure you want to switch to Terminal Mode? You will need to log back in to access settings.")) {
+                                const useAppStore = require("@/stores").useAppStore;
+                                useAppStore.getState().setTerminalMode(true);
+                                useAppStore.getState().setCurrentEmployee(null); // Logout current user
+                                window.location.href = "/terminal";
+                            }
+                        }}
+                        className="btn btn-secondary text-sm"
+                    >
+                        Switch to Terminal
+                    </button>
+                </div>
+            </div>
+
+            {/* Notifications Section */}
+            <div className="card space-y-6">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+                    <div className="p-2 bg-green-500/10 rounded-xl">
+                        <Bell className="h-6 w-6 text-green-500" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Notifications</h2>
+                        <p className="text-xs text-slate-500">Manage how you receive alerts</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    {/* Push Notifications */}
+                    <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800">
+                        <div className="flex items-center gap-4">
+                            <div className="p-2 bg-slate-800 rounded-lg">
+                                <BellRing className="h-5 w-5 text-slate-400" />
+                            </div>
+                            <div>
+                                <p className="font-medium text-white">Push Notifications</p>
+                                <p className="text-xs text-slate-400">Receive alerts on this device</p>
+                            </div>
+                        </div>
+                        <Toggle
+                            checked={true} // TODO: State binding
+                            onChange={() => { }}
+                        />
+                    </div>
+
+                    {/* Email Notifications */}
+                    <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800">
+                        <div className="flex items-center gap-4">
+                            <div className="p-2 bg-slate-800 rounded-lg">
+                                <Mail className="h-5 w-5 text-slate-400" />
+                            </div>
+                            <div>
+                                <p className="font-medium text-white">Email Notifications</p>
+                                <p className="text-xs text-slate-400">Receive summaries and important alerts</p>
+                            </div>
+                        </div>
+                        <Toggle
+                            checked={true} // TODO: State binding
+                            onChange={() => { }}
+                        />
+                    </div>
+
+                    {/* SMS Notifications */}
+                    <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-800">
+                        <div className="flex items-center gap-4">
+                            <div className="p-2 bg-slate-800 rounded-lg">
+                                <MessageSquare className="h-5 w-5 text-slate-400" />
+                            </div>
+                            <div>
+                                <p className="font-medium text-white">SMS Notifications</p>
+                                <p className="text-xs text-slate-400">Get text alerts for critical updates</p>
+                            </div>
+                        </div>
+                        <Toggle
+                            checked={false} // TODO: State binding
+                            onChange={() => { }}
+                        />
+                    </div>
+                </div>
+            </div>
+
             {/* Organization Info */}
             <div className="card space-y-4 bg-slate-900/30">
                 <div className="flex items-center gap-3">
@@ -219,5 +331,24 @@ export default function SettingsPage() {
                 </p>
             </div>
         </div>
+    );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean, onChange: (checked: boolean) => void }) {
+    return (
+        <button
+            onClick={() => onChange(!checked)}
+            className={cn(
+                "relative w-14 h-8 rounded-full transition-colors duration-200",
+                checked ? "bg-orange-500" : "bg-slate-700"
+            )}
+        >
+            <span
+                className={cn(
+                    "absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200",
+                    checked ? "translate-x-7" : "translate-x-1"
+                )}
+            />
+        </button>
     );
 }
