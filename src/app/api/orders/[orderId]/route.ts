@@ -27,11 +27,7 @@ export async function GET(
                 tax,
                 total,
                 payment_status,
-                order_items (
-                    name,
-                    quantity,
-                    price
-                )
+                items
             `)
             .eq('id', orderId)
             .single();
@@ -50,7 +46,7 @@ export async function GET(
             tax: order.tax,
             total: order.total,
             payment_status: order.payment_status || 'unpaid',
-            items: order.order_items
+            items: order.items || []
         });
     } catch (error) {
         console.error('Error fetching order:', error);

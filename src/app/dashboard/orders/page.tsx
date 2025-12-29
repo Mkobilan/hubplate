@@ -357,6 +357,8 @@ function OrdersPageContent() {
                     .from("orders") as any)
                     .update({
                         status: "pending", // Reset status so it reappears in kitchen
+                        table_number: orderType === "dine_in" ? tableNumber : null,
+                        seat_number: orderType === "dine_in" ? selectedSeat : null,
                         subtotal,
                         tax,
                         total,

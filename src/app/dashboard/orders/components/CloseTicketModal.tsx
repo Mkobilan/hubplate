@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Printer, CreditCard, QrCode, Loader2, Copy, Check, Banknote, Smartphone } from "lucide-react";
+import { X, Printer, CreditCard, QrCode, Loader2, Copy, Check, Banknote, Smartphone, User, Gift } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
 import { StripeTerminal, TerminalConnectTypes } from '@capacitor-community/stripe-terminal';
 import { formatCurrency } from "@/lib/utils";
@@ -32,9 +32,167 @@ export default function CloseTicketModal({
     const [copied, setCopied] = useState(false);
     const [processingCash, setProcessingCash] = useState(false);
 
+    // Loyalty
+    const [showLoyalty, setShowLoyalty] = useState(false);
+    const [loyaltyPhone, setLoyaltyPhone] = useState("");
+    const [loyaltyName, setLoyaltyName] = useState("");
+    const [loyaltyBirthday, setLoyaltyBirthday] = useState("");
+    const [joiningLoyalty, setJoiningLoyalty] = useState(false);
+    const [loyaltySuccess, setLoyaltySuccess] = useState(false);
+    const [hasCheckedIn, setHasCheckedIn] = useState(false); // To toggle between check-in and registration input
+
     useEffect(() => {
         setIsNative(Capacitor.isNativePlatform());
     }, []);
+
+    const handleCheckIn = async () => {
+        if (!loyaltyPhone) return;
+        setJoiningLoyalty(true);
+        try {
+            const supabase = createClient();
+            const cleanPhone = loyaltyPhone.replace(/\D/g, "");
+
+            const { data: existing } = await (supabase as any)
+                .from("customers")
+                .select("id, first_name, is_loyalty_member")
+                .eq("phone", cleanPhone)
+                .maybeSingle();
+
+            if (existing) {
+                await (supabase as any).from("orders").update({ customer_id: existing.id }).eq("id", orderId);
+                if (!existing.is_loyalty_member) {
+                    await (supabase as any).from("customers").update({ is_loyalty_member: true }).eq("id", existing.id);
+                }
+                setLoyaltyName(existing.first_name || "Guest");
+                setLoyaltySuccess(true);
+            } else {
+                setLoyaltySuccess(false);
+            }
+        } catch (err) {
+            console.error("Error checking in:", err);
+        } finally {
+            setJoiningLoyalty(false);
+        }
+    };
+
+    const handleJoin = async () => {
+        if (!loyaltyPhone || !loyaltyName) return;
+        setJoiningLoyalty(true);
+        try {
+            const supabase = createClient();
+            const cleanPhone = loyaltyPhone.replace(/\D/g, "");
+            const { data: orderData } = await (supabase as any).from("orders").select("location_id").eq("id", orderId).single();
+            if (!orderData) throw new Error("Order not found");
+
+            const nameParts = loyaltyName.trim().split(" ");
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(" ") || "";
+
+            const { data: newCust, error } = await (supabase as any).from("customers").insert({
+                location_id: orderData.location_id,
+                phone: cleanPhone,
+                first_name: firstName,
+                last_name: lastName,
+                is_loyalty_member: true,
+                birthday: loyaltyBirthday || null,
+                loyalty_points: 0, total_visits: 0, total_spent: 0
+            }).select("id").single();
+            if (error) throw error;
+
+            await (supabase as any).from("orders").update({ customer_id: newCust.id }).eq("id", orderId);
+            setLoyaltySuccess(true);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setJoiningLoyalty(false);
+        }
+    };
+
+    const handleJoinLoyalty = async () => {
+        if (!loyaltyPhone) return;
+        setJoiningLoyalty(true);
+        try {
+            const supabase = createClient();
+            const cleanPhone = loyaltyPhone.replace(/\D/g, "");
+
+            // Check if customer exists
+            const { data: existing } = await (supabase as any)
+                .from("customers")
+                .select("id, is_loyalty_member")
+                .eq("phone", cleanPhone)
+                .maybeSingle();
+
+            let customerId = existing?.id;
+
+            if (existing) {
+                // Update existing
+                await (supabase as any)
+                    .from("customers")
+                    .update({
+                        is_loyalty_member: true,
+                        birthday: loyaltyBirthday || null,
+                    })
+                    .eq("id", existing.id);
+            } else {
+                if (!loyaltyName) {
+                    setJoiningLoyalty(false);
+                    return;
+                }
+
+                // Fetch order for location
+                const { data: orderData } = await (supabase as any)
+                    .from("orders")
+                    .select("location_id")
+                    .eq("id", orderId)
+                    .single();
+
+                if (!orderData) throw new Error("Order not found");
+                const locationId = orderData.location_id;
+
+                const nameParts = loyaltyName.trim().split(" ");
+                const firstName = nameParts[0];
+                const lastName = nameParts.slice(1).join(" ") || "";
+
+                const { data: newCust, error } = await (supabase as any)
+                    .from("customers")
+                    .insert({
+                        location_id: locationId,
+                        phone: cleanPhone,
+                        first_name: firstName,
+                        last_name: lastName,
+                        is_loyalty_member: true,
+                        birthday: loyaltyBirthday || null,
+                        loyalty_points: 0,
+                        total_visits: 0,
+                        total_spent: 0
+                    })
+                    .select("id")
+                    .single();
+
+                if (error) throw error;
+                customerId = newCust.id;
+            }
+
+            // Link to order
+            if (customerId) {
+                await (supabase as any)
+                    .from("orders")
+                    .update({ customer_id: customerId })
+                    .eq("id", orderId);
+            }
+
+            setLoyaltySuccess(true);
+            setTimeout(() => {
+                setShowLoyalty(false);
+                setLoyaltySuccess(false);
+            }, 2000);
+
+        } catch (err) {
+            console.error("Error joining loyalty:", err);
+        } finally {
+            setJoiningLoyalty(false);
+        }
+    };
 
     const handleNativePayment = async () => {
         setPaymentStatus("Initializing payment system...");
@@ -205,9 +363,9 @@ export default function CloseTicketModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 h-[100dvh]">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative card w-full max-w-md animate-in zoom-in-95 duration-200">
+            <div className="relative card w-full max-w-md max-h-full overflow-y-auto animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div>
@@ -221,6 +379,114 @@ export default function CloseTicketModal({
                         <p className="text-2xl font-bold text-orange-400">{formatCurrency(total)}</p>
                     </div>
                 </div>
+
+                {/* Loyalty Program */}
+                {!activeOption && !paymentStatus && (
+                    <div className="mb-6 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                        {!showLoyalty ? (
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-orange-500/20 text-orange-500">
+                                        <Gift className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-orange-100">Loyalty Program</h3>
+                                        <p className="text-xs text-orange-200/70">Earn points & rewards</p>
+                                    </div>
+                                </div>
+                                {loyaltySuccess ? (
+                                    <span className="text-green-400 text-sm font-bold flex items-center gap-1">
+                                        <Check className="h-4 w-4" /> {loyaltyName ? `Welcome, ${loyaltyName}!` : "Added!"}
+                                    </span>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowLoyalty(true)}
+                                        className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg transition-colors"
+                                    >
+                                        Check In / Join
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="space-y-3 animate-in slide-in-from-top-2">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="font-bold text-sm text-slate-200">
+                                        {loyaltySuccess ? "Checked In!" : hasCheckedIn ? "Complete Registration" : "Customer Check-in"}
+                                    </h3>
+                                    <button onClick={() => {
+                                        setShowLoyalty(false);
+                                        setHasCheckedIn(false);
+                                        setLoyaltyName("");
+                                    }} className="text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+                                </div>
+
+                                {loyaltySuccess ? (
+                                    <div className="text-center py-2">
+                                        <p className="text-green-400 font-bold text-lg mb-1">Welcome back, {loyaltyName}!</p>
+                                        <p className="text-slate-400 text-sm">Points added to account</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="tel"
+                                                placeholder="Phone Number"
+                                                className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:border-orange-500 outline-none text-white"
+                                                value={loyaltyPhone}
+                                                onChange={(e) => setLoyaltyPhone(e.target.value)}
+                                                disabled={hasCheckedIn}
+                                            />
+                                            {!hasCheckedIn && (
+                                                <button
+                                                    onClick={() => {
+                                                        handleCheckIn();
+                                                        setHasCheckedIn(true);
+                                                    }}
+                                                    disabled={joiningLoyalty || !loyaltyPhone}
+                                                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold rounded-lg transition-colors"
+                                                >
+                                                    {joiningLoyalty ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check In"}
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {hasCheckedIn && !loyaltySuccess && (
+                                            <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
+                                                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                                    <p className="text-blue-200 text-xs">Based on this number, we need a bit more info to create your account.</p>
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Name (Required)"
+                                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:border-orange-500 outline-none text-white"
+                                                    value={loyaltyName}
+                                                    onChange={(e) => setLoyaltyName(e.target.value)}
+                                                />
+                                                <div className="relative">
+                                                    <input
+                                                        type="date"
+                                                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:border-orange-500 outline-none text-slate-300"
+                                                        value={loyaltyBirthday}
+                                                        onChange={(e) => setLoyaltyBirthday(e.target.value)}
+                                                    />
+                                                    {!loyaltyBirthday && <span className="absolute right-3 top-2.5 text-xs text-slate-500 pointer-events-none">Birthday (Optional)</span>}
+                                                    {loyaltyBirthday && <span className="absolute right-3 top-2.5 text-xs text-orange-400 font-bold pointer-events-none">For Rewards! 🎉</span>}
+                                                </div>
+                                                <button
+                                                    onClick={handleJoin}
+                                                    disabled={joiningLoyalty || !loyaltyName}
+                                                    className="w-full py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    {joiningLoyalty ? <Loader2 className="h-4 w-4 animate-spin" /> : "Complete & Check In"}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Payment Options */}
                 {!activeOption && (

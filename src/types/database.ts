@@ -738,6 +738,7 @@ export interface Database {
                     total_visits: number;
                     total_spent: number;
                     notes: string | null;
+                    birthday: string | null;
                     created_at: string;
                     updated_at: string;
                 };
@@ -754,6 +755,7 @@ export interface Database {
                     total_visits?: number;
                     total_spent?: number;
                     notes?: string | null;
+                    birthday?: string | null;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -770,6 +772,7 @@ export interface Database {
                     total_visits?: number;
                     total_spent?: number;
                     notes?: string | null;
+                    birthday?: string | null;
                     created_at?: string;
                     updated_at?: string;
                 };

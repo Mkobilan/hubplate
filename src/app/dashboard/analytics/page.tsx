@@ -244,10 +244,12 @@ export default function AnalyticsPage() {
             });
 
             // ========== INVENTORY DATA ==========
-            const { data: inventoryItems } = await supabase
+            const { data: inventoryItems, error: invError } = await supabase
                 .from("inventory_items")
                 .select("*")
                 .eq("location_id", currentLocation.id);
+
+            if (invError) console.error("Error fetching inventory for analytics:", invError);
 
             const { data: wasteLogs } = await supabase
                 .from("waste_logs")
@@ -257,23 +259,34 @@ export default function AnalyticsPage() {
                 .lte("created_at", endISO);
 
             const lowStockItems = (inventoryItems || []).filter((i: any) =>
-                i.par_level && i.stock_quantity < i.par_level
+                i.par_level && (i.stock_quantity || 0) < i.par_level
             );
-            const totalValue = (inventoryItems || []).reduce((sum: number, i: any) =>
-                sum + (Number(i.stock_quantity || 0) * Number(i.cost_per_unit || 0)), 0
-            );
+
+            const totalValue = (inventoryItems || []).reduce((sum: number, i: any) => {
+                // User requested to use 'unit' column for quantity instead of stock_quantity
+                // because stock_quantity contains bad data (dates)
+                const quantity = parseFloat(i.unit);
+                const cost = Number(i.cost_per_unit || 0);
+
+                // If unit is text (e.g. 'lb') this will be NaN and excluded (value 0)
+                // If unit contains a number (e.g. '5'), it will be used.
+                if (isNaN(quantity) || isNaN(cost)) return sum;
+
+                return sum + (quantity * cost);
+            }, 0);
+
             const wasteCost = (wasteLogs || []).reduce((sum: number, w: any) => sum + Number(w.cost || 0), 0);
 
             setInventoryData({
                 items: inventoryItems || [],
-                totalItems: inventoryItems?.length || 0,
+                totalItems: (inventoryItems || []).length,
                 lowStockCount: lowStockItems.length,
                 wasteCost,
                 totalValue,
                 lowStockItems: lowStockItems.slice(0, 5).map((i: any) => ({
                     label: i.name,
-                    value: i.stock_quantity,
-                    color: i.stock_quantity === 0 ? COLORS.red : COLORS.yellow
+                    value: i.stock_quantity || 0,
+                    color: (i.stock_quantity || 0) <= 0 ? COLORS.red : COLORS.yellow
                 }))
             });
 

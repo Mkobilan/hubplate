@@ -45,7 +45,8 @@ export default function HomePage() {
         <div className="relative max-w-7xl mx-auto px-4 py-12 sm:py-20">
           <div className="text-center">
             {/* Centered Logo - 2.5x Bigger */}
-            <div className="flex justify-center mb-12">
+            <div className="flex flex-col items-center justify-center mb-12">
+              <span className="text-5xl font-black tracking-tighter text-white mb-6 drop-shadow-2xl">HubPlate</span>
               <div className="relative group">
                 <div className="absolute -inset-4 bg-orange-500/20 rounded-3xl blur-xl group-hover:bg-orange-500/30 transition-all duration-700" />
                 <img src="/logo.png" alt="HubPlate Logo" className="relative h-48 w-48 object-contain" />

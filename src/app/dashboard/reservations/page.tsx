@@ -140,6 +140,7 @@ export default function ReservationsPage() {
         customer_name: "",
         customer_phone: "",
         customer_email: "",
+        customer_birthday: "", // Add birthday field
         wants_loyalty_enrollment: false,
         reservation_date: format(new Date(), "yyyy-MM-dd"),
         reservation_time: "18:00",
@@ -458,6 +459,7 @@ export default function ReservationsPage() {
                                 first_name: firstName,
                                 last_name: lastName,
                                 email: newReservation.customer_email || null,
+                                birthday: newReservation.customer_birthday || null,
                                 is_loyalty_member: true,
                             })
                             .eq("id", existingCustomer.id);
@@ -474,6 +476,7 @@ export default function ReservationsPage() {
                             last_name: lastName,
                             phone: cleanPhone,
                             email: newReservation.customer_email || null,
+                            birthday: newReservation.customer_birthday || null,
                             is_loyalty_member: true,
                             loyalty_points: 0,
                             total_spent: 0,
@@ -502,6 +505,7 @@ export default function ReservationsPage() {
             customer_name: "",
             customer_phone: "",
             customer_email: "",
+            customer_birthday: "",
             wants_loyalty_enrollment: false,
             reservation_date: format(new Date(), "yyyy-MM-dd"),
             reservation_time: "18:00",
@@ -526,6 +530,7 @@ export default function ReservationsPage() {
             customer_name: res.customer_name,
             customer_phone: res.customer_phone,
             customer_email: res.customer_email || "",
+            customer_birthday: "", // Reset birthday on edit (or we could fetch it if available, but simplest is reset)
             wants_loyalty_enrollment: res.wants_loyalty_enrollment,
             reservation_date: res.reservation_date,
             reservation_time: res.reservation_time.slice(0, 5), // Remove seconds
@@ -850,6 +855,12 @@ export default function ReservationsPage() {
                                                         </span>
                                                     )}
                                                 </div>
+                                                {res.special_accommodations?.allergies && (
+                                                    <div className="flex items-center gap-1.5 text-red-500 font-medium text-xs mt-1 bg-red-500/10 px-2 py-1 rounded border border-red-500/20 w-fit">
+                                                        <AlertCircle className="h-3 w-3" />
+                                                        <span>Allergies: {res.special_accommodations.allergies}</span>
+                                                    </div>
+                                                )}
                                                 {res.special_accommodations?.notes && (
                                                     <div className="text-xs text-slate-500 italic">{res.special_accommodations.notes}</div>
                                                 )}
@@ -1035,6 +1046,18 @@ export default function ReservationsPage() {
                             />
                             <span className="text-sm">Would you like to join our loyalty program?</span>
                         </label>
+
+                        {newReservation.wants_loyalty_enrollment && (
+                            <div className="space-y-1 animate-in slide-in-from-top-2">
+                                <label className="label">Birthday <span className="text-orange-400 text-xs font-normal ml-2">For a Birthday Reward! 🎉</span></label>
+                                <input
+                                    type="date"
+                                    className="input"
+                                    value={newReservation.customer_birthday || ""}
+                                    onChange={(e) => setNewReservation({ ...newReservation, customer_birthday: e.target.value })}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {/* Date/Time/Duration */}

@@ -31,6 +31,8 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState("overview");
     const [copiedPromo, setCopiedPromo] = useState<string | null>(null);
+    const [isEditingBirthday, setIsEditingBirthday] = useState(false);
+    const [tempBirthday, setTempBirthday] = useState("");
 
     useEffect(() => {
         if (isOpen && customerId) {
@@ -150,6 +152,24 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
         navigator.clipboard.writeText(code);
         setCopiedPromo(code);
         setTimeout(() => setCopiedPromo(null), 2000);
+    };
+
+    const saveBirthday = async () => {
+        if (!customerId || !tempBirthday) return;
+        try {
+            const supabase = createClient();
+            const { error } = await (supabase as any)
+                .from("customers")
+                .update({ birthday: tempBirthday })
+                .eq("id", customerId);
+
+            if (error) throw error;
+
+            setCustomer({ ...customer, birthday: tempBirthday });
+            setIsEditingBirthday(false);
+        } catch (err) {
+            console.error("Error saving birthday:", err);
+        }
     };
 
     if (!isOpen) return null;
@@ -285,6 +305,36 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
                                             <div className="space-y-1">
                                                 <p className="text-slate-500">Last Visit</p>
                                                 <p>{orders.length > 0 ? format(new Date(orders[0].created_at), "MMM d, yyyy") : "N/A"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-slate-500">Birthday</p>
+                                                <div className="flex items-center gap-2">
+                                                    {isEditingBirthday ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="date"
+                                                                className="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs"
+                                                                value={tempBirthday}
+                                                                onChange={(e) => setTempBirthday(e.target.value)}
+                                                            />
+                                                            <button onClick={saveBirthday} className="p-1 hover:text-green-400"><Check className="h-3 w-3" /></button>
+                                                            <button onClick={() => setIsEditingBirthday(false)} className="p-1 hover:text-red-400"><X className="h-3 w-3" /></button>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <p>{customer.birthday ? format(new Date(customer.birthday), "MMM d") : "Not Set"}</p>
+                                                            <span
+                                                                onClick={() => {
+                                                                    setTempBirthday(customer.birthday || "");
+                                                                    setIsEditingBirthday(true);
+                                                                }}
+                                                                className="text-xs text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded cursor-pointer hover:bg-orange-400/20 transition-colors"
+                                                            >
+                                                                {customer.birthday ? "Edit" : "Add"}
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="col-span-2 space-y-1">
                                                 <p className="text-slate-500">Notes</p>

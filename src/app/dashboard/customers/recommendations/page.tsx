@@ -14,8 +14,11 @@ import {
     Star,
     Loader2,
     Copy,
+    Mail,
+    Phone
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import toast from "react-hot-toast";
 
 // TODO: Replace with Supabase query
 
@@ -34,6 +37,7 @@ export default function RecommendationsPage() {
     const [loading, setLoading] = useState(true);
     const [customPrompt, setCustomPrompt] = useState("");
     const [aiResult, setAiResult] = useState<any>(null);
+    const [sendingType, setSendingType] = useState<'email' | 'sms' | null>(null);
 
     // Fetch list of customers
     const fetchCustomers = useCallback(async () => {
@@ -106,6 +110,27 @@ export default function RecommendationsPage() {
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    const handleSendPromo = async (type: 'email' | 'sms') => {
+        const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+        if (!selectedCustomer) return;
+
+        const target = type === 'email' ? selectedCustomer.email : selectedCustomer.phone;
+        if (!target) {
+            toast.error(`No ${type} on file for this customer.`);
+            return;
+        }
+
+        setSendingType(type);
+
+        // Simulate API delay
+        setTimeout(() => {
+            const contactInfo = type === 'email' ? selectedCustomer.email : selectedCustomer.phone;
+            toast.success(`Promo sent to ${contactInfo} successfully!`);
+            console.log(`[SIMULATION] Sent promo to ${contactInfo} via ${type}`);
+            setSendingType(null);
+        }, 1500);
     };
 
     const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
@@ -273,19 +298,42 @@ export default function RecommendationsPage() {
                                                         </div>
                                                     </div>
 
-                                                    <div className="mt-6 pt-4 border-t border-slate-700/50 flex items-center justify-between">
-                                                        <code className="text-lg font-mono font-bold text-white bg-black/30 px-3 py-1 rounded">
-                                                            {aiResult.suggested_promo.code}
-                                                        </code>
-                                                        <button
-                                                            onClick={() => {
-                                                                navigator.clipboard.writeText(aiResult.suggested_promo.code);
-                                                                // You could add a toast here
-                                                            }}
-                                                            className="text-xs font-bold flex items-center gap-1 hover:text-white text-slate-400 transition-colors"
-                                                        >
-                                                            <Copy className="h-3 w-3" /> Copy Code
-                                                        </button>
+                                                    <div className="mt-6 pt-4 border-t border-slate-700/50 flex flex-col gap-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <code className="text-lg font-mono font-bold text-white bg-black/30 px-3 py-1 rounded">
+                                                                {aiResult.suggested_promo.code}
+                                                            </code>
+                                                            <button
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(aiResult.suggested_promo.code);
+                                                                    toast.success("Promo code copied!");
+                                                                }}
+                                                                className="text-xs font-bold flex items-center gap-1 hover:text-white text-slate-400 transition-colors"
+                                                            >
+                                                                <Copy className="h-3 w-3" /> Copy Code
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-2 mt-2">
+                                                            <button
+                                                                onClick={() => handleSendPromo('email')}
+                                                                disabled={sendingType !== null || !selectedCustomer?.email}
+                                                                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                                                                title={selectedCustomer?.email || "No email on file"}
+                                                            >
+                                                                {sendingType === 'email' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3 text-blue-400 group-hover:text-blue-300" />}
+                                                                Email
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleSendPromo('sms')}
+                                                                disabled={sendingType !== null || !selectedCustomer?.phone}
+                                                                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                                                                title={selectedCustomer?.phone || "No phone on file"}
+                                                            >
+                                                                {sendingType === 'sms' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3 text-green-400 group-hover:text-green-300" />}
+                                                                SMS
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
