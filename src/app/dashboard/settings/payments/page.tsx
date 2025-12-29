@@ -12,15 +12,90 @@ import {
     AlertCircle,
     MonitorSmartphone,
     Nfc,
-    ChevronRight
+    ChevronRight,
+    Loader2
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "react-hot-toast";
 
-export default function PaymentsPage() {
+function PaymentsContent() {
     const { t } = useTranslation();
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const [isOnboarded, setIsOnboarded] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isConnecting, setIsConnecting] = useState(false);
+    const supabase = createClient();
+
+    // Check onboarding status
+    useEffect(() => {
+        async function checkStatus() {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+
+                const { data: location, error } = await supabase
+                    .from('locations')
+                    .select('stripe_account_id, stripe_onboarding_complete')
+                    .eq('owner_id', user.id)
+                    .single() as { data: { stripe_account_id: string | null; stripe_onboarding_complete: boolean } | null; error: any };
+
+                if (location) {
+                    setIsOnboarded(!!location.stripe_onboarding_complete);
+                }
+
+                // If returned from Stripe with success
+                if (searchParams.get('success') === 'true') {
+                    toast.success("Stripe account connected successfully!");
+                    router.replace('/dashboard/settings/payments');
+
+                    // Optimistically update status if we have an account ID
+                    if (location?.stripe_account_id) {
+                        setIsOnboarded(true);
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching payment status:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        checkStatus();
+    }, [supabase, searchParams, router]);
+
+    const handleOnboarding = async () => {
+        setIsConnecting(true);
+        try {
+            const response = await fetch('/api/stripe/connect', {
+                method: 'POST',
+            });
+            const data = await response.json();
+
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                toast.error("Failed to start onboarding");
+            }
+        } catch (error) {
+            console.error("Onboarding error:", error);
+            toast.error("Something went wrong");
+        } finally {
+            setIsConnecting(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -65,11 +140,21 @@ export default function PaymentsPage() {
 
                     <div className="pt-8 flex flex-col items-center gap-4">
                         <button
-                            onClick={() => setIsOnboarded(true)}
-                            className="btn btn-primary px-12 py-4 text-lg rounded-2xl shadow-xl shadow-orange-500/20"
+                            onClick={handleOnboarding}
+                            disabled={isConnecting}
+                            className="btn btn-primary px-12 py-4 text-lg rounded-2xl shadow-xl shadow-orange-500/20 disabled:opacity-50"
                         >
-                            Start Onboarding with Stripe
-                            <ArrowRight className="ml-2 w-5 h-5" />
+                            {isConnecting ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    Connecting...
+                                </span>
+                            ) : (
+                                <>
+                                    Start Onboarding with Stripe
+                                    <ArrowRight className="ml-2 w-5 h-5" />
+                                </>
+                            )}
                         </button>
                         <p className="text-xs text-slate-500">
                             By clicking, you will be redirected to Stripe to securely provide your business details.
@@ -86,7 +171,7 @@ export default function PaymentsPage() {
                                 <h3 className="font-bold text-green-400">Account Active</h3>
                             </div>
                             <p className="text-sm text-slate-400 mb-6">
-                                Your account is fully verified and ready to accept payments.
+                                Your account is fully verified and ready to accept payments. Funds will be deposited directly to your bank account.
                             </p>
                             <button className="btn btn-secondary w-full text-xs py-2">View Stripe Dashboard</button>
                         </div>
@@ -96,11 +181,11 @@ export default function PaymentsPage() {
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-slate-500">Next Payout</span>
-                                    <span className="font-bold">May 24, 2025</span>
+                                    <span className="font-bold">Daily</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-500">Amount</span>
-                                    <span className="font-bold text-green-400">{formatCurrency(4285.50)}</span>
+                                    <span className="text-slate-500">Status</span>
+                                    <span className="font-bold text-green-400">Automatic</span>
                                 </div>
                             </div>
                         </div>
@@ -164,6 +249,14 @@ export default function PaymentsPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function PaymentsPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>}>
+            <PaymentsContent />
+        </Suspense>
     );
 }
 
