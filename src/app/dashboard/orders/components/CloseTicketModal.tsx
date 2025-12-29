@@ -17,6 +17,7 @@ interface CloseTicketModalProps {
 }
 
 import { createClient } from "@/lib/supabase/client";
+import ReceiptPreview from "./ReceiptPreview";
 
 export default function CloseTicketModal({
     orderId,
@@ -547,18 +548,26 @@ export default function CloseTicketModal({
                     </div>
                 )}
 
-                {/* Print Option - Coming Soon */}
+                {/* Print Option */}
                 {activeOption === "print" && (
-                    <div className="text-center py-8">
-                        <Printer className="h-16 w-16 mx-auto text-slate-500 mb-4" />
-                        <h3 className="text-lg font-semibold text-slate-300 mb-2">Printer Setup Required</h3>
-                        <p className="text-slate-400 text-sm mb-6">
-                            Thermal printer integration coming soon.<br />
-                            Connect a Bluetooth receipt printer to enable this feature.
-                        </p>
-                        <button onClick={() => setActiveOption(null)} className="btn btn-secondary">
-                            Back to Options
-                        </button>
+                    <div className="flex flex-col h-full">
+                        <div className="flex-1 overflow-y-auto mb-4 bg-white rounded-lg p-4 custom-scrollbar">
+                            <div className="max-w-[300px] mx-auto shadow-lg scale-90 origin-top">
+                                <ReceiptPreview orderId={orderId} />
+                            </div>
+                        </div>
+                        <div className="flex gap-3 mt-auto pt-4 border-t border-slate-800">
+                            <button onClick={() => setActiveOption(null)} className="btn btn-secondary flex-1">
+                                Back
+                            </button>
+                            <button
+                                onClick={() => window.print()}
+                                className="btn btn-primary flex-1 bg-orange-500 hover:bg-orange-600"
+                            >
+                                <Printer className="h-4 w-4 mr-2" />
+                                Print Receipt
+                            </button>
+                        </div>
                     </div>
                 )}
 

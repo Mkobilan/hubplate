@@ -316,3 +316,33 @@ html {
     background-clip: text;
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  /* Hide everything by default */
+  .print-content,
+  .print-content * {
+    visibility: visible;
+  }
+
+  /* Only show the print content */
+  .print-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white;
+    color: black;
+  }
+
+  /* Ensure no backgrounds or colors are printed unless requested */
+  @page {
+    margin: 0;
+    size: auto;
+  }
+}
