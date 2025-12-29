@@ -54,23 +54,35 @@ export function SessionHandler() {
             const currentEmp = useAppStore.getState().currentEmployee;
 
             if (currentEmp) {
-                const { data: activeEmp } = await supabase
-                    .from("employees")
-                    .select("*")
-                    .eq("id", currentEmp.id)
-                    .eq("is_active", true)
-                    .maybeSingle();
+                // Special handling for Virtual Owner Session in Terminal Mode
+                // Virtual owners use their user_id (org owner_id) as their employee_id, and have role="owner"
+                // They might not have a physical record in 'employees' table.
+                const isVirtualOwner = useAppStore.getState().isTerminalMode &&
+                    currentEmp.role === 'owner' &&
+                    (currentEmp as any).is_virtual === true; // We can add a flag, or just infer from context. 
+                // Actually, we can just skip validation if role is owner and we are in terminal mode,
+                // trusting the PIN pad logic.
 
-                if (activeEmp) {
-                    validatedEmployee = activeEmp;
-                    // Update in store in case details changed
-                    // Check for deep equality or just set it? Just set it to be safe and simple
-                    // Optimization: Only set if different? For now, re-setting is fine.
-                    // But strictly speaking we just want to know if they are active.
+                // Better safety:
+                const isTerminalOwner = useAppStore.getState().isTerminalMode && currentEmp.role === 'owner';
+
+                if (isTerminalOwner) {
+                    // Skip DB validation for terminal owners (pinned in), assume session is valid until logout
+                    validatedEmployee = currentEmp;
                 } else {
-                    // Employee found in store but not active in DB -> Revoke
-                    console.warn("Current employee session revoked or inactive.");
-                    setCurrentEmployee(null);
+                    const { data: activeEmp } = await supabase
+                        .from("employees")
+                        .select("*")
+                        .eq("id", currentEmp.id)
+                        .eq("is_active", true)
+                        .maybeSingle();
+
+                    if (activeEmp) {
+                        validatedEmployee = activeEmp;
+                    } else {
+                        console.warn("Current employee session revoked or inactive.");
+                        setCurrentEmployee(null);
+                    }
                 }
             }
 

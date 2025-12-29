@@ -58,6 +58,7 @@ export interface Database {
                     stripe_onboarding_complete: boolean;
                     is_active: boolean;
                     tax_rate: number;
+                    google_review_link: string | null;
                     created_at: string;
                     updated_at: string;
                 };
@@ -75,6 +76,7 @@ export interface Database {
                     stripe_onboarding_complete?: boolean;
                     is_active?: boolean;
                     tax_rate?: number;
+                    google_review_link?: string | null;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -91,6 +93,7 @@ export interface Database {
                     stripe_onboarding_complete?: boolean;
                     is_active?: boolean;
                     tax_rate?: number;
+                    google_review_link?: string | null;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -801,6 +804,56 @@ export interface Database {
                     rating?: number;
                     comment?: string | null;
                     created_at?: string;
+                };
+            };
+            marketing_campaigns: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    name: string;
+                    type: string;
+                    status: "draft" | "scheduled" | "active" | "completed" | "cancelled" | "running";
+                    subject: string | null;
+                    message: string | null;
+                    target_audience: Json | null;
+                    sent_count: number;
+                    open_count: number;
+                    click_count: number;
+                    scheduled_at: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    name: string;
+                    type: string;
+                    status?: "draft" | "scheduled" | "active" | "completed" | "cancelled" | "running";
+                    subject?: string | null;
+                    message?: string | null;
+                    target_audience?: Json | null;
+                    sent_count?: number;
+                    open_count?: number;
+                    click_count?: number;
+                    scheduled_at?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    name?: string;
+                    type?: string;
+                    status?: "draft" | "scheduled" | "active" | "completed" | "cancelled" | "running";
+                    subject?: string | null;
+                    message?: string | null;
+                    target_audience?: Json | null;
+                    sent_count?: number;
+                    open_count?: number;
+                    click_count?: number;
+                    scheduled_at?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
                 };
             };
         };

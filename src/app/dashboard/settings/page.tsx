@@ -38,6 +38,7 @@ export default function SettingsPage() {
     const [settings, setSettings] = useState({
         require_manager_approval_for_swaps: false,
         admin_pin: "",
+        google_review_link: "",
     });
 
     const MANAGEMENT_ROLES = ["owner", "manager"];
@@ -45,6 +46,8 @@ export default function SettingsPage() {
 
     const fetchSettings = async () => {
         const orgId = (currentEmployee as any)?.organization_id || currentLocation?.organization_id;
+        const locationId = currentLocation?.id;
+
         if (!orgId) {
             setLoading(false);
             return;
@@ -54,18 +57,34 @@ export default function SettingsPage() {
             setLoading(true);
             const supabase = createClient();
 
-            const { data, error } = await supabase
+            // Fetch Organization Settings
+            const { data: orgData, error: orgError } = await supabase
                 .from("organizations")
                 .select("require_manager_approval_for_swaps, admin_pin")
                 .eq("id", orgId)
                 .single();
 
-            if (error) throw error;
+            if (orgError) throw orgError;
 
-            if (data) {
+            // Fetch Location Settings
+            let googleLink = "";
+            if (locationId) {
+                const { data: locData } = await supabase
+                    .from("locations")
+                    .select("google_review_link")
+                    .eq("id", locationId)
+                    .single();
+
+                if (locData) {
+                    googleLink = (locData as any).google_review_link || "";
+                }
+            }
+
+            if (orgData) {
                 setSettings({
-                    require_manager_approval_for_swaps: (data as any).require_manager_approval_for_swaps || false,
-                    admin_pin: (data as any).admin_pin || "",
+                    require_manager_approval_for_swaps: (orgData as any).require_manager_approval_for_swaps || false,
+                    admin_pin: (orgData as any).admin_pin || "",
+                    google_review_link: googleLink,
                 });
             }
         } catch (err) {
@@ -92,16 +111,30 @@ export default function SettingsPage() {
             const supabase = createClient();
 
             const orgId = (currentEmployee as any)?.organization_id || currentLocation?.organization_id;
+            const locationId = currentLocation?.id;
+
             if (!orgId) throw new Error("No organization found");
 
-            const { error } = await (supabase.from("organizations") as any)
+            // Save Org Settings
+            const { error: orgError } = await (supabase.from("organizations") as any)
                 .update({
                     require_manager_approval_for_swaps: settings.require_manager_approval_for_swaps,
                     admin_pin: settings.admin_pin || null,
                 })
                 .eq("id", orgId);
 
-            if (error) throw error;
+            if (orgError) throw orgError;
+
+            // Save Location Settings
+            if (locationId) {
+                const { error: locError } = await (supabase.from("locations") as any)
+                    .update({
+                        google_review_link: settings.google_review_link || null
+                    })
+                    .eq("id", locationId);
+
+                if (locError) throw locError;
+            }
 
             setStatus("success");
             setMessage("Settings saved successfully!");
@@ -244,6 +277,37 @@ export default function SettingsPage() {
                                     placeholder="Enter 4-6 digit PIN"
                                 />
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Marketing Settings */}
+            {isManagerOrOwner && (
+                <div className="card space-y-6">
+                    <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+                        <div className="p-2 bg-yellow-500/10 rounded-xl">
+                            <MessageSquare className="h-6 w-6 text-yellow-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-white">Marketing Settings</h2>
+                            <p className="text-xs text-slate-500">Configure links and preferences for automated campaigns</p>
+                        </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-800">
+                        <div>
+                            <label className="label">Google Maps Review Link</label>
+                            <p className="text-xs text-slate-400 mb-2">
+                                Provide your Google Maps review link here. This will be automatically included in "Review Request" campaigns.
+                            </p>
+                            <input
+                                type="url"
+                                value={settings.google_review_link}
+                                onChange={(e) => setSettings({ ...settings, google_review_link: e.target.value })}
+                                className="input w-full"
+                                placeholder="https://g.page/r/YOUR_CODE/review"
+                            />
                         </div>
                     </div>
                 </div>
