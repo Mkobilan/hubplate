@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Your Email</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8fafc;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    .header {
+      background-color: #0f172a; /* Slate 900 */
+      padding: 32px;
+      text-align: center;
+    }
+    .logo {
+      color: #f97316; /* Orange 500 */
+      font-size: 28px;
+      font-weight: bold;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .content {
+      padding: 40px 32px;
+      color: #334155; /* Slate 700 */
+      line-height: 1.6;
+    }
+    .h1 {
+      color: #0f172a;
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .button-container {
+      text-align: center;
+      margin: 32px 0;
+    }
+    .button {
+      background-image: linear-gradient(to bottom right, #f97316, #ea580c); /* Orange Gradient */
+      color: #ffffff;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      display: inline-block;
+      box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.3);
+    }
+    .footer {
+      background-color: #f1f5f9; /* Slate 100 */
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">
+        <span style="font-size: 32px;">👨‍🍳</span> HubPlate
+      </div>
+    </div>
+    
+    <div class="content">
+      <h1 class="h1">Welcome to the Kitchen!</h1>
+      <p>Thanks for signing up for HubPlate. We're excited to help you streamline your restaurant operations.</p>
+      <p>Please confirm your email address to activate your account and access your dashboard.</p>
+      
+      <div class="button-container">
+        <a href="{{ .ConfirmationURL }}" class="button">Confirm Email Address</a>
+      </div>
+      
+      <p style="font-size: 14px; text-align: center; color: #94a3b8;">
+        Link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
+      </p>
+    </div>
+    
+    <div class="footer">
+      &copy; 2024 HubPlate Inc. All rights reserved.<br>
+      Restaurant Management System
+    </div>
+  </div>
+</body>
+</html>

@@ -124,13 +124,42 @@ export default function RecommendationsPage() {
 
         setSendingType(type);
 
-        // Simulate API delay
-        setTimeout(() => {
-            const contactInfo = type === 'email' ? selectedCustomer.email : selectedCustomer.phone;
-            toast.success(`Promo sent to ${contactInfo} successfully!`);
-            console.log(`[SIMULATION] Sent promo to ${contactInfo} via ${type}`);
-            setSendingType(null);
-        }, 1500);
+        if (type === 'email') {
+            try {
+                const response = await fetch("/api/email/send", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        customerId: selectedCustomerId,
+                        promoCode: aiResult.suggested_promo.code,
+                        type: 'ai-recommendation',
+                        recommendation: {
+                            reason: aiResult.suggested_promo.message,
+                            suggestion: aiResult.suggested_promo.offer
+                        }
+                    }),
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || "Failed to send email");
+                }
+
+                toast.success(`Promo sent to ${target} via email!`);
+            } catch (err: any) {
+                console.error("Error sending email:", err);
+                toast.error(err.message || "Failed to send email");
+            } finally {
+                setSendingType(null);
+            }
+        } else {
+            // Simulate SMS for now as we don't have an SMS integration yet
+            setTimeout(() => {
+                toast.success(`Promo sent to ${target} via SMS!`);
+                console.log(`[SIMULATION] Sent promo to ${target} via SMS`);
+                setSendingType(null);
+            }, 1500);
+        }
     };
 
     const selectedCustomer = customers.find(c => c.id === selectedCustomerId);

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
+import toast from "react-hot-toast";
 import {
     User,
     ShoppingBag,
@@ -16,7 +17,9 @@ import {
     Check,
     Loader2,
     X,
-    Heart
+    Heart,
+    Pencil,
+    Save
 } from "lucide-react";
 
 interface CustomerDetailModalProps {
@@ -33,6 +36,14 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
     const [copiedPromo, setCopiedPromo] = useState<string | null>(null);
     const [isEditingBirthday, setIsEditingBirthday] = useState(false);
     const [tempBirthday, setTempBirthday] = useState("");
+    const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [editForm, setEditForm] = useState({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: ""
+    });
 
     useEffect(() => {
         if (isOpen && customerId) {
@@ -57,7 +68,15 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
                 .single();
 
             if (custError) throw custError;
-            setCustomer(custData);
+
+            const customer = custData as any;
+            setCustomer(customer);
+            setEditForm({
+                firstName: customer.first_name || "",
+                lastName: customer.last_name || "",
+                email: customer.email || "",
+                phone: customer.phone || ""
+            });
 
             const { data: orderData, error: orderError } = await supabase
                 .from("orders")
@@ -154,6 +173,71 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
         setTimeout(() => setCopiedPromo(null), 2000);
     };
 
+    const handleSendEmail = async (rec: any) => {
+        if (!customerId) return;
+        setSendingEmail(rec.promoCode); // use promoCode as unique identifier for the button
+
+        try {
+            const response = await fetch("/api/email/send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    customerId,
+                    promoCode: rec.promoCode,
+                    type: rec.type,
+                    recommendation: {
+                        suggestion: rec.suggestion,
+                        reason: rec.reason
+                    }
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to send email");
+            }
+
+            toast.success("Email sent successfully!");
+        } catch (err: any) {
+            console.error("Error sending email:", err);
+            toast.error(err.message || "Failed to send email");
+        } finally {
+            setSendingEmail(null);
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        if (!customerId) return;
+        try {
+            const supabase = createClient();
+            const { error } = await (supabase as any)
+                .from("customers")
+                .update({
+                    first_name: editForm.firstName,
+                    last_name: editForm.lastName,
+                    email: editForm.email,
+                    phone: editForm.phone
+                })
+                .eq("id", customerId);
+
+            if (error) throw error;
+
+            setCustomer({
+                ...customer,
+                first_name: editForm.firstName,
+                last_name: editForm.lastName,
+                email: editForm.email,
+                phone: editForm.phone
+            });
+            setIsEditingProfile(false);
+            toast.success("Profile updated successfully");
+        } catch (err: any) {
+            console.error("Error saving profile:", err);
+            toast.error(err.message || "Failed to update profile");
+        }
+    };
+
     const saveBirthday = async () => {
         if (!customerId || !tempBirthday) return;
         try {
@@ -167,8 +251,10 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
 
             setCustomer({ ...customer, birthday: tempBirthday });
             setIsEditingBirthday(false);
+            toast.success("Birthday updated");
         } catch (err) {
             console.error("Error saving birthday:", err);
+            toast.error("Failed to update birthday");
         }
     };
 
@@ -179,14 +265,6 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
             <div className="relative card w-full max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl">
 
-                {/* Close Button */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-2 rounded-full bg-black/20 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors z-10"
-                >
-                    <X className="h-5 w-5" />
-                </button>
-
                 {loading || !customer ? (
                     <div className="flex flex-col items-center justify-center p-20">
                         <Loader2 className="h-8 w-8 text-orange-500 animate-spin mb-4" />
@@ -195,23 +273,102 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
                 ) : (
                     <div className="flex flex-col h-full overflow-hidden">
                         {/* Header Profile */}
-                        <div className="p-6 bg-slate-900/50 border-b border-slate-800 flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
-                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-pink-600 flex items-center justify-center text-3xl font-bold shadow-lg shadow-orange-900/20 shrink-0">
+                        <div className="p-6 bg-slate-900/50 border-b border-slate-800 flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left relative">
+
+                            {/* Close Button */}
+                            <button
+                                onClick={onClose}
+                                className="absolute top-4 right-4 p-2 rounded-full bg-black/20 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors z-20"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+
+                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-pink-600 flex items-center justify-center text-3xl font-bold shadow-lg shadow-orange-900/20 shrink-0 mt-2 sm:mt-0">
                                 {(customer.first_name?.[0] || "") + (customer.last_name?.[0] || "") || "U"}
                             </div>
-                            <div className="flex-1 space-y-2">
+                            <div className="flex-1 space-y-2 pt-2 sm:pt-0 mr-12">
                                 <div>
-                                    <h2 className="text-2xl font-bold">{customer.first_name} {customer.last_name}</h2>
-                                    <div className="flex flex-wrap justify-center sm:justify-start items-center gap-4 text-sm text-slate-400 mt-1">
-                                        {customer.email && (
-                                            <span className="flex items-center gap-1.5">
-                                                <Mail className="h-3 w-3" /> {customer.email}
-                                            </span>
-                                        )}
-                                        {customer.phone && (
-                                            <span className="flex items-center gap-1.5">
-                                                <Phone className="h-3 w-3" /> {customer.phone}
-                                            </span>
+                                    {isEditingProfile ? (
+                                        <div className="flex flex-col sm:flex-row gap-2 mb-2 items-center sm:items-start">
+                                            <div className="flex gap-2">
+                                                <input
+                                                    value={editForm.firstName}
+                                                    onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                                                    className="input py-1 px-2 text-lg font-bold w-32 bg-slate-800 border-slate-700"
+                                                    placeholder="First Name"
+                                                />
+                                                <input
+                                                    value={editForm.lastName}
+                                                    onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                                                    className="input py-1 px-2 text-lg font-bold w-32 bg-slate-800 border-slate-700"
+                                                    placeholder="Last Name"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={handleSaveProfile}
+                                                    className="p-1.5 rounded-lg bg-green-500/10 text-green-500 hover:bg-green-500/20"
+                                                    title="Save Changes"
+                                                >
+                                                    <Save className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setIsEditingProfile(false)}
+                                                    className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
+                                                    title="Cancel"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-center sm:justify-start gap-3 group">
+                                            <h2 className="text-2xl font-bold">{customer.first_name} {customer.last_name}</h2>
+                                            <button
+                                                onClick={() => setIsEditingProfile(true)}
+                                                className="p-1.5 rounded-lg text-slate-500 hover:text-orange-400 hover:bg-orange-400/10 transition-colors"
+                                                title="Edit Profile"
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-slate-400 mt-1">
+                                        {isEditingProfile ? (
+                                            <div className="flex flex-col gap-2 w-full max-w-md">
+                                                <div className="flex items-center gap-2">
+                                                    <Mail className="h-4 w-4 text-slate-500" />
+                                                    <input
+                                                        value={editForm.email}
+                                                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                                        className="input py-1 px-2 text-sm w-full"
+                                                        placeholder="Email Address"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Phone className="h-4 w-4 text-slate-500" />
+                                                    <input
+                                                        value={editForm.phone}
+                                                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                                        className="input py-1 px-2 text-sm w-full"
+                                                        placeholder="Phone Number"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {customer.email && (
+                                                    <span className="flex items-center gap-1.5">
+                                                        <Mail className="h-3 w-3" /> {customer.email}
+                                                    </span>
+                                                )}
+                                                {customer.phone && (
+                                                    <span className="flex items-center gap-1.5">
+                                                        <Phone className="h-3 w-3" /> {customer.phone}
+                                                    </span>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -227,7 +384,7 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
                                     </div>
                                 </div>
                             </div>
-                            <div className="text-right hidden sm:block">
+                            <div className="text-right hidden sm:block mr-12">
                                 <p className="text-xs text-slate-500 uppercase font-bold mb-1">Lifetime Value</p>
                                 <p className="text-2xl font-mono text-green-400">{formatCurrency(customer.total_spent)}</p>
                                 <p className="text-xs text-slate-500 mt-1">{customer.total_visits} Visits</p>
@@ -446,8 +603,16 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
                                                         )}
 
                                                         {rec.action === 'email' && (
-                                                            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors shrink-0">
-                                                                <Mail className="h-4 w-4" />
+                                                            <button
+                                                                onClick={() => handleSendEmail(rec)}
+                                                                disabled={!!sendingEmail}
+                                                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors shrink-0"
+                                                            >
+                                                                {sendingEmail === rec.promoCode ? (
+                                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                                ) : (
+                                                                    <Mail className="h-4 w-4" />
+                                                                )}
                                                                 Send Email
                                                             </button>
                                                         )}
