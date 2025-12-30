@@ -302,7 +302,7 @@ export default function HomePage() {
                   <Link href="/signup" className="btn btn-primary w-full py-6 text-2xl font-bold shadow-xl block text-center">
                     START 14-DAY FREE TRIAL
                   </Link>
-                  <p className="text-center text-slate-500 font-medium tracking-wide">No credit card required. Cancel anytime.</p>
+                  <p className="text-center text-slate-500 font-medium tracking-wide">Cancel anytime.</p>
                 </div>
 
                 <div className="bg-slate-900/50 rounded-3xl p-8 border border-white/5">

@@ -24,7 +24,12 @@ import {
     Copy,
     ExternalLink,
     Loader2,
-    AlertCircle
+    AlertCircle,
+    UserX,
+    ChevronRight,
+    Calendar,
+    ArrowLeft,
+    ArrowRight
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -113,6 +118,7 @@ export default function StaffPage() {
                 .from("employees")
                 .select("*, employee_roles(*)")
                 .eq("location_id", currentLocation.id)
+                .eq("is_active", true)
                 .order("first_name");
             if (staffError) throw staffError;
 
@@ -389,8 +395,51 @@ export default function StaffPage() {
         }
     };
 
+    const handleUpdateDate = async (employeeId: string, field: 'hire_date' | 'termination_date', date: string) => {
+        try {
+            const supabase = createClient();
+            const { error } = await (supabase as any)
+                .from("employees")
+                .update({ [field]: date })
+                .eq("id", employeeId);
+
+            if (error) throw error;
+
+            // Update local state
+            setStaff(staff.map(emp => emp.id === employeeId ? { ...emp, [field]: date } : emp));
+            if (selectedStaff?.id === employeeId) {
+                setSelectedStaff({ ...selectedStaff, [field]: date });
+            }
+        } catch (err) {
+            console.error(`Error updating ${field}:`, err);
+            alert(`Failed to update ${field.replace('_', ' ')}.`);
+        }
+    };
+
+    const handleUpdateContact = async (employeeId: string, field: 'email' | 'phone', value: string) => {
+        try {
+            const supabase = createClient();
+            const { error } = await (supabase as any)
+                .from("employees")
+                .update({ [field]: value })
+                .eq("id", employeeId);
+
+            if (error) throw error;
+
+            // Update local state
+            setStaff(staff.map(emp => emp.id === employeeId ? { ...emp, [field]: value } : emp));
+            if (selectedStaff?.id === employeeId) {
+                setSelectedStaff({ ...selectedStaff, [field]: value });
+            }
+        } catch (err) {
+            console.error(`Error updating ${field}:`, err);
+            alert(`Failed to update ${field}.`);
+        }
+    };
+
+    const isOrgOwner = useAppStore((state) => state.isOrgOwner);
     const currentEmployeeFromStore = useAppStore((state) => state.currentEmployee);
-    const isOwnerOrManager = currentEmployeeFromStore?.role === 'owner' || currentEmployeeFromStore?.role === 'manager';
+    const isOwnerOrManager = isOrgOwner || currentEmployeeFromStore?.role === 'owner' || currentEmployeeFromStore?.role === 'manager';
 
     const filteredEmployees = staff.filter(emp =>
         (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -423,10 +472,20 @@ export default function StaffPage() {
                         {currentLocation.name} - Manage your team and track performance
                     </p>
                 </div>
-                <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
-                    <UserPlus className="h-4 w-4" />
-                    Add Employee
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => window.location.href = "/dashboard/staff/discontinued"}
+                        className="btn btn-secondary"
+                        title="View inactive employees"
+                    >
+                        <UserX className="h-4 w-4" />
+                        Discontinued
+                    </button>
+                    <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
+                        <UserPlus className="h-4 w-4" />
+                        Add Employee
+                    </button>
+                </div>
             </div>
 
             {/* Quick Stats */}
@@ -546,10 +605,10 @@ export default function StaffPage() {
                                                             e.stopPropagation();
                                                             setShowDiscontinueModal(emp);
                                                         }}
-                                                        className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-red-400"
-                                                        title="Discontinue Staff Member"
+                                                        className="p-2 hover:bg-red-500/10 rounded-lg text-red-500 hover:text-red-400 transition-colors"
+                                                        title="Delete Employee"
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        <Trash2 className="h-5 w-5" />
                                                     </button>
                                                 )}
                                             </div>
@@ -1034,10 +1093,19 @@ export default function StaffPage() {
                                             <p>{formatCurrency(selectedStaff.hourly_rate)}/hr</p>
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-xs text-slate-500 uppercase font-bold">
-                                                {selectedStaff.hire_date ? "Hire Date" : "Joined Date"}
-                                            </p>
-                                            <p>{selectedStaff.hire_date ? format(new Date(selectedStaff.hire_date), "MMM d, yyyy") : (selectedStaff.created_at ? format(new Date(selectedStaff.created_at), "MMM d, yyyy") : "N/A")}</p>
+                                            <p className="text-xs text-slate-500 uppercase font-bold">Joined Date</p>
+                                            {isOwnerOrManager ? (
+                                                <input
+                                                    type="date"
+                                                    className="bg-transparent border-none text-sm p-0 focus:ring-0 cursor-pointer hover:text-orange-400 transition-colors"
+                                                    value={selectedStaff.hire_date || (selectedStaff.created_at ? format(new Date(selectedStaff.created_at), "yyyy-MM-dd") : "")}
+                                                    onChange={(e) => handleUpdateDate(selectedStaff.id, 'hire_date', e.target.value)}
+                                                />
+                                            ) : (
+                                                <p className="text-sm">
+                                                    {selectedStaff.hire_date ? format(new Date(selectedStaff.hire_date), "MMM d, yyyy") : (selectedStaff.created_at ? format(new Date(selectedStaff.created_at), "MMM d, yyyy") : "N/A")}
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-xs text-slate-500 uppercase font-bold">Status</p>
@@ -1061,10 +1129,21 @@ export default function StaffPage() {
                                                 <span className="text-xs text-slate-400 font-mono uppercase">{(selectedStaff as any).server_color || "#334155"}</span>
                                             </div>
                                         </div>
-                                        {!selectedStaff.is_active && selectedStaff.termination_date && (
+                                        {!selectedStaff.is_active && (
                                             <div className="space-y-1">
                                                 <p className="text-xs text-slate-500 uppercase font-bold text-red-400">Termination Date</p>
-                                                <p className="text-red-400">{format(new Date(selectedStaff.termination_date), "MMM d, yyyy")}</p>
+                                                {isOwnerOrManager ? (
+                                                    <input
+                                                        type="date"
+                                                        className="bg-transparent border-none text-sm p-0 focus:ring-0 cursor-pointer hover:text-red-400 transition-colors text-red-400"
+                                                        value={selectedStaff.termination_date || ""}
+                                                        onChange={(e) => handleUpdateDate(selectedStaff.id, 'termination_date', e.target.value)}
+                                                    />
+                                                ) : (
+                                                    <p className="text-red-400 text-sm">
+                                                        {selectedStaff.termination_date ? format(new Date(selectedStaff.termination_date), "MMM d, yyyy") : "N/A"}
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -1112,17 +1191,38 @@ export default function StaffPage() {
 
                                     <div className="pt-4 border-t border-slate-800">
                                         <p className="text-xs text-slate-500 uppercase font-bold mb-2">Contact Info</p>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-sm text-slate-300">
-                                                <Mail className="h-4 w-4 text-slate-500" />
-                                                {selectedStaff.email}
+                                        <div className="space-y-3">
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2 text-sm text-slate-300">
+                                                    <Mail className="h-4 w-4 text-slate-500" />
+                                                    {isOwnerOrManager ? (
+                                                        <input
+                                                            type="email"
+                                                            className="bg-transparent border-none text-sm p-0 focus:ring-0 cursor-text hover:text-orange-400 transition-colors w-full"
+                                                            value={selectedStaff.email || ""}
+                                                            onChange={(e) => handleUpdateContact(selectedStaff.id, 'email', e.target.value)}
+                                                        />
+                                                    ) : (
+                                                        <span>{selectedStaff.email}</span>
+                                                    )}
+                                                </div>
                                             </div>
-                                            {selectedStaff.phone && (
+                                            <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-2 text-sm text-slate-300">
                                                     <Phone className="h-4 w-4 text-slate-500" />
-                                                    {selectedStaff.phone}
+                                                    {isOwnerOrManager ? (
+                                                        <input
+                                                            type="text"
+                                                            className="bg-transparent border-none text-sm p-0 focus:ring-0 cursor-text hover:text-orange-400 transition-colors w-full"
+                                                            placeholder="Add phone number..."
+                                                            value={selectedStaff.phone || ""}
+                                                            onChange={(e) => handleUpdateContact(selectedStaff.id, 'phone', e.target.value)}
+                                                        />
+                                                    ) : (
+                                                        <span>{selectedStaff.phone || "N/A"}</span>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -334,7 +334,7 @@ export default function SignupPage() {
 
                     {/* Benefits */}
                     <div className="mt-6 pt-6 border-t border-slate-800 space-y-3">
-                        <Feature text="14-day free trial, no credit card" />
+                        <Feature text="14-day free trial" />
                         <Feature text="Works on any phone or tablet" />
                         <Feature text="Cancel anytime" />
                     </div>
