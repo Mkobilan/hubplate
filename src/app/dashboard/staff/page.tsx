@@ -29,7 +29,8 @@ import {
     ChevronRight,
     Calendar,
     ArrowLeft,
-    ArrowRight
+    ArrowRight,
+    FileSpreadsheet
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -57,7 +58,7 @@ type Employee = {
     active_hourly_rate?: number;
 };
 
-const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "driver", "expo", "manager", "owner"];
+const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "driver", "expo", "agm", "manager", "owner"];
 
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { Modal } from "@/components/ui/modal";
@@ -65,6 +66,7 @@ import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect } from "react";
 import { Database } from "@/types/database";
+import { CSVUploadModal } from "@/components/staff/CSVUploadModal";
 
 type Role = Database["public"]["Tables"]["employee_roles"]["Row"]["role"];
 
@@ -84,6 +86,9 @@ export default function StaffPage() {
         hourly_rate: "15.00",
         email: ""
     });
+
+    // CSV Import State
+    const [showCSVModal, setShowCSVModal] = useState(false);
 
     // Staff Detail & Timeclock State
     const [selectedStaff, setSelectedStaff] = useState<Employee | null>(null);
@@ -433,13 +438,13 @@ export default function StaffPage() {
             }
         } catch (err) {
             console.error(`Error updating ${field}:`, err);
-            alert(`Failed to update ${field}.`);
+            alert(`Failed to update ${field.replace('_', ' ')}.`);
         }
     };
 
     const isOrgOwner = useAppStore((state) => state.isOrgOwner);
     const currentEmployeeFromStore = useAppStore((state) => state.currentEmployee);
-    const isOwnerOrManager = isOrgOwner || currentEmployeeFromStore?.role === 'owner' || currentEmployeeFromStore?.role === 'manager';
+    const isOwnerOrManager = isOrgOwner || currentEmployeeFromStore?.role === 'owner' || currentEmployeeFromStore?.role === 'manager' || currentEmployeeFromStore?.role === 'gm' || currentEmployeeFromStore?.role === 'agm';
 
     const filteredEmployees = staff.filter(emp =>
         (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -485,6 +490,16 @@ export default function StaffPage() {
                         <UserPlus className="h-4 w-4" />
                         Add Employee
                     </button>
+                    {isOwnerOrManager && (
+                        <button
+                            onClick={() => setShowCSVModal(true)}
+                            className="btn btn-secondary"
+                            title="Bulk import employees from CSV"
+                        >
+                            <FileSpreadsheet className="h-4 w-4" />
+                            Import CSV
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1427,6 +1442,15 @@ export default function StaffPage() {
                     </div>
                 </form>
             </Modal >
+
+            {/* CSV Upload Modal */}
+            <CSVUploadModal
+                isOpen={showCSVModal}
+                onClose={() => setShowCSVModal(false)}
+                locationId={currentLocation.id}
+                organizationId={(currentLocation as any).organization_id}
+                onImportComplete={() => fetchStaff()}
+            />
         </div >
     );
 }

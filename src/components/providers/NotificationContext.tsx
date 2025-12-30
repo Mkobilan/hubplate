@@ -4,6 +4,9 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
 import { toast } from "react-hot-toast";
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Badge } from '@capawesome/capacitor-badge';
+import { Capacitor } from '@capacitor/core';
 
 type Notification = {
     id: string;
@@ -49,7 +52,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 .limit(20);
 
             if (error) throw error;
-            setNotifications(data || []);
+            const fetchedNotifications = (data as Notification[]) || [];
+            setNotifications(fetchedNotifications);
+
+            // Update badge count if native
+            if (Capacitor.isNativePlatform()) {
+                const unread = fetchedNotifications.filter(n => !n.is_read).length;
+                Badge.set({ count: unread }).catch(console.error);
+            }
         } catch (error) {
             console.error("Error fetching notifications:", error);
         } finally {
@@ -60,7 +70,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const markAsRead = async (id: string) => {
         try {
             // Optimistic update
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+            setNotifications((prev: Notification[]) => {
+                const updated = prev.map(n => n.id === id ? { ...n, is_read: true } : n);
+                // Update badge if native
+                if (Capacitor.isNativePlatform()) {
+                    const unread = updated.filter(u => !u.is_read).length;
+                    Badge.set({ count: unread }).catch(console.error);
+                }
+                return updated;
+            });
 
             const { error } = await (supabase
                 .from("notifications") as any)
@@ -70,7 +88,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             if (error) throw error;
         } catch (error) {
             console.error("Error marking notification as read:", error);
-            // Revert on error could be added here, but usually fine for read status
         }
     };
 
@@ -79,7 +96,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
         try {
             // Optimistic update
-            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+            setNotifications((prev: Notification[]) => prev.map(n => ({ ...n, is_read: true })));
+
+            // Reset badge if native
+            if (Capacitor.isNativePlatform()) {
+                Badge.set({ count: 0 }).catch(console.error);
+            }
 
             const { error } = await (supabase
                 .from("notifications") as any)
@@ -97,6 +119,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (currentEmployee?.id) {
             fetchNotifications();
 
+            // Request permissions for local notifications if native
+            if (Capacitor.isNativePlatform()) {
+                LocalNotifications.requestPermissions().then(permission => {
+                    if (permission.display !== 'granted') {
+                        console.warn('Local notification permission not granted');
+                    }
+                });
+            }
+
             // Realtime subscription
             const channel = supabase
                 .channel(`notifications:${currentEmployee.id}`)
@@ -110,13 +141,40 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                     },
                     (payload) => {
                         const newNotification = payload.new as Notification;
-                        setNotifications(prev => [newNotification, ...prev].slice(0, 20));
+                        setNotifications((prev: Notification[]) => {
+                            const updated = [newNotification, ...prev].slice(0, 20);
 
-                        // Optional: Show toast for important notifications
-                        if (newNotification.type !== 'clock_in' && newNotification.type !== 'clock_out') {
-                            // toast(newNotification.message, { icon: '🔔' }); 
-                            // Using a custom toast or standard one. Keeping it simple.
-                        }
+                            // Trigger local notification and badge update if native
+                            if (Capacitor.isNativePlatform() && !newNotification.is_read) {
+                                // Update badge
+                                const unread = updated.filter(n => !n.is_read).length;
+                                Badge.set({ count: unread }).catch(console.error);
+
+                                // Schedule local notification
+                                LocalNotifications.schedule({
+                                    notifications: [
+                                        {
+                                            id: Math.floor(Math.random() * 1000000), // Random ID for local notification
+                                            title: newNotification.title,
+                                            body: newNotification.message,
+                                            largeBody: newNotification.message,
+                                            summaryText: 'New Alert',
+                                            schedule: { at: new Date(Date.now() + 1000) }, // Trigger almost immediately
+                                            sound: 'beep.wav', // Default sound
+                                            extra: {
+                                                notificationId: newNotification.id,
+                                                link: newNotification.link
+                                            }
+                                        }
+                                    ]
+                                }).catch(console.error);
+                            } else if (!newNotification.is_read) {
+                                // Browser toast for web/PWA
+                                toast(newNotification.title, { icon: '🔔' });
+                            }
+
+                            return updated;
+                        });
                     }
                 )
                 .subscribe();

@@ -106,7 +106,7 @@ export interface Database {
                     user_id: string | null;
                     first_name: string;
                     last_name: string;
-                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    role: "owner" | "manager" | "gm" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     pin_code: string | null;
                     hourly_rate: number | null;
                     is_active: boolean;
@@ -120,7 +120,7 @@ export interface Database {
                     user_id?: string | null;
                     first_name: string;
                     last_name: string;
-                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    role: "owner" | "manager" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     pin_code?: string | null;
                     hourly_rate?: number | null;
                     is_active?: boolean;
@@ -134,7 +134,7 @@ export interface Database {
                     user_id?: string | null;
                     first_name?: string;
                     last_name?: string;
-                    role?: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    role?: "owner" | "manager" | "gm" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     pin_code?: string | null;
                     hourly_rate?: number | null;
                     is_active?: boolean;
@@ -146,7 +146,7 @@ export interface Database {
                 Row: {
                     id: string;
                     employee_id: string;
-                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    role: "owner" | "manager" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     rank: number;
                     hourly_rate: number | null;
                     created_at: string;
@@ -154,7 +154,7 @@ export interface Database {
                 Insert: {
                     id?: string;
                     employee_id: string;
-                    role: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    role: "owner" | "manager" | "gm" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     rank: number;
                     hourly_rate?: number | null;
                     created_at?: string;
@@ -162,7 +162,7 @@ export interface Database {
                 Update: {
                     id?: string;
                     employee_id?: string;
-                    role?: "owner" | "manager" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    role?: "owner" | "manager" | "gm" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     rank?: number;
                     hourly_rate?: number | null;
                     created_at?: string;
@@ -390,7 +390,7 @@ export interface Database {
                     location_id: string;
                     token: string;
                     email: string | null;
-                    role: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser" | "dishwasher" | "driver" | "expo";
+                    role: "owner" | "manager" | "gm" | "agm" | "server" | "bartender" | "cook" | "host" | "busser" | "dishwasher" | "driver" | "expo";
                     hourly_rate: number | null;
                     status: "pending" | "accepted" | "expired";
                     created_by: string;
@@ -403,7 +403,7 @@ export interface Database {
                     location_id: string;
                     token?: string;
                     email?: string | null;
-                    role: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser" | "dishwasher" | "driver" | "expo";
+                    role: "owner" | "manager" | "gm" | "agm" | "server" | "bartender" | "cook" | "host" | "busser" | "dishwasher" | "driver" | "expo";
                     hourly_rate?: number | null;
                     status?: "pending" | "accepted" | "expired";
                     created_by: string;
@@ -415,7 +415,7 @@ export interface Database {
                     location_id?: string;
                     token?: string;
                     email?: string | null;
-                    role?: "owner" | "manager" | "server" | "bartender" | "cook" | "host" | "busser" | "dishwasher" | "driver" | "expo";
+                    role?: "owner" | "manager" | "gm" | "agm" | "server" | "bartender" | "cook" | "host" | "busser" | "dishwasher" | "driver" | "expo";
                     hourly_rate?: number | null;
                     status?: "pending" | "accepted" | "expired";
                     created_by?: string;
@@ -852,6 +852,64 @@ export interface Database {
                     open_count?: number;
                     click_count?: number;
                     scheduled_at?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+            };
+            employee_custom_fields: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    field_name: string;
+                    field_label: string;
+                    field_type: "text" | "number" | "date" | "boolean" | "phone" | "email";
+                    is_required: boolean;
+                    display_order: number;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    field_name: string;
+                    field_label: string;
+                    field_type?: "text" | "number" | "date" | "boolean" | "phone" | "email";
+                    is_required?: boolean;
+                    display_order?: number;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    field_name?: string;
+                    field_label?: string;
+                    field_type?: "text" | "number" | "date" | "boolean" | "phone" | "email";
+                    is_required?: boolean;
+                    display_order?: number;
+                    created_at?: string;
+                };
+            };
+            employee_custom_values: {
+                Row: {
+                    id: string;
+                    employee_id: string;
+                    field_id: string;
+                    value: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    employee_id: string;
+                    field_id: string;
+                    value?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    employee_id?: string;
+                    field_id?: string;
+                    value?: string | null;
                     created_at?: string;
                     updated_at?: string;
                 };

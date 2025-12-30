@@ -45,7 +45,7 @@ type StaffingRule = {
     days_of_week: number[];
 };
 
-const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "expo"];
+const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "driver", "expo", "gm", "agm", "manager", "owner"];
 
 type Employee = {
     id: string;
@@ -195,14 +195,21 @@ export default function ScheduleBuilderPage() {
     };
 
     const fetchRulesForTemplate = async (templateId: string) => {
-        const supabase = createClient();
-        const { data } = await (supabase
-            .from("staffing_rules") as any)
-            .select("*")
-            .eq("template_id", templateId)
-            .order("start_time");
+        try {
+            const supabase = createClient();
+            const { data, error } = await (supabase
+                .from("staffing_rules") as any)
+                .select("*")
+                .eq("template_id", templateId)
+                .order("start_time");
 
-        setRules(data || []);
+            if (error) throw error;
+            setRules(data || []);
+        } catch (err) {
+            console.error("Error fetching rules:", err);
+            setStatus("error");
+            setMessage("Failed to load staffing rules. You might not have permission.");
+        }
     };
 
     const handleSaveTemplate = async () => {
@@ -270,6 +277,7 @@ export default function ScheduleBuilderPage() {
 
         try {
             setSaving(true);
+            setStatus("idle");
             const supabase = createClient();
 
             const ruleData = {
@@ -296,11 +304,16 @@ export default function ScheduleBuilderPage() {
                 if (error) throw error;
             }
 
+            setStatus("success");
+            setMessage("Rule saved successfully!");
             setIsRuleModalOpen(false);
             setEditingRule(null);
             await fetchRulesForTemplate(selectedTemplate.id);
+            setTimeout(() => setStatus("idle"), 3000);
         } catch (err) {
             console.error("Error saving rule:", err);
+            setStatus("error");
+            setMessage("Failed to save rule. You might not have permission.");
         } finally {
             setSaving(false);
         }
@@ -560,6 +573,27 @@ export default function ScheduleBuilderPage() {
                 .insert(shiftsToInsert);
 
             if (shiftsError) throw shiftsError;
+
+            // 4. Notify everyone in the batch
+            // Get unique employee IDs from the generated shifts
+            const uniqueEmployeeIds = Array.from(new Set(generatedShifts.map(s => s.employee_id)));
+
+            if (uniqueEmployeeIds.length > 0) {
+                const notifications = uniqueEmployeeIds.map(empId => ({
+                    recipient_id: empId,
+                    location_id: currentLocation!.id,
+                    type: 'schedule',
+                    title: 'New Schedule Published',
+                    message: `A new schedule has been published for ${format(startDate, "MMM d")} - ${format(endDate, "MMM d")}.`,
+                    is_read: false
+                }));
+
+                const { error: notifyError } = await (supabase
+                    .from("notifications") as any)
+                    .insert(notifications);
+
+                if (notifyError) console.error("Error sending batch notifications:", notifyError);
+            }
 
             setStatus("success");
             setMessage("Schedule published successfully!");
@@ -859,6 +893,16 @@ export default function ScheduleBuilderPage() {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+
+                        {status !== "idle" && (
+                            <div className={cn(
+                                "p-4 rounded-xl flex items-center gap-3",
+                                status === "success" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
+                            )}>
+                                {status === "success" ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+                                {message}
                             </div>
                         )}
 

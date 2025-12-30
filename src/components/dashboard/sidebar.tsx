@@ -41,7 +41,7 @@ interface NavItem {
 }
 
 // Roles that have management access
-const MANAGEMENT_ROLES = ["owner", "manager"];
+const MANAGEMENT_ROLES = ["owner", "manager", "gm", "agm"];
 
 export function DashboardSidebar() {
     const { t } = useTranslation();

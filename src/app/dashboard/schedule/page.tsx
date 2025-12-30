@@ -42,11 +42,11 @@ export default function SchedulePage() {
     const [loading, setLoading] = useState(true);
 
     // Roles that have management access (same as sidebar)
-    const MANAGEMENT_ROLES = ["owner", "manager"];
+    const MANAGEMENT_ROLES = ["owner", "manager", "gm", "agm"];
     const isManagerOrOwner = isTerminalMode
         ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
         : (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
-    const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "expo"];
+    const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "driver", "expo", "gm", "agm", "manager", "owner"];
 
     // Add Shift Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -87,7 +87,8 @@ export default function SchedulePage() {
             const { data: staffData, error: staffError } = await supabase
                 .from("employees")
                 .select("*, employee_roles(*)")
-                .eq("location_id", currentLocation.id);
+                .eq("location_id", currentLocation.id)
+                .eq("is_active", true);
 
             if (staffError) throw staffError;
 

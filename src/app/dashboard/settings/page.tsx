@@ -41,7 +41,7 @@ export default function SettingsPage() {
         google_review_link: "",
     });
 
-    const MANAGEMENT_ROLES = ["owner", "manager"];
+    const MANAGEMENT_ROLES = ["owner", "manager", "gm", "agm"];
     const isManagerOrOwner = (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
 
     const fetchSettings = async () => {
@@ -86,6 +86,12 @@ export default function SettingsPage() {
                     admin_pin: (orgData as any).admin_pin || "",
                     google_review_link: googleLink,
                 });
+            } else {
+                // If orgData not found/accessible, at least set the google link
+                setSettings(prev => ({
+                    ...prev,
+                    google_review_link: googleLink
+                }));
             }
         } catch (err) {
             console.error("Error fetching settings:", err);
@@ -102,7 +108,7 @@ export default function SettingsPage() {
             const timer = setTimeout(() => setLoading(false), 3000);
             return () => clearTimeout(timer);
         }
-    }, [currentEmployee?.id]);
+    }, [currentEmployee?.id, currentLocation?.id]);
 
     const handleSaveSettings = async () => {
         try {
@@ -115,17 +121,19 @@ export default function SettingsPage() {
 
             if (!orgId) throw new Error("No organization found");
 
-            // Save Org Settings
-            const { error: orgError } = await (supabase.from("organizations") as any)
-                .update({
-                    require_manager_approval_for_swaps: settings.require_manager_approval_for_swaps,
-                    admin_pin: settings.admin_pin || null,
-                })
-                .eq("id", orgId);
+            // Save Org Settings (Only for Owners)
+            if (isOrgOwner) {
+                const { error: orgError } = await (supabase.from("organizations") as any)
+                    .update({
+                        require_manager_approval_for_swaps: settings.require_manager_approval_for_swaps,
+                        admin_pin: settings.admin_pin || null,
+                    })
+                    .eq("id", orgId);
 
-            if (orgError) throw orgError;
+                if (orgError) throw orgError;
+            }
 
-            // Save Location Settings
+            // Save Location Settings (For Managers/Owners)
             if (locationId) {
                 const { error: locError } = await (supabase.from("locations") as any)
                     .update({
@@ -220,15 +228,17 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <button
-                                onClick={() => setSettings({
+                                onClick={() => isOrgOwner && setSettings({
                                     ...settings,
                                     require_manager_approval_for_swaps: !settings.require_manager_approval_for_swaps
                                 })}
+                                disabled={!isOrgOwner}
                                 className={cn(
                                     "relative w-14 h-8 rounded-full transition-colors duration-200",
                                     settings.require_manager_approval_for_swaps
                                         ? "bg-orange-500"
-                                        : "bg-slate-700"
+                                        : "bg-slate-700",
+                                    !isOrgOwner && "opacity-50 cursor-not-allowed"
                                 )}
                             >
                                 <span
@@ -269,12 +279,13 @@ export default function SettingsPage() {
                                     type="text"
                                     maxLength={6}
                                     value={settings.admin_pin}
+                                    disabled={!isOrgOwner}
                                     onChange={(e) => {
                                         const val = e.target.value.replace(/\D/g, '');
                                         setSettings({ ...settings, admin_pin: val });
                                     }}
-                                    className="input max-w-xs"
-                                    placeholder="Enter 4-6 digit PIN"
+                                    className={cn("input max-w-xs", !isOrgOwner && "opacity-50")}
+                                    placeholder={isOrgOwner ? "Enter 4-6 digit PIN" : "Only owners can change PIN"}
                                 />
                             </div>
                         </div>

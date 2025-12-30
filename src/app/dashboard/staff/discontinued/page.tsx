@@ -45,7 +45,7 @@ type Employee = {
     employee_roles?: Array<{ role: string; rank: number; hourly_rate?: number }>;
 };
 
-const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "driver", "expo", "manager", "owner"];
+const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "driver", "expo", "agm", "gm", "manager", "owner"];
 
 export default function DiscontinuedStaffPage() {
     const [staff, setStaff] = useState<Employee[]>([]);
@@ -67,7 +67,7 @@ export default function DiscontinuedStaffPage() {
     const currentLocation = useAppStore((state) => state.currentLocation);
     const isOrgOwner = useAppStore((state) => state.isOrgOwner);
     const currentEmployeeFromStore = useAppStore((state) => state.currentEmployee);
-    const isOwnerOrManager = isOrgOwner || currentEmployeeFromStore?.role === 'owner' || currentEmployeeFromStore?.role === 'manager';
+    const isOwnerOrManager = isOrgOwner || currentEmployeeFromStore?.role === 'owner' || currentEmployeeFromStore?.role === 'manager' || currentEmployeeFromStore?.role === 'gm' || currentEmployeeFromStore?.role === 'agm';
 
     const fetchStaff = async () => {
         if (!currentLocation) return;
