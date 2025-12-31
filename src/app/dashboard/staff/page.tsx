@@ -87,6 +87,21 @@ export default function StaffPage() {
         email: ""
     });
 
+    // Manual Add State
+    const [addMethod, setAddMethod] = useState<"choice" | "invite" | "manual">("choice");
+    const [manualAddLoading, setManualAddLoading] = useState(false);
+    const [manualForm, setManualForm] = useState({
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone: "",
+        role: "server",
+        pin_code: "",
+        hourly_rate: "15.00",
+        hire_date: new Date().toISOString().split('T')[0],
+        max_weekly_hours: "40.00"
+    });
+
     // CSV Import State
     const [showCSVModal, setShowCSVModal] = useState(false);
 
@@ -188,6 +203,83 @@ export default function StaffPage() {
             alert("Failed to generate invite link. Please try again.");
         } finally {
             setInviteLoading(false);
+        }
+    };
+
+    const handleManualAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentLocation) return;
+
+        // Basic validation
+        if (!manualForm.first_name || !manualForm.last_name) {
+            alert("First and last name are required");
+            return;
+        }
+
+        try {
+            setManualAddLoading(true);
+            const supabase = createClient();
+
+            // Ensure we have an organization ID
+            const orgId = (currentLocation as any).organization_id || (currentEmployee as any)?.organization_id;
+
+            if (!orgId) {
+                console.error("Missing organization_id", { currentLocation, currentEmployee });
+                throw new Error("Missing organization ID. Please refresh and try again.");
+            }
+
+            const payload = {
+                location_id: currentLocation.id,
+                organization_id: orgId,
+                first_name: manualForm.first_name.trim(),
+                last_name: manualForm.last_name.trim(),
+                email: manualForm.email.trim() || null,
+                phone: manualForm.phone.trim() || null,
+                role: manualForm.role,
+                pin_code: manualForm.pin_code.trim() || null,
+                hourly_rate: parseFloat(manualForm.hourly_rate) || 0,
+                hire_date: manualForm.hire_date || null,
+                max_weekly_hours: parseFloat(manualForm.max_weekly_hours) || 40,
+                is_active: true
+            };
+
+            const { data, error } = await (supabase as any)
+                .from("employees")
+                .insert(payload)
+                .select()
+                .single();
+
+            if (error) {
+                console.error("Supabase Error Details:", {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                    payload
+                });
+                throw error;
+            }
+
+            setShowAddModal(false);
+            setAddMethod("choice");
+            setManualForm({
+                first_name: "",
+                last_name: "",
+                email: "",
+                phone: "",
+                role: "server",
+                pin_code: "",
+                hourly_rate: "15.00",
+                hire_date: new Date().toISOString().split('T')[0],
+                max_weekly_hours: "40.00"
+            });
+            fetchStaff();
+        } catch (err: any) {
+            console.error("Full Error Object:", err);
+            const errorMessage = err.message || (typeof err === 'string' ? err : "Unknown database error");
+            alert(`Failed to add employee: ${errorMessage}`);
+        } finally {
+            setManualAddLoading(false);
         }
     };
 
@@ -649,14 +741,18 @@ export default function StaffPage() {
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => {
                         setShowAddModal(false);
                         setInviteLink(null);
+                        setAddMethod("choice");
                     }} />
                     <div className="relative card w-full max-w-lg animate-slide-up">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold">Invite Staff Member</h2>
+                            <h2 className="text-2xl font-bold">
+                                {addMethod === "choice" ? "Add Staff Member" : addMethod === "invite" ? "Invite Staff Member" : "Add Staff Manually"}
+                            </h2>
                             <button
                                 onClick={() => {
                                     setShowAddModal(false);
                                     setInviteLink(null);
+                                    setAddMethod("choice");
                                 }}
                                 className="p-2 hover:bg-slate-800 rounded-lg"
                             >
@@ -664,19 +760,202 @@ export default function StaffPage() {
                             </button>
                         </div>
 
-                        {!inviteLink ? (
-                            <form onSubmit={generateInvite} className="space-y-4">
-                                <p className="text-slate-400 text-sm mb-6">
-                                    Generate an invitation link for a new team member. They will be prompted to create their account and set their PIN.
-                                </p>
+                        {addMethod === "choice" ? (
+                            <div className="grid grid-cols-1 gap-4 py-4">
+                                <button
+                                    onClick={() => setAddMethod("invite")}
+                                    className="flex items-center gap-4 p-6 bg-slate-900/50 border border-slate-800 rounded-2xl hover:border-orange-500/50 hover:bg-orange-500/5 transition-all text-left group"
+                                >
+                                    <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
+                                        <Mail className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-lg">Generate Invite Link</h3>
+                                        <p className="text-slate-400 text-sm">Send a signup link to the employee's email</p>
+                                    </div>
+                                    <ChevronRight className="h-5 w-5 text-slate-600 ml-auto" />
+                                </button>
+
+                                <button
+                                    onClick={() => setAddMethod("manual")}
+                                    className="flex items-center gap-4 p-6 bg-slate-900/50 border border-slate-800 rounded-2xl hover:border-orange-500/50 hover:bg-orange-500/5 transition-all text-left group"
+                                >
+                                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                                        <UserPlus className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-lg">Add Manually</h3>
+                                        <p className="text-slate-400 text-sm">Enter employee details directly into the system</p>
+                                    </div>
+                                    <ChevronRight className="h-5 w-5 text-slate-600 ml-auto" />
+                                </button>
+                            </div>
+                        ) : addMethod === "invite" ? (
+                            <div>
+                                {!inviteLink ? (
+                                    <form onSubmit={generateInvite} className="space-y-4">
+                                        <p className="text-slate-400 text-sm mb-6">
+                                            Generate an invitation link for a new team member. They will be prompted to create their account and set their PIN.
+                                        </p>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="label">Role</label>
+                                                <select
+                                                    className="input"
+                                                    value={inviteForm.role}
+                                                    onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
+                                                >
+                                                    {ROLES.map(role => (
+                                                        <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="label">Hourly Rate ($)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="input"
+                                                    placeholder="15.00"
+                                                    value={inviteForm.hourly_rate}
+                                                    onChange={(e) => setInviteForm({ ...inviteForm, hourly_rate: e.target.value })}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="label">Email Address</label>
+                                            <input
+                                                type="email"
+                                                className="input"
+                                                placeholder="employee@example.com"
+                                                value={inviteForm.email}
+                                                onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                                                required
+                                            />
+                                            <p className="text-[10px] text-slate-500 italic">Crucial for identifying the employee and tracking their invitation flow.</p>
+                                        </div>
+
+                                        <div className="flex gap-3 pt-6">
+                                            <button
+                                                type="button"
+                                                onClick={() => setAddMethod("choice")}
+                                                className="btn btn-secondary flex-1"
+                                            >
+                                                Back
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={inviteLoading}
+                                                className="btn btn-primary flex-1 gap-2"
+                                            >
+                                                {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                                                Generate Invite Link
+                                            </button>
+                                        </div>
+                                    </form>
+                                ) : (
+                                    <div className="space-y-6 py-4">
+                                        <div className="bg-green-500/10 border border-green-500/30 p-4 rounded-2xl flex items-center gap-3 text-green-400">
+                                            <Check className="h-5 w-5" />
+                                            <p className="text-sm font-medium">Invitation link generated successfully!</p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="label text-xs uppercase tracking-wider text-slate-500">Share this link</label>
+                                            <div className="flex gap-2">
+                                                <div className="input flex-1 truncate text-sm font-mono bg-slate-900 border-slate-700 py-3">
+                                                    {inviteLink}
+                                                </div>
+                                                <button
+                                                    onClick={() => copyToClipboard(inviteLink)}
+                                                    className="btn btn-secondary px-4 hover:bg-orange-500/20 hover:text-orange-400"
+                                                    title="Copy link"
+                                                >
+                                                    <Copy className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-orange-500/5 border border-orange-500/10 p-4 rounded-2xl flex gap-3">
+                                            <Info className="h-5 w-5 text-orange-400 shrink-0" />
+                                            <p className="text-xs text-slate-400 leading-relaxed">
+                                                Anyone with this link can join your organization as a **{inviteForm.role}**. The link will expire in 7 days.
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                setShowAddModal(false);
+                                                setInviteLink(null);
+                                                setAddMethod("choice");
+                                            }}
+                                            className="btn btn-primary w-full"
+                                        >
+                                            Done
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <form onSubmit={handleManualAdd} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="label">First Name</label>
+                                        <input
+                                            type="text"
+                                            className="input"
+                                            placeholder="John"
+                                            value={manualForm.first_name}
+                                            onChange={(e) => setManualForm({ ...manualForm, first_name: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="label">Last Name</label>
+                                        <input
+                                            type="text"
+                                            className="input"
+                                            placeholder="Doe"
+                                            value={manualForm.last_name}
+                                            onChange={(e) => setManualForm({ ...manualForm, last_name: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="label">Email Address</label>
+                                        <input
+                                            type="email"
+                                            className="input"
+                                            placeholder="john@example.com"
+                                            value={manualForm.email}
+                                            onChange={(e) => setManualForm({ ...manualForm, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="label">Phone Number</label>
+                                        <input
+                                            type="tel"
+                                            className="input"
+                                            placeholder="555-0123"
+                                            value={manualForm.phone}
+                                            onChange={(e) => setManualForm({ ...manualForm, phone: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <label className="label">Role</label>
                                         <select
                                             className="input"
-                                            value={inviteForm.role}
-                                            onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
+                                            value={manualForm.role}
+                                            onChange={(e) => setManualForm({ ...manualForm, role: e.target.value })}
                                         >
                                             {ROLES.map(role => (
                                                 <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>
@@ -684,90 +963,72 @@ export default function StaffPage() {
                                         </select>
                                     </div>
                                     <div className="space-y-2">
+                                        <label className="label">Terminal PIN</label>
+                                        <input
+                                            type="text"
+                                            maxLength={4}
+                                            className="input"
+                                            placeholder="1234"
+                                            value={manualForm.pin_code}
+                                            onChange={(e) => setManualForm({ ...manualForm, pin_code: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
                                         <label className="label">Hourly Rate ($)</label>
                                         <input
                                             type="number"
                                             step="0.01"
                                             className="input"
                                             placeholder="15.00"
-                                            value={inviteForm.hourly_rate}
-                                            onChange={(e) => setInviteForm({ ...inviteForm, hourly_rate: e.target.value })}
+                                            value={manualForm.hourly_rate}
+                                            onChange={(e) => setManualForm({ ...manualForm, hourly_rate: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="label">Hire Date</label>
+                                        <input
+                                            type="date"
+                                            className="input"
+                                            value={manualForm.hire_date}
+                                            onChange={(e) => setManualForm({ ...manualForm, hire_date: e.target.value })}
                                             required
                                         />
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="label">Email Address</label>
+                                    <label className="label">Max Weekly Hours</label>
                                     <input
-                                        type="email"
+                                        type="number"
                                         className="input"
-                                        placeholder="employee@example.com"
-                                        value={inviteForm.email}
-                                        onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                                        required
+                                        placeholder="40"
+                                        value={manualForm.max_weekly_hours}
+                                        onChange={(e) => setManualForm({ ...manualForm, max_weekly_hours: e.target.value })}
                                     />
-                                    <p className="text-[10px] text-slate-500 italic">Crucial for identifying the employee and tracking their invitation flow.</p>
                                 </div>
 
                                 <div className="flex gap-3 pt-6">
                                     <button
                                         type="button"
-                                        onClick={() => setShowAddModal(false)}
+                                        onClick={() => setAddMethod("choice")}
                                         className="btn btn-secondary flex-1"
                                     >
-                                        Cancel
+                                        Back
                                     </button>
                                     <button
                                         type="submit"
-                                        disabled={inviteLoading}
+                                        disabled={manualAddLoading}
                                         className="btn btn-primary flex-1 gap-2"
                                     >
-                                        {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                                        Generate Invite Link
+                                        {manualAddLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                                        Add Employee
                                     </button>
                                 </div>
                             </form>
-                        ) : (
-                            <div className="space-y-6 py-4">
-                                <div className="bg-green-500/10 border border-green-500/30 p-4 rounded-2xl flex items-center gap-3 text-green-400">
-                                    <Check className="h-5 w-5" />
-                                    <p className="text-sm font-medium">Invitation link generated successfully!</p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="label text-xs uppercase tracking-wider text-slate-500">Share this link</label>
-                                    <div className="flex gap-2">
-                                        <div className="input flex-1 truncate text-sm font-mono bg-slate-900 border-slate-700 py-3">
-                                            {inviteLink}
-                                        </div>
-                                        <button
-                                            onClick={() => copyToClipboard(inviteLink)}
-                                            className="btn btn-secondary px-4 hover:bg-orange-500/20 hover:text-orange-400"
-                                            title="Copy link"
-                                        >
-                                            <Copy className="h-5 w-5" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="bg-orange-500/5 border border-orange-500/10 p-4 rounded-2xl flex gap-3">
-                                    <Info className="h-5 w-5 text-orange-400 shrink-0" />
-                                    <p className="text-xs text-slate-400 leading-relaxed">
-                                        Anyone with this link can join your organization as a **{inviteForm.role}**. The link will expire in 7 days.
-                                    </p>
-                                </div>
-
-                                <button
-                                    onClick={() => {
-                                        setShowAddModal(false);
-                                        setInviteLink(null);
-                                    }}
-                                    className="btn btn-primary w-full"
-                                >
-                                    Done
-                                </button>
-                            </div>
                         )}
                     </div>
                 </div>

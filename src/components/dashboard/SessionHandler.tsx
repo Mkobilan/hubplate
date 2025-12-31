@@ -48,20 +48,44 @@ export function SessionHandler() {
                 const isBillingPage = window.location.pathname === '/billing-setup';
 
                 if (status === 'inactive' && onboarding === 'none' && !isBillingPage) {
-                    // Check if we just came from a successful payment (session storage or query param)
+                    // Check if we just came from a successful payment
                     const justPaid = (typeof window !== 'undefined' && window.sessionStorage.getItem('just_paid') === 'true') ||
                         window.location.search.includes('signup_success=true') ||
                         window.location.search.includes('success=true');
 
                     if (justPaid) {
-                        console.log("Subscription status still inactive, but user just paid. Allowing dashboard access...");
-                    } else {
-                        router.push('/billing-setup');
-                        return;
+                        console.log("Just paid. Attempting to sync status...");
+                        try {
+                            // Call sync endpoint
+                            await fetch('/api/stripe/sync-status', { method: 'POST' });
+                            // After sync, re-fetch session or just let the next effect cycle handle it?
+                            // Better to reload to force a fresh fetch
+                            window.location.href = '/dashboard';
+                            return;
+                        } catch (err) {
+                            console.error("Sync failed", err);
+                        }
+                    } else if (org.stripe_customer_id) {
+                        // Fallback attempt: If they have a customer ID but are inactive, maybe webhook failed?
+                        console.log("Inactive but has customer ID. Attempting auto-sync...");
+                        try {
+                            const res = await fetch('/api/stripe/sync-status', { method: 'POST' });
+                            const data = await res.json();
+                            if (data.synced && (data.status === 'active' || data.status === 'trialing')) {
+                                window.location.reload();
+                                return;
+                            }
+                        } catch (err) {
+                            console.error("Auto-sync failed", err);
+                        }
                     }
+
+                    // If still here, redirect to billing
+                    router.push('/billing-setup');
+                    return;
                 }
 
-                if (status === 'active') {
+                if (status === 'active' || status === 'trialing') {
                     if (typeof window !== 'undefined') {
                         window.sessionStorage.removeItem('just_paid');
                     }

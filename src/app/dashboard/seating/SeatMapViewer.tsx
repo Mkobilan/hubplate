@@ -22,11 +22,13 @@ import {
     Hourglass,
     CheckCircle2,
     Utensils,
-    Receipt
+    Receipt,
+    Plus
 } from "lucide-react";
 import { Stage, Layer, Rect, Circle, Text, Group } from "react-konva";
 import { formatCurrency, cn } from "@/lib/utils";
 import CloseTicketModal from "../orders/components/CloseTicketModal";
+import { Modal } from "@/components/ui/modal";
 interface TableConfig {
     id: string;
     label: string;
@@ -93,6 +95,9 @@ export default function SeatMapViewer() {
     const [selectedTable, setSelectedTable] = useState<TableConfig | null>(null);
     const [payingOrder, setPayingOrder] = useState<any | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
+    const [newSectionName, setNewSectionName] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
 
     // Request tracking for race conditions
     const lastRequestId = useRef<number>(0);
@@ -128,17 +133,11 @@ export default function SeatMapViewer() {
                         table: 'orders',
                         filter: `location_id=eq.${currentLocation.id}`
                     },
-                    (payload) => {
-                        console.log("SeatMapViewer: Real-time update received", payload.eventType);
-                        fetchActiveOrders();
-                    }
+                    () => fetchActiveOrders()
                 )
-                .subscribe((status) => {
-                    console.log("SeatMapViewer: Subscription status", status);
-                });
+                .subscribe();
 
             return () => {
-                console.log("SeatMapViewer: Cleaning up subscription");
                 supabaseRef.current.removeChannel(channel);
             };
         }
@@ -338,11 +337,89 @@ export default function SeatMapViewer() {
             // Update local tables state
             setTables(tables.map(t => t.id === selectedTable.id ? { ...t, assigned_server_id: employeeId } : t));
             setSelectedTable(null);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Error assigning server:", err);
-            toast.error("Failed to assign server");
+            toast.error(err.message || "Failed to assign server");
         } finally {
             setActionLoading(false);
+        }
+    };
+
+    const handleAddSection = async () => {
+        if (!newSectionName.trim() || !currentLocation) return;
+        setIsCreating(true);
+        try {
+            const supabase = createClient() as any;
+
+            // Diagnostic check for permissions
+            const { data: userData } = await supabase.auth.getUser();
+            if (!userData.user) {
+                throw new Error("You must be logged in to add a section");
+            }
+
+            console.log("=== DATA HEALTH CHECK ===");
+            console.log("App State Location ID:", currentLocation.id);
+            console.log("App State Organization ID:", currentLocation.organization_id);
+
+            // Verify if the location actually exists in the DB
+            const { data: dbLocation, error: locError } = await supabase
+                .from("locations")
+                .select("id, organization_id, owner_id")
+                .eq("id", currentLocation.id)
+                .maybeSingle();
+
+            if (locError) {
+                console.error("Health Check Error:", locError);
+            }
+
+            if (!dbLocation) {
+                console.error("CRITICAL: Location not found in database! This is an ID mismatch.");
+                throw new Error("Data mismatch detected. Please log out and log back in to refresh your location data.");
+            }
+
+            console.log("Database Verified Location:", dbLocation);
+
+            // Check organization linkage
+            if (dbLocation.organization_id !== currentLocation.organization_id) {
+                console.warn("Organization ID mismatch between App and DB");
+            }
+
+            // Check if current user is owner
+            const isOwner = dbLocation.owner_id === userData.user.id;
+            console.log("User is location owner in DB:", isOwner);
+
+            console.log("=== END HEALTH CHECK ===");
+
+            const { data, error } = await supabase
+                .from("seating_maps")
+                .insert({
+                    location_id: currentLocation.id,
+                    name: newSectionName.trim()
+                })
+                .select()
+                .single();
+
+            if (error) {
+                console.error("Supabase error adding section:", error);
+                if (error.code === '42501') {
+                    throw new Error("Permission denied. Ensure you have run the latest RLS migration.");
+                }
+                throw error;
+            }
+
+            toast.success("Section added!");
+            setMaps([...maps, data]);
+            setCurrentMap(data);
+            setIsAddSectionModalOpen(false);
+            setNewSectionName("");
+
+            // Redirect to editor
+            router.push(`/dashboard/seating/editor?mapId=${data.id}`);
+        } catch (err: any) {
+            console.error("Detailed error adding section:", err);
+            toast.error(err.message || "Failed to add section");
+        } finally {
+            setIsCreating(false);
         }
     };
 
@@ -351,17 +428,21 @@ export default function SeatMapViewer() {
         if (!locId) return;
 
         try {
-            const { data } = await supabaseRef.current
+            const { data, error } = await supabaseRef.current
                 .from("reservation_settings")
                 .select("reservation_color, advance_indicator_minutes")
                 .eq("location_id", locId)
-                .single();
+                .maybeSingle();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error("Error fetching reservation settings:", error);
+            }
 
             if (data) {
                 setReservationSettings(data);
             }
         } catch (err) {
-            console.error("Error fetching reservation settings:", err);
+            console.error("Unexpected error fetching reservation settings:", err);
         }
     };
 
@@ -458,20 +539,37 @@ export default function SeatMapViewer() {
 
                     <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800 overflow-x-auto max-w-[50vw]">
                         {maps.length === 0 ? (
-                            <div className="px-4 py-1.5 text-sm text-slate-400 italic">No sections found</div>
+                            <button
+                                onClick={() => setIsAddSectionModalOpen(true)}
+                                className="flex items-center gap-2 px-4 py-1.5 text-sm text-slate-400 hover:text-white transition-colors"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Add First Section
+                            </button>
                         ) : (
-                            maps.map(m => (
-                                <button
-                                    key={m.id}
-                                    onClick={() => setCurrentMap(m)}
-                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${currentMap?.id === m.id
-                                        ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
-                                        : "text-slate-400 hover:text-white hover:bg-slate-800"
-                                        }`}
-                                >
-                                    {m.name}
-                                </button>
-                            ))
+                            <>
+                                {maps.map(m => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => setCurrentMap(m)}
+                                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${currentMap?.id === m.id
+                                            ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
+                                            : "text-slate-400 hover:text-white hover:bg-slate-800"
+                                            }`}
+                                    >
+                                        {m.name}
+                                    </button>
+                                ))}
+                                {canEdit && (
+                                    <button
+                                        onClick={() => setIsAddSectionModalOpen(true)}
+                                        className="p-1.5 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors"
+                                        title="Add Section"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
@@ -705,6 +803,54 @@ export default function SeatMapViewer() {
                         }}
                     />
                 )}
+
+                {/* Add Section Modal */}
+                <Modal
+                    isOpen={isAddSectionModalOpen}
+                    onClose={() => setIsAddSectionModalOpen(false)}
+                    title="Add New Section"
+                    className="max-w-md"
+                >
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-400">Section Name</label>
+                            <input
+                                autoFocus
+                                type="text"
+                                placeholder="e.g. Patio, Main Dining, Bar"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-orange-500 outline-none transition-colors"
+                                value={newSectionName}
+                                onChange={(e) => setNewSectionName(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddSection()}
+                            />
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                onClick={() => setIsAddSectionModalOpen(false)}
+                                className="flex-1 px-4 py-3 rounded-xl bg-slate-800 text-white font-medium hover:bg-slate-700 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAddSection}
+                                disabled={isCreating || !newSectionName.trim()}
+                                className="flex-[2] px-4 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {isCreating ? (
+                                    <>
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                        Creating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="h-5 w-5" />
+                                        Create Section
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
             </div>
         </div >
     );
