@@ -29,6 +29,8 @@ export default function CloseTicketModal({
 }: CloseTicketModalProps) {
     const [paymentStatus, setPaymentStatus] = useState<string>("");
     const [isNative, setIsNative] = useState(false);
+    const [activeOption, setActiveOption] = useState<"print" | "card" | "qr" | "cash" | null>(null);
+    const [copied, setCopied] = useState(false);
     const [processingCash, setProcessingCash] = useState(false);
     const [tip, setTip] = useState<number>(0);
     const [showTipSelector, setShowTipSelector] = useState(false);
