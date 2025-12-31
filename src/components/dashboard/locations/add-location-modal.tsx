@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Building2, MapPin, Phone, Mail } from "lucide-react";
+import { Loader2, Building2, MapPin, Phone, Mail, Copy } from "lucide-react";
 
 interface AddLocationModalProps {
     isOpen: boolean;
@@ -14,12 +14,25 @@ interface AddLocationModalProps {
 export function AddLocationModal({ isOpen, onClose, onSuccess }: AddLocationModalProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [locations, setLocations] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         name: "",
         address: "",
         phone: "",
         email: "",
+        copyFromLocationId: "",
     });
+
+    useEffect(() => {
+        if (isOpen) {
+            const fetchLocations = async () => {
+                const supabase = createClient();
+                const { data } = await supabase.from("locations").select("id, name");
+                setLocations(data || []);
+            };
+            fetchLocations();
+        }
+    }, [isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,7 +56,8 @@ export function AddLocationModal({ isOpen, onClose, onSuccess }: AddLocationModa
 
             if (orgError) throw new Error("Could not find your organization. Please try logging out and in again.");
 
-            const { error: insertError } = await supabase
+            // Insert location
+            const { data: newLocation, error: insertError } = await supabase
                 .from("locations")
                 .insert([
                     {
@@ -55,13 +69,28 @@ export function AddLocationModal({ isOpen, onClose, onSuccess }: AddLocationModa
                         organization_id: orgData.id,
                         is_active: true,
                     },
-                ] as any);
+                ] as any)
+                .select()
+                .single();
 
             if (insertError) throw insertError;
 
+            // Trigger menu copy if selected
+            if (formData.copyFromLocationId && newLocation) {
+                const { error: rpcError } = await (supabase.rpc as any)("copy_menu_structure", {
+                    src_location_id: formData.copyFromLocationId,
+                    dest_location_id: (newLocation as any).id,
+                });
+
+                if (rpcError) {
+                    console.error("Error copying menu:", rpcError);
+                    // We don't throw here to avoid failing location creation, but maybe we should notify
+                }
+            }
+
             onSuccess();
             onClose();
-            setFormData({ name: "", address: "", phone: "", email: "" });
+            setFormData({ name: "", address: "", phone: "", email: "", copyFromLocationId: "" });
         } catch (err) {
             console.error("Error adding location:", err);
             setError(err instanceof Error ? err.message : "Failed to add location");
@@ -151,6 +180,28 @@ export function AddLocationModal({ isOpen, onClose, onSuccess }: AddLocationModa
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             />
                         </div>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="label" htmlFor="copyFrom">
+                        Copy Menu Structure from (Optional)
+                    </label>
+                    <div className="relative">
+                        <Copy className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
+                        <select
+                            id="copyFrom"
+                            className="input pl-11 appearance-none"
+                            value={formData.copyFromLocationId}
+                            onChange={(e) => setFormData({ ...formData, copyFromLocationId: e.target.value })}
+                        >
+                            <option value="">Do not copy (start from scratch)</option>
+                            {locations.map((loc) => (
+                                <option key={loc.id} value={loc.id}>
+                                    {loc.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 

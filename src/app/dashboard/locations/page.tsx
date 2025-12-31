@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
     Building2,
@@ -18,13 +19,14 @@ import {
 import { cn, formatCurrency } from "@/lib/utils";
 import { AddLocationModal } from "@/components/dashboard/locations/add-location-modal";
 import { ManageLocationModal } from "@/components/dashboard/locations/manage-location-modal";
+import { LocationBillingModal } from "@/components/dashboard/locations/location-billing-modal";
 
 // TODO: Locations are now fetched dynamically from Supabase
 
 
-import { useEffect } from "react";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "react-hot-toast";
 
 export default function LocationsPage() {
     const { t } = useTranslation();
@@ -34,9 +36,13 @@ export default function LocationsPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isManageModalOpen, setIsManageModalOpen] = useState(false);
     const [selectedLocationForManage, setSelectedLocationForManage] = useState<any>(null);
+    const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
+    const [locationToActivate, setLocationToActivate] = useState<any>(null);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
     const setCurrentLocation = useAppStore((state) => state.setCurrentLocation);
+    const searchParams = useSearchParams();
+    const router = useRouter();
 
     const fetchLocations = async () => {
         try {
@@ -47,7 +53,7 @@ export default function LocationsPage() {
             const { data, error: fetchError } = await supabase
                 .from("locations")
                 .select("*")
-                .order("is_active", { ascending: false });
+                .order("created_at", { ascending: false });
 
             if (fetchError) throw fetchError;
             setLocations(data || []);
@@ -71,6 +77,52 @@ export default function LocationsPage() {
     useEffect(() => {
         fetchLocations();
     }, []);
+
+    const syncLocationStatus = async (locationId: string) => {
+        try {
+            const response = await fetch("/api/stripe/location/sync", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ locationId }),
+            });
+            const data = await response.json();
+            if (data.is_paid) {
+                toast.success("Payment status updated!");
+                fetchLocations();
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error("Sync error:", err);
+            return false;
+        }
+    };
+
+    // Handle successful payment redirection
+    useEffect(() => {
+        const success = searchParams.get("success") === "true";
+        const locationId = searchParams.get("location_id");
+
+        if (success && locationId && locations.length > 0) {
+            const activatedLoc = locations.find(l => l.id === locationId);
+
+            // If they are back from Stripe but DB hasn't updated yet (common without webhooks)
+            // Trigger a manual sync
+            if (activatedLoc && !activatedLoc.is_paid) {
+                syncLocationStatus(locationId).then((isNowPaid) => {
+                    if (isNowPaid) {
+                        toast.success(`${activatedLoc.name} activated successfully!`);
+                        setCurrentLocation(activatedLoc);
+                        router.push("/dashboard");
+                    }
+                });
+            } else if (activatedLoc && activatedLoc.is_paid) {
+                setCurrentLocation(activatedLoc);
+                toast.success(`${activatedLoc.name} activated successfully!`);
+                router.push("/dashboard");
+            }
+        }
+    }, [locations, searchParams]);
 
     if (loading) {
         return (
@@ -159,7 +211,14 @@ export default function LocationsPage() {
                                 <div className="flex items-center gap-2">
                                     {currentLocation?.id !== location.id ? (
                                         <button
-                                            onClick={() => setCurrentLocation(location)}
+                                            onClick={() => {
+                                                if (location.is_paid) {
+                                                    setCurrentLocation(location);
+                                                } else {
+                                                    setLocationToActivate(location);
+                                                    setIsBillingModalOpen(true);
+                                                }
+                                            }}
                                             className="btn btn-primary text-sm py-2"
                                         >
                                             Switch to this Location
@@ -168,6 +227,15 @@ export default function LocationsPage() {
                                         <button className="btn btn-secondary text-sm py-2 opacity-50 cursor-default" disabled>
                                             <Check className="h-4 w-4 text-green-400" />
                                             Active
+                                        </button>
+                                    )}
+                                    {!location.is_paid && (
+                                        <button
+                                            onClick={() => syncLocationStatus(location.id)}
+                                            className="btn btn-secondary text-sm py-2 text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
+                                        >
+                                            <TrendingUp className="h-4 w-4" />
+                                            Sync
                                         </button>
                                     )}
                                     <button
@@ -231,6 +299,19 @@ export default function LocationsPage() {
                     }}
                     onSuccess={fetchLocations}
                     location={selectedLocationForManage}
+                />
+            )}
+
+            {locationToActivate && (
+                <LocationBillingModal
+                    isOpen={isBillingModalOpen}
+                    onClose={() => {
+                        setIsBillingModalOpen(false);
+                        setLocationToActivate(null);
+                    }}
+                    locationName={locationToActivate.name}
+                    locationId={locationToActivate.id}
+                    orgId={locationToActivate.organization_id}
                 />
             )}
         </div>

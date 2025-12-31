@@ -8,6 +8,7 @@ import { SessionHandler } from "./SessionHandler";
 import { TerminalPortal } from "./terminal/TerminalPortal";
 import { TerminalSetupPrompt } from "./terminal/TerminalSetupPrompt";
 import { OnboardingTour } from "./OnboardingTour";
+import { LocationBillingIntercept } from "./locations/LocationBillingIntercept";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const sidebarOpen = useAppStore((state) => state.sidebarOpen);
@@ -19,6 +20,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             <TerminalPortal />
             <TerminalSetupPrompt />
             <OnboardingTour />
+            <LocationBillingIntercept />
             <DashboardSidebar />
             <main
                 className={cn(

@@ -167,16 +167,47 @@ export async function POST(request: NextRequest) {
         case 'checkout.session.completed':
             const session = event.data.object as any;
             console.log('--- Checkout Session Completed ---', session.id);
-            if (session.mode === 'subscription') {
+            console.log('Metadata:', JSON.stringify(session.metadata));
+
+            if (session.mode === 'subscription' || session.mode === 'payment') {
                 const subId = session.subscription;
                 const custId = session.customer;
                 const orgId = session.metadata?.organization_id || session.subscription_data?.metadata?.organization_id;
 
-                console.log('Extracted orgId:', orgId, 'subId:', subId, 'custId:', custId);
+                // Fallback chain for location_id: Session Metadata -> Subscription Metadata
+                let locationId = session.metadata?.location_id || session.subscription_data?.metadata?.location_id;
 
-                if (orgId) {
-                    const { error: updateError } = await supabaseAdmin
-                        .from('organizations')
+                if (!locationId && subId) {
+                    try {
+                        const subscription = await stripe.subscriptions.retrieve(subId as string);
+                        locationId = subscription.metadata?.location_id;
+                    } catch (err) {
+                        console.error('Failed to fallback to subscription metadata:', err);
+                    }
+                }
+
+                const type = session.metadata?.type || session.subscription_data?.metadata?.type;
+
+                console.log('Extracted Data -> orgId:', orgId, 'subId:', subId, 'custId:', custId, 'locationId:', locationId, 'type:', type);
+
+                if (type === 'add_location' && locationId) {
+                    console.log(`Processing activation for location: ${locationId}`);
+                    // Mark specific location as paid
+                    const { data: updatedLoc, error: locUpdateError } = await (supabaseAdmin
+                        .from('locations') as any)
+                        .update({ is_paid: true })
+                        .eq('id', locationId)
+                        .select()
+                        .single();
+
+                    if (locUpdateError) {
+                        console.error('Failed to update location on checkout completion:', locUpdateError);
+                    } else {
+                        console.log('Successfully marked location as paid:', locationId, 'New status:', updatedLoc?.is_paid);
+                    }
+                } else if (orgId) {
+                    const { error: updateError } = await (supabaseAdmin
+                        .from('organizations') as any)
                         .update({
                             stripe_subscription_id: subId,
                             stripe_customer_id: custId,
@@ -190,8 +221,27 @@ export async function POST(request: NextRequest) {
                     } else {
                         console.log('Successfully updated organization:', orgId);
                     }
-                } else {
-                    console.error('No organization_id found in session metadata');
+                }
+            }
+            break;
+
+        case 'invoice.payment_succeeded':
+            const invoice = event.data.object as any;
+            console.log('--- Invoice Paid ---', invoice.id);
+
+            // If the invoice has metadata about a location (from the subscription it's tied to)
+            // Or if we check the subscription lines
+            if (invoice.subscription) {
+                // Secondary check: if checkout didn't fire or metadata was in subscription
+                // Retreive subscription to check metadata
+                const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+                const locId = subscription.metadata?.location_id;
+
+                if (locId) {
+                    console.log(`Invoice paid for subscription tied to location: ${locId}`);
+                    await (supabaseAdmin.from('locations') as any)
+                        .update({ is_paid: true })
+                        .eq('id', locId);
                 }
             }
             break;
@@ -200,7 +250,16 @@ export async function POST(request: NextRequest) {
             const subscriptionUpdate = event.data.object as any;
             console.log('--- Subscription Updated ---', subscriptionUpdate.id);
 
-            // Try to find by subscription ID
+            // If the subscription has a location_id in metadata, ensure location is_paid matches status
+            if (subscriptionUpdate.metadata?.location_id) {
+                const isPaidStatus = subscriptionUpdate.status === 'active' || subscriptionUpdate.status === 'trialing';
+                await (supabaseAdmin.from('locations') as any)
+                    .update({ is_paid: isPaidStatus })
+                    .eq('id', subscriptionUpdate.metadata.location_id);
+                console.log(`Updated location ${subscriptionUpdate.metadata.location_id} is_paid to ${isPaidStatus} based on sub status ${subscriptionUpdate.status}`);
+            }
+
+            // Also update organization if it's the main org sub
             const { error: subUpdateError } = await supabaseAdmin
                 .from('organizations')
                 .update({
@@ -210,7 +269,7 @@ export async function POST(request: NextRequest) {
                 .eq('stripe_subscription_id', subscriptionUpdate.id);
 
             if (subUpdateError) {
-                console.error('Failed to update organization on subscription update:', subUpdateError);
+                // Not necessarily an error if this was a per-location sub
             }
             break;
 
