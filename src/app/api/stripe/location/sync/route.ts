@@ -20,22 +20,26 @@ export async function POST(request: NextRequest) {
         const adminSupabase = await createAdminClient();
 
         // 1. Get the location and its organization
-        const { data: location, error: locError } = await adminSupabase
+        const { data: locationData, error: locError } = await adminSupabase
             .from('locations')
             .select('id, organization_id, is_paid')
             .eq('id', locationId)
             .single();
+
+        const location = locationData as any;
 
         if (locError || !location) {
             return NextResponse.json({ error: 'Location not found' }, { status: 404 });
         }
 
         // 2. Get the organization's Stripe customer ID
-        const { data: org, error: orgError } = await adminSupabase
+        const { data: orgData, error: orgError } = await adminSupabase
             .from('organizations')
             .select('stripe_customer_id')
             .eq('id', location.organization_id)
             .single();
+
+        const org = orgData as any;
 
         if (orgError || !org?.stripe_customer_id) {
             // If first location and not paid, maybe it should be paid (migration/logic handled this usually)
