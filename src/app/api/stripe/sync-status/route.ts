@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
             .eq('owner_id', user.id)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .single() as { data: { id: string; stripe_customer_id: string | null; subscription_status: string | null } | null; error: any };
 
         if (orgError || !org) {
             return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
             console.log(`Found active subscription: ${activeSub.id} (${activeSub.status})`);
 
             // 3. Update Database
-            const { error: updateError } = await adminSupabase
+            const { error: updateError } = await (adminSupabase as any)
                 .from('organizations')
                 .update({
                     stripe_subscription_id: activeSub.id,

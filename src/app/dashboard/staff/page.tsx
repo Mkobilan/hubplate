@@ -73,6 +73,8 @@ type Role = Database["public"]["Tables"]["employee_roles"]["Row"]["role"];
 export default function StaffPage() {
     const { t } = useTranslation();
     const currentLocation = useAppStore((state) => state.currentLocation);
+    const currentEmployee = useAppStore((state) => state.currentEmployee);
+    const isOrgOwner = useAppStore((state) => state.isOrgOwner);
     const [staff, setStaff] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -534,9 +536,7 @@ export default function StaffPage() {
         }
     };
 
-    const isOrgOwner = useAppStore((state) => state.isOrgOwner);
-    const currentEmployeeFromStore = useAppStore((state) => state.currentEmployee);
-    const isOwnerOrManager = isOrgOwner || currentEmployeeFromStore?.role === 'owner' || currentEmployeeFromStore?.role === 'manager' || currentEmployeeFromStore?.role === 'gm' || currentEmployeeFromStore?.role === 'agm';
+    const isOwnerOrManager = isOrgOwner || currentEmployee?.role === 'owner' || currentEmployee?.role === 'manager' || currentEmployee?.role === 'gm' || currentEmployee?.role === 'agm';
 
     const filteredEmployees = staff.filter(emp =>
         (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -706,7 +706,7 @@ export default function StaffPage() {
                                             <div className="flex gap-2">
 
                                                 {/* Only show trash for GM/Owner */}
-                                                {isOwnerOrManager && emp.id !== currentEmployeeFromStore?.id && (
+                                                {isOwnerOrManager && emp.id !== currentEmployee?.id && (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
