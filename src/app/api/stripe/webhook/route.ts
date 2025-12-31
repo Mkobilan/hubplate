@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
             break;
 
         case 'account.updated':
-            const account = event.data.object;
+            const account = event.data.object as any;
             console.log('Stripe account updated:', account.id);
 
             // Update account status in database
@@ -143,6 +143,49 @@ export async function POST(request: NextRequest) {
                     stripe_onboarding_complete: account.details_submitted && account.charges_enabled
                 })
                 .eq('stripe_account_id', account.id);
+            break;
+
+        case 'checkout.session.completed':
+            const session = event.data.object as any;
+            if (session.mode === 'subscription') {
+                const subId = session.subscription;
+                const custId = session.customer;
+                const orgId = session.subscription_data?.metadata?.organization_id || session.metadata?.organization_id;
+
+                if (orgId) {
+                    await supabaseAdmin
+                        .from('organizations')
+                        .update({
+                            stripe_subscription_id: subId,
+                            stripe_customer_id: custId,
+                            subscription_status: 'trialing',
+                            onboarding_status: 'billing_completed'
+                        })
+                        .eq('id', orgId);
+                }
+            }
+            break;
+
+        case 'customer.subscription.updated':
+            const subscriptionUpdate = event.data.object as any;
+            await supabaseAdmin
+                .from('organizations')
+                .update({
+                    subscription_status: subscriptionUpdate.status,
+                    trial_ends_at: subscriptionUpdate.trial_end ? new Date(subscriptionUpdate.trial_end * 1000).toISOString() : null
+                })
+                .eq('stripe_subscription_id', subscriptionUpdate.id);
+            break;
+
+        case 'customer.subscription.deleted':
+            const subscriptionDeleted = event.data.object as any;
+            await supabaseAdmin
+                .from('organizations')
+                .update({
+                    subscription_status: 'canceled',
+                    stripe_subscription_id: null
+                })
+                .eq('stripe_subscription_id', subscriptionDeleted.id);
             break;
 
         default:

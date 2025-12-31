@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
+import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 
 export function SessionHandler() {
     const currentEmployee = useAppStore((state) => state.currentEmployee);
@@ -10,6 +12,7 @@ export function SessionHandler() {
     const currentLocation = useAppStore((state) => state.currentLocation);
     const setCurrentLocation = useAppStore((state) => state.setCurrentLocation);
     const setIsOrgOwner = useAppStore((state) => state.setIsOrgOwner);
+    const router = useRouter();
 
     useEffect(() => {
         const supabase = createClient();
@@ -35,6 +38,35 @@ export function SessionHandler() {
             // Only set org owner if NOT in terminal mode (in terminal mode, permissions are determined by PIN login)
             if (org && !useAppStore.getState().isTerminalMode) {
                 setIsOrgOwner(true);
+
+                // 1.5 Strict Onboarding & Subscription Check
+                const status = org.subscription_status;
+                const onboarding = org.onboarding_status;
+
+                // If they are an owner but haven't set up billing, force them to do so
+                // Except if they are already on the billing page or logging out
+                const isBillingPage = window.location.pathname === '/billing-setup';
+
+                if (status === 'inactive' && onboarding === 'none' && !isBillingPage) {
+                    // Check if we just came from a successful payment (session storage can track this)
+                    const justPaid = typeof window !== 'undefined' && window.sessionStorage.getItem('just_paid') === 'true';
+
+                    if (justPaid) {
+                        console.log("Subscription status still inactive, but user just paid. Waiting for webhook...");
+                        // We'll let them stay on dashboard, or maybe show a "Processing" state.
+                        // For now, let's just not redirect to billing to avoid a loop.
+                    } else {
+                        router.push('/billing-setup');
+                        return;
+                    }
+                }
+
+                if (status === 'active') {
+                    if (typeof window !== 'undefined') {
+                        window.sessionStorage.removeItem('just_paid');
+                    }
+                }
+
                 // If no location set, pick first location for this org
                 if (!currentLocation) {
                     const { data: locData } = await supabase

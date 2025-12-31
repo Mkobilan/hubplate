@@ -7,6 +7,7 @@ import { InviteHandler } from "./InviteHandler";
 import { SessionHandler } from "./SessionHandler";
 import { TerminalPortal } from "./terminal/TerminalPortal";
 import { TerminalSetupPrompt } from "./terminal/TerminalSetupPrompt";
+import { OnboardingTour } from "./OnboardingTour";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const sidebarOpen = useAppStore((state) => state.sidebarOpen);
@@ -17,6 +18,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             <InviteHandler />
             <TerminalPortal />
             <TerminalSetupPrompt />
+            <OnboardingTour />
             <DashboardSidebar />
             <main
                 className={cn(
