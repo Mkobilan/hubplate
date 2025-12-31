@@ -262,6 +262,7 @@ function OrdersPageContent() {
                     .select("*")
                     .eq("location_id", currentLocation.id)
                     .eq("table_number", tableNumber.trim())
+                    .neq("payment_status", "paid")
                     .in("status", ["pending", "in_progress", "ready", "served"])
                     .maybeSingle();
 

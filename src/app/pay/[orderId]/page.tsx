@@ -57,6 +57,7 @@ export default function PaymentPage() {
                 }
 
                 setOrder(orderData);
+                setTip(Number(orderData.tip) || 0);
 
                 // Create payment intent
                 const paymentRes = await fetch("/api/stripe/payment-intent", {
@@ -64,8 +65,8 @@ export default function PaymentPage() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         orderId,
-                        amount: orderData.total,
-                        tip: 0
+                        amount: (Number(orderData.subtotal) || 0) + (Number(orderData.tax) || 0),
+                        tip: Number(orderData.tip) || 0
                     })
                 });
 
@@ -104,7 +105,7 @@ export default function PaymentPage() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         orderId,
-                        amount: order.total, // Original total
+                        amount: (Number(order.subtotal) || 0) + (Number(order.tax) || 0),
                         tip,
                         discountAmount: currentDiscount,
                         pointsRedeemed: appliedReward?.points_required || 0

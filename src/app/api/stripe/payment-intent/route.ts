@@ -32,20 +32,36 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
         }
 
-        // Calculate total in cents
-        const finalAmount = Math.max(0, amount + (tip || 0) - (discountAmount || 0));
+        // Determine status update - don't downgrade from ready/served
+        const subtotal = Number(order.subtotal) || 0;
+        const tax = Number(order.tax) || 0;
+        const baseAmount = amount || (subtotal + tax);
+        const finalAmount = Math.max(0, baseAmount + (tip || 0) - (discountAmount || 0));
         const totalCents = Math.round(finalAmount * 100);
 
-        // Update order with discount and tip info pre-emptively
-        await (supabaseAdmin.from('orders') as any)
-            .update({
-                discount: discountAmount || 0,
-                points_redeemed: pointsRedeemed || 0,
-                tip: tip || 0,
-                payment_method: 'card',
-                total: finalAmount
-            })
+        const statusUpdate: any = {
+            discount: discountAmount || 0,
+            points_redeemed: pointsRedeemed || 0,
+            tip: tip || 0,
+            payment_method: 'card',
+            total: finalAmount
+        };
+
+        // If status is pending or open, move to in_progress to show it's active
+        if (order.status === 'pending' || order.status === 'open') {
+            statusUpdate.status = 'in_progress';
+        }
+
+        console.log(`Payment Route: Order=${orderId}, Base=${baseAmount}, Tip=${tip}, Discount=${discountAmount}, Total=${finalAmount}`);
+        console.log(`Status Transition: ${order.status} -> ${statusUpdate.status || 'UNCHANGED'}`);
+
+        const { error: updateError } = await (supabaseAdmin.from('orders') as any)
+            .update(statusUpdate)
             .eq('id', orderId);
+
+        if (updateError) {
+            console.error('Error updating order before payment:', updateError);
+        }
 
         // If a payment intent already exists, try to retrieve it
         if (order.stripe_payment_intent_id) {
@@ -80,7 +96,12 @@ export async function POST(request: NextRequest) {
                 // If it succeeded, mark order as paid
                 if (existingIntent.status === 'succeeded') {
                     await (supabaseAdmin.from('orders') as any)
-                        .update({ payment_status: 'paid', completed_at: new Date().toISOString() })
+                        .update({
+                            payment_status: 'paid',
+                            status: 'completed',
+                            payment_method: 'card',
+                            completed_at: new Date().toISOString()
+                        })
                         .eq('id', orderId);
                     return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
                 }

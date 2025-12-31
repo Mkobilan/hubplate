@@ -29,9 +29,9 @@ export default function CloseTicketModal({
 }: CloseTicketModalProps) {
     const [paymentStatus, setPaymentStatus] = useState<string>("");
     const [isNative, setIsNative] = useState(false);
-    const [activeOption, setActiveOption] = useState<"print" | "card" | "qr" | "cash" | null>(null);
-    const [copied, setCopied] = useState(false);
     const [processingCash, setProcessingCash] = useState(false);
+    const [tip, setTip] = useState<number>(0);
+    const [showTipSelector, setShowTipSelector] = useState(false);
 
     // Loyalty
     const [showLoyalty, setShowLoyalty] = useState(false);
@@ -274,7 +274,7 @@ export default function CloseTicketModal({
                     body: JSON.stringify({
                         orderId,
                         amount: total,
-                        tip: 0
+                        tip: tip
                     })
                 });
 
@@ -305,12 +305,16 @@ export default function CloseTicketModal({
             // 5. Success (Common for both Real and Demo)
             setPaymentStatus("Payment Successful!");
 
+            const finalTotal = total + tip;
+
             // Update Supabase to mark as paid
             const supabase = createClient();
             await (supabase.from("orders") as any)
                 .update({
                     payment_status: "paid",
                     payment_method: "card",
+                    tip: tip,
+                    total: finalTotal,
                     status: "completed",
                     completed_at: new Date().toISOString()
                 })
@@ -573,47 +577,89 @@ export default function CloseTicketModal({
 
                 {/* Card Option */}
                 {activeOption === "card" && (
-                    <div className="text-center py-8">
-                        {isNative ? (
-                            <>
-                                <Smartphone className="h-16 w-16 mx-auto text-blue-500 mb-4 animate-pulse" />
-                                <h3 className="text-lg font-semibold text-slate-300 mb-2">Tap to Pay</h3>
-                                <p className="text-slate-400 text-sm mb-6 px-4">
-                                    {paymentStatus || "Click below to start accepting payment"}
-                                </p>
-
-                                {paymentStatus === "" && (
-                                    <button
-                                        onClick={handleNativePayment}
-                                        className="btn btn-primary w-full max-w-xs mx-auto mb-4"
-                                    >
-                                        Start Transaction
-                                    </button>
-                                )}
-
-                                {paymentStatus.includes("Failed") && (
-                                    <button
-                                        onClick={handleNativePayment}
-                                        className="btn btn-primary w-full max-w-xs mx-auto mb-4"
-                                    >
-                                        Try Again
-                                    </button>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <CreditCard className="h-16 w-16 mx-auto text-slate-500 mb-4" />
-                                <h3 className="text-lg font-semibold text-slate-300 mb-2">Card Reader Setup Required</h3>
-                                <p className="text-slate-400 text-sm mb-6">
-                                    Use the Mobile App for Tap to Pay.<br />
-                                    Web support for terminals coming soon.
-                                </p>
-                            </>
+                    <div className="py-4">
+                        {!paymentStatus && (
+                            <div className="mb-6 animate-in fade-in slide-in-from-bottom-2">
+                                <p className="text-sm text-slate-400 mb-3 text-center">Add a tip?</p>
+                                <div className="grid grid-cols-4 gap-2 mb-4">
+                                    {[0, 15, 18, 20].map(percent => {
+                                        const tipAmount = percent === 0 ? 0 : Math.round(total * percent) / 100;
+                                        const isSelected = tip === tipAmount;
+                                        return (
+                                            <button
+                                                key={percent}
+                                                onClick={() => setTip(tipAmount)}
+                                                className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${isSelected
+                                                    ? "bg-orange-500 border-orange-500 text-white"
+                                                    : "bg-slate-800 border-slate-700 text-slate-300"
+                                                    }`}
+                                            >
+                                                {percent === 0 ? "No" : `${percent}%`}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 mb-6">
+                                    <div className="flex justify-between text-sm text-slate-400 mb-1">
+                                        <span>Order Total</span>
+                                        <span>{formatCurrency(total)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm text-slate-400 mb-2">
+                                        <span>Tip</span>
+                                        <span className="text-orange-400">+{formatCurrency(tip)}</span>
+                                    </div>
+                                    <div className="flex justify-between font-bold text-lg text-slate-100 pt-2 border-t border-slate-700">
+                                        <span>Total Charge</span>
+                                        <span className="text-orange-400">{formatCurrency(total + tip)}</span>
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
-                        <button onClick={() => setActiveOption(null)} className="btn btn-secondary">
-                            Back to Options
-                        </button>
+                        <div className="text-center">
+                            {isNative ? (
+                                <>
+                                    <Smartphone className="h-16 w-16 mx-auto text-blue-500 mb-4 animate-pulse" />
+                                    <h3 className="text-lg font-semibold text-slate-300 mb-2">Tap to Pay</h3>
+                                    <p className="text-slate-400 text-sm mb-6 px-4">
+                                        {paymentStatus || "Ready to accept payment"}
+                                    </p>
+
+                                    {paymentStatus === "" && (
+                                        <button
+                                            onClick={handleNativePayment}
+                                            className="btn btn-primary w-full max-w-xs mx-auto mb-4"
+                                        >
+                                            Start Transaction
+                                        </button>
+                                    )}
+
+                                    {paymentStatus.includes("Failed") && (
+                                        <button
+                                            onClick={handleNativePayment}
+                                            className="btn btn-primary w-full max-w-xs mx-auto mb-4"
+                                        >
+                                            Try Again
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <CreditCard className="h-16 w-16 mx-auto text-slate-500 mb-4" />
+                                    <h3 className="text-lg font-semibold text-slate-300 mb-2">Card Reader Required</h3>
+                                    <p className="text-slate-400 text-sm mb-6">
+                                        Use the Mobile App for Tap to Pay.<br />
+                                        Or connect a physical reader.
+                                    </p>
+                                </>
+                            )}
+
+                            {!paymentStatus && (
+                                <button onClick={() => setActiveOption(null)} className="btn btn-secondary w-full">
+                                    Back to Options
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
 

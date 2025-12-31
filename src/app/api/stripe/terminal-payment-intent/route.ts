@@ -23,7 +23,31 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        const totalCents = Math.round(amount * 100);
+        const subtotal = Number(order.subtotal) || 0;
+        const tax = Number(order.tax) || 0;
+        const baseAmount = amount || (subtotal + tax);
+        const finalAmount = Math.max(0, baseAmount + (tip || 0));
+        const totalCents = Math.round(finalAmount * 100);
+
+        // Pre-emptively update order in DB
+        const statusUpdate: any = {
+            tip: tip || 0,
+            payment_method: 'card',
+            total: finalAmount
+        };
+
+        // If status is pending or open, move to in_progress
+        if (order.status === 'pending' || order.status === 'open') {
+            statusUpdate.status = 'in_progress';
+        }
+
+        console.log(`Terminal Payment: Order=${orderId}, Base=${baseAmount}, Tip=${tip}, Total=${finalAmount}`);
+        console.log(`Status Transition: ${order.status} -> ${statusUpdate.status || 'UNCHANGED'}`);
+
+        await (supabaseAdmin.from('orders') as any)
+            .update(statusUpdate)
+            .eq('id', orderId);
+
         const stripeAccountId = order.locations?.stripe_account_id;
 
         const paymentIntentOptions: any = {
@@ -33,7 +57,8 @@ export async function POST(request: NextRequest) {
             capture_method: 'automatic',
             metadata: {
                 order_id: orderId,
-                type: 'terminal_payment'
+                type: 'terminal_payment',
+                tip_amount: tip?.toString() || '0'
             },
         };
 

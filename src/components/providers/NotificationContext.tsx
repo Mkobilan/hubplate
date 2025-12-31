@@ -141,26 +141,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                     },
                     (payload) => {
                         const newNotification = payload.new as Notification;
-                        setNotifications((prev: Notification[]) => {
-                            const updated = [newNotification, ...prev].slice(0, 20);
 
-                            // Trigger local notification and badge update if native
-                            if (Capacitor.isNativePlatform() && !newNotification.is_read) {
-                                // Update badge
-                                const unread = updated.filter(n => !n.is_read).length;
-                                Badge.set({ count: unread }).catch(console.error);
-
-                                // Schedule local notification
+                        // Side effects moved OUTSIDE of setNotifications to avoid React state update during render error
+                        if (!newNotification.is_read) {
+                            if (Capacitor.isNativePlatform()) {
+                                // Trigger local notification
                                 LocalNotifications.schedule({
                                     notifications: [
                                         {
-                                            id: Math.floor(Math.random() * 1000000), // Random ID for local notification
+                                            id: Math.floor(Math.random() * 1000000),
                                             title: newNotification.title,
                                             body: newNotification.message,
                                             largeBody: newNotification.message,
                                             summaryText: 'New Alert',
-                                            schedule: { at: new Date(Date.now() + 1000) }, // Trigger almost immediately
-                                            sound: 'beep.wav', // Default sound
+                                            schedule: { at: new Date(Date.now() + 1000) },
+                                            sound: 'beep.wav',
                                             extra: {
                                                 notificationId: newNotification.id,
                                                 link: newNotification.link
@@ -168,9 +163,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                                         }
                                     ]
                                 }).catch(console.error);
-                            } else if (!newNotification.is_read) {
+
+                                // Refresh unread count for badge (it will be calculated again in setNotifications, but we can do a quick check here if needed)
+                                // However, it's safer to just rely on the upcoming state update for accurate counting if possible.
+                            } else {
                                 // Browser toast for web/PWA
                                 toast(newNotification.title, { icon: '🔔' });
+                            }
+                        }
+
+                        setNotifications((prev: Notification[]) => {
+                            const updated = [newNotification, ...prev].slice(0, 20);
+
+                            // Update badge count if native
+                            if (Capacitor.isNativePlatform()) {
+                                const unread = updated.filter(n => !n.is_read).length;
+                                Badge.set({ count: unread }).catch(console.error);
                             }
 
                             return updated;

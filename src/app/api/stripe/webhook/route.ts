@@ -39,33 +39,52 @@ export async function POST(request: NextRequest) {
             // Update order status in database
             if (paymentIntent.metadata?.order_id) {
                 const orderId = paymentIntent.metadata.order_id;
+                // Get order details
                 const { data: order, error: orderError } = await (supabaseAdmin
                     .from('orders') as any)
-                    .select('*, locations(id)')
+                    .select('*')
                     .eq('id', orderId)
                     .single();
 
                 if (orderError) {
-                    console.error('Failed to fetch order for loyalty update:', orderError);
+                    console.error('CRITICAL: Failed to fetch order in webhook for ID:', orderId, orderError);
                 } else {
-                    // Extract tip from metadata
-                    const tipAmount = Number(paymentIntent.metadata?.tip_amount) || 0;
+                    console.log(`Successfully fetched order ${orderId}. Current status: ${order.status}, Subtotal: ${order.subtotal}, Tax: ${order.tax}, Discount: ${order.discount}`);
+
+                    // SMART TIP CALCULATION:
+                    // Instead of relying solely on metadata, we look at the actual amount Stripe charged.
+                    // tip = stripe_total - (subtotal + tax - discount)
+                    const stripeTotal = paymentIntent.amount / 100;
+                    const subtotal = Number(order.subtotal) || 0;
+                    const tax = Number(order.tax) || 0;
+                    const discount = Number(order.discount) || 0;
+
+                    const baseTotalBeforeTip = subtotal + tax - discount;
+                    const derivedTip = Math.max(0, Number((stripeTotal - baseTotalBeforeTip).toFixed(2)));
+
+                    console.log(`Stripe Total: ${stripeTotal}, Base Total: ${baseTotalBeforeTip}, Derived Tip: ${derivedTip}`);
+                    console.log('PaymentIntent Metadata:', JSON.stringify(paymentIntent.metadata));
 
                     // Update order as paid with all payment details
-                    const { error: updateError } = await (supabaseAdmin
+                    const { data: updatedOrder, error: updateError } = await (supabaseAdmin
                         .from('orders') as any)
                         .update({
                             payment_status: 'paid',
                             payment_method: 'card',
-                            tip: tipAmount,
+                            tip: derivedTip,
+                            total: stripeTotal, // Use the actual amount from Stripe
                             status: 'completed',
                             stripe_payment_intent_id: paymentIntent.id,
                             completed_at: new Date().toISOString()
                         })
-                        .eq('id', orderId);
+                        .eq('id', orderId)
+                        .select()
+                        .single();
 
                     if (updateError) {
-                        console.error('Failed to update order in webhook:', updateError);
+                        console.error('CRITICAL: Failed to update order in webhook:', updateError);
+                    } else {
+                        console.log(`Successfully updated order ${orderId} to COMPLETED/PAID. New Total: ${updatedOrder.total}`);
                     }
 
                     // Loyalty Points Logic

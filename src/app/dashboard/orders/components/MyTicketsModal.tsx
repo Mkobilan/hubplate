@@ -35,6 +35,7 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
                     .eq("location_id", currentLocation.id)
                     .eq("server_id", currentEmployee.id)
                     .neq("payment_status", "paid")
+                    .neq("status", "completed")
                     .neq("status", "cancelled")
                     .order("created_at", { ascending: false });
 
