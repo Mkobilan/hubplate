@@ -48,13 +48,13 @@ export function SessionHandler() {
                 const isBillingPage = window.location.pathname === '/billing-setup';
 
                 if (status === 'inactive' && onboarding === 'none' && !isBillingPage) {
-                    // Check if we just came from a successful payment (session storage can track this)
-                    const justPaid = typeof window !== 'undefined' && window.sessionStorage.getItem('just_paid') === 'true';
+                    // Check if we just came from a successful payment (session storage or query param)
+                    const justPaid = (typeof window !== 'undefined' && window.sessionStorage.getItem('just_paid') === 'true') ||
+                        window.location.search.includes('signup_success=true') ||
+                        window.location.search.includes('success=true');
 
                     if (justPaid) {
-                        console.log("Subscription status still inactive, but user just paid. Waiting for webhook...");
-                        // We'll let them stay on dashboard, or maybe show a "Processing" state.
-                        // For now, let's just not redirect to billing to avoid a loop.
+                        console.log("Subscription status still inactive, but user just paid. Allowing dashboard access...");
                     } else {
                         router.push('/billing-setup');
                         return;

@@ -80,13 +80,16 @@ export async function POST(request: NextRequest) {
             ],
             mode: 'subscription',
             allow_promotion_codes: true,
+            metadata: {
+                organization_id: org.id
+            },
             subscription_data: {
                 trial_period_days: 14,
                 metadata: {
                     organization_id: org.id
                 }
             },
-            success_url: `${origin}/dashboard?signup_success=true`,
+            success_url: `${origin}/billing-setup?success=true`,
             cancel_url: `${origin}/billing-setup?cancelled=true`,
         });
 

@@ -147,13 +147,16 @@ export async function POST(request: NextRequest) {
 
         case 'checkout.session.completed':
             const session = event.data.object as any;
+            console.log('--- Checkout Session Completed ---', session.id);
             if (session.mode === 'subscription') {
                 const subId = session.subscription;
                 const custId = session.customer;
-                const orgId = session.subscription_data?.metadata?.organization_id || session.metadata?.organization_id;
+                const orgId = session.metadata?.organization_id || session.subscription_data?.metadata?.organization_id;
+
+                console.log('Extracted orgId:', orgId, 'subId:', subId, 'custId:', custId);
 
                 if (orgId) {
-                    await supabaseAdmin
+                    const { error: updateError } = await supabaseAdmin
                         .from('organizations')
                         .update({
                             stripe_subscription_id: subId,
@@ -162,19 +165,34 @@ export async function POST(request: NextRequest) {
                             onboarding_status: 'billing_completed'
                         })
                         .eq('id', orgId);
+
+                    if (updateError) {
+                        console.error('Failed to update organization on checkout completion:', updateError);
+                    } else {
+                        console.log('Successfully updated organization:', orgId);
+                    }
+                } else {
+                    console.error('No organization_id found in session metadata');
                 }
             }
             break;
 
         case 'customer.subscription.updated':
             const subscriptionUpdate = event.data.object as any;
-            await supabaseAdmin
+            console.log('--- Subscription Updated ---', subscriptionUpdate.id);
+
+            // Try to find by subscription ID
+            const { error: subUpdateError } = await supabaseAdmin
                 .from('organizations')
                 .update({
                     subscription_status: subscriptionUpdate.status,
                     trial_ends_at: subscriptionUpdate.trial_end ? new Date(subscriptionUpdate.trial_end * 1000).toISOString() : null
                 })
                 .eq('stripe_subscription_id', subscriptionUpdate.id);
+
+            if (subUpdateError) {
+                console.error('Failed to update organization on subscription update:', subUpdateError);
+            }
             break;
 
         case 'customer.subscription.deleted':
