@@ -188,8 +188,7 @@ export function SessionHandler() {
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
                 fetchSession();
             } else if (event === 'SIGNED_OUT') {
-                setCurrentEmployee(null);
-                setIsOrgOwner(false);
+                useAppStore.getState().reset();
             }
         });
 

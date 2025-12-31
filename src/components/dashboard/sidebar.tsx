@@ -66,6 +66,7 @@ export function DashboardSidebar() {
 
         const supabase = createClient();
         await supabase.auth.signOut();
+        useAppStore.getState().reset();
         router.push("/");
     };
 
