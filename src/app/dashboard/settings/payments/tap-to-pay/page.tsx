@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Capacitor } from '@capacitor/core';
 import { StripeTerminal, TerminalConnectTypes } from '@capacitor-community/stripe-terminal';
+import { QRCodeSVG } from "qrcode.react";
 
 export default function TapToPayPage() {
     const { t } = useTranslation();
@@ -27,9 +28,11 @@ export default function TapToPayPage() {
     const [testMode, setTestMode] = useState(false);
     const [statusMessage, setStatusMessage] = useState("");
     const [reader, setReader] = useState<any>(null);
+    const [downloadUrl, setDownloadUrl] = useState("");
 
     useEffect(() => {
         setIsNative(Capacitor.isNativePlatform());
+        setDownloadUrl(window.location.origin + "/hubplate.apk");
     }, []);
 
     const initializeTerminal = async () => {
@@ -109,14 +112,32 @@ export default function TapToPayPage() {
                     <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                         <Download className="h-10 w-10 text-blue-400" />
                     </div>
-                    <h2 className="text-2xl font-bold mb-4">Download the App Required</h2>
+                    <h2 className="text-2xl font-bold mb-4">Download the HubPlate App</h2>
                     <p className="text-slate-400 mb-8 max-w-md mx-auto">
                         Tap to Pay requires direct access to your device's NFC chip.
-                        Please download the Hubplate App on your iOS or Android device to use this feature.
+                        Please download the Hubplate App on your Android device to use this feature.
                     </p>
-                    <div className="flex justify-center gap-4">
-                        <button className="btn btn-primary">Download for Android</button>
-                        <button className="btn btn-secondary">Download for iOS</button>
+
+                    <div className="flex flex-col items-center gap-8">
+                        <div className="p-4 bg-white rounded-2xl shadow-xl">
+                            <QRCodeSVG value={downloadUrl} size={160} />
+                            <p className="text-slate-900 text-xs font-bold mt-2">SCAN TO DOWNLOAD</p>
+                        </div>
+
+                        <div className="flex justify-center gap-4">
+                            <a
+                                href="/hubplate.apk"
+                                download
+                                className="btn btn-primary px-8 py-3"
+                            >
+                                <Download className="h-4 w-4" />
+                                Download for Android
+                            </a>
+                        </div>
+
+                        <p className="text-xs text-slate-500 italic">
+                            iOS version coming soon to the App Store.
+                        </p>
                     </div>
                 </div>
             </div>

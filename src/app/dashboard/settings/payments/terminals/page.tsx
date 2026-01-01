@@ -75,13 +75,19 @@ export default function TerminalsPage() {
                     <p className="text-sm text-slate-500 mt-1">Offline</p>
                 </div>
                 <div className="card text-center">
-                    <p className="text-3xl font-bold">{formatCurrency(12450.75)}</p>
+                    <p className="text-3xl font-bold">{formatCurrency(0)}</p>
                     <p className="text-sm text-slate-500 mt-1">Today&apos;s Volume</p>
                 </div>
             </div>
 
             {/* Terminal List */}
             <div className="space-y-4">
+                {terminals.length === 0 && (
+                    <div className="text-center py-12 bg-slate-900/30 rounded-2xl border border-slate-800 border-dashed">
+                        <MonitorSmartphone className="h-12 w-12 text-slate-700 mx-auto mb-4" />
+                        <p className="text-slate-500">No terminals found at this location.</p>
+                    </div>
+                )}
                 {terminals.map((terminal) => (
                     <div
                         key={terminal.id}
@@ -148,10 +154,15 @@ export default function TerminalsPage() {
                 <p className="text-sm text-slate-500 mb-4 max-w-md mx-auto">
                     Connect a new Stripe Terminal reader to accept in-person payments at your location.
                 </p>
-                <button className="btn btn-secondary">
+                <a
+                    href="https://dashboard.stripe.com/terminal/shop"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary"
+                >
                     Order a Reader
                     <ChevronRight className="h-4 w-4" />
-                </button>
+                </a>
             </div>
 
             {/* Help Card */}

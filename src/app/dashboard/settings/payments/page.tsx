@@ -26,66 +26,78 @@ function PaymentsContent() {
     const { t } = useTranslation();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [isOnboarded, setIsOnboarded] = useState(false);
+    const [locations, setLocations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isConnecting, setIsConnecting] = useState(false);
+    const [connectingId, setConnectingId] = useState<string | null>(null);
     const supabase = createClient();
 
     // Check onboarding status
     useEffect(() => {
-        async function checkStatus() {
+        async function fetchLocations() {
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
-                const { data: location, error } = await supabase
+                const { data, error } = await supabase
                     .from('locations')
-                    .select('stripe_account_id, stripe_onboarding_complete')
-                    .eq('owner_id', user.id)
-                    .single() as { data: { stripe_account_id: string | null; stripe_onboarding_complete: boolean } | null; error: any };
+                    .select('id, name, stripe_account_id, stripe_onboarding_complete')
+                    .eq('owner_id', user.id);
 
-                if (location) {
-                    setIsOnboarded(!!location.stripe_onboarding_complete);
-                }
+                if (error) throw error;
+                setLocations(data || []);
 
-                // If returned from Stripe with success
-                if (searchParams.get('success') === 'true') {
-                    toast.success("Stripe account connected successfully!");
-                    router.replace('/dashboard/settings/payments');
+                const success = searchParams.get('success');
+                const locationId = searchParams.get('locationId');
 
-                    // Optimistically update status if we have an account ID
-                    if (location?.stripe_account_id) {
-                        setIsOnboarded(true);
+                if (success === 'true' && locationId) {
+                    // Manually verify status with the backend
+                    const syncResponse = await fetch(`/api/stripe/connect?locationId=${locationId}`);
+                    const syncData = await syncResponse.json();
+
+                    if (syncData.status === 'complete') {
+                        toast.success(`Stripe account connected successfully!`);
+                        // Update status locally
+                        setLocations(prev => prev.map(loc =>
+                            loc.id === locationId ? { ...loc, stripe_onboarding_complete: true } : loc
+                        ));
+                    } else {
+                        toast.error(`Onboarding not yet complete. Please finish all steps in Stripe.`);
                     }
+
+                    // Clean URL
+                    router.replace('/dashboard/settings/payments');
                 }
             } catch (error) {
-                console.error("Error fetching payment status:", error);
+                console.error("Error fetching locations:", error);
+                toast.error("Failed to load payment settings");
             } finally {
                 setIsLoading(false);
             }
         }
 
-        checkStatus();
+        fetchLocations();
     }, [supabase, searchParams, router]);
 
-    const handleOnboarding = async () => {
-        setIsConnecting(true);
+    const handleOnboarding = async (locationId: string) => {
+        setConnectingId(locationId);
         try {
             const response = await fetch('/api/stripe/connect', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ locationId }),
             });
             const data = await response.json();
 
             if (data.url) {
                 window.location.href = data.url;
             } else {
-                toast.error("Failed to start onboarding");
+                toast.error(data.error || "Failed to start onboarding");
             }
         } catch (error) {
             console.error("Onboarding error:", error);
             toast.error("Something went wrong");
         } finally {
-            setIsConnecting(false);
+            setConnectingId(null);
         }
     };
 
@@ -102,152 +114,124 @@ function PaymentsContent() {
             <div>
                 <h1 className="text-3xl font-bold">Payments & Payouts</h1>
                 <p className="text-slate-400 mt-1">
-                    Configure your merchant account and manage payment methods
+                    Configure Stripe Connect for each of your restaurant locations
                 </p>
             </div>
 
-            {!isOnboarded ? (
-                <div className="card p-8 lg:p-12 text-center max-w-3xl mx-auto space-y-8">
-                    <div className="w-20 h-20 bg-orange-500/20 rounded-3xl flex items-center justify-center mx-auto">
-                        <CreditCard className="w-10 h-10 text-orange-500" />
+            <div className="grid grid-cols-1 gap-6">
+                {locations.length === 0 ? (
+                    <div className="card p-12 text-center">
+                        <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold">No locations found</h3>
+                        <p className="text-slate-400">Please add a location first to setup payments.</p>
                     </div>
-
-                    <div className="space-y-4">
-                        <h2 className="text-3xl font-bold">Accept payments with HubPlate</h2>
-                        <p className="text-slate-400 text-lg">
-                            We use **Stripe Connect** to ensure secure, fast payouts directly to your business bank account.
-                            No monthly merchant fees, just a flat processing rate.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-                        <FeatureItem
-                            icon={<Smartphone className="w-5 h-5 text-orange-400" />}
-                            title="BYOD Tap-to-Pay"
-                            desc="Accept cards using just your Android/iOS phone."
-                        />
-                        <FeatureItem
-                            icon={<ShieldCheck className="w-5 h-5 text-orange-400" />}
-                            title="PCI Compliant"
-                            desc="End-to-end encryption for every transaction."
-                        />
-                        <FeatureItem
-                            icon={<Building2 className="w-5 h-5 text-orange-400" />}
-                            title="Instant Payouts"
-                            desc="Access your funds in minutes with Stripe Connect."
-                        />
-                    </div>
-
-                    <div className="pt-8 flex flex-col items-center gap-4">
-                        <button
-                            onClick={handleOnboarding}
-                            disabled={isConnecting}
-                            className="btn btn-primary px-12 py-4 text-lg rounded-2xl shadow-xl shadow-orange-500/20 disabled:opacity-50"
-                        >
-                            {isConnecting ? (
-                                <span className="flex items-center gap-2">
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    Connecting...
-                                </span>
-                            ) : (
-                                <>
-                                    Start Onboarding with Stripe
-                                    <ArrowRight className="ml-2 w-5 h-5" />
-                                </>
-                            )}
-                        </button>
-                        <p className="text-xs text-slate-500">
-                            By clicking, you will be redirected to Stripe to securely provide your business details.
-                        </p>
-                    </div>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Status Column */}
-                    <div className="space-y-6">
-                        <div className="card border-green-500/30 bg-green-500/5">
-                            <div className="flex items-center gap-3 mb-4">
-                                <CheckCircle2 className="h-5 w-5 text-green-400" />
-                                <h3 className="font-bold text-green-400">Account Active</h3>
-                            </div>
-                            <p className="text-sm text-slate-400 mb-6">
-                                Your account is fully verified and ready to accept payments. Funds will be deposited directly to your bank account.
-                            </p>
-                            <button className="btn btn-secondary w-full text-xs py-2">View Stripe Dashboard</button>
-                        </div>
-
-                        <div className="card">
-                            <h3 className="font-bold mb-4">Payout Schedule</h3>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-500">Next Payout</span>
-                                    <span className="font-bold">Daily</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-500">Status</span>
-                                    <span className="font-bold text-green-400">Automatic</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Configuration Column */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="card">
-                            <h3 className="font-bold mb-6">Payment Methods</h3>
-                            <div className="space-y-4">
-                                <MethodToggle label="Visa / Mastercard / Amex" enabled={true} />
-                                <MethodToggle label="Apple Pay / Google Pay" enabled={true} />
-                                <MethodToggle label="Tap-to-Pay (iPhone/Android)" enabled={true} />
-                                <MethodToggle label="Physical Terminal (Verifone)" enabled={false} />
-                            </div>
-                        </div>
-
-                        <div className="card border-blue-500/20 bg-blue-500/5">
-                            <div className="flex gap-3">
-                                <AlertCircle className="h-5 w-5 text-blue-400 shrink-0" />
-                                <div>
-                                    <h4 className="font-bold text-blue-400">Lower Your Rates</h4>
-                                    <p className="text-sm text-slate-400 mt-1">
-                                        Your current processing rate is **2.9% + 30¢**.
-                                        If your monthly volume exceeds **$50,000**, you qualify for custom enterprise pricing.
+                ) : (
+                    locations.map((location) => (
+                        <div key={location.id} className="card p-6 lg:p-8">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <Building2 className="w-5 h-5 text-orange-500" />
+                                        <h3 className="text-xl font-bold">{location.name}</h3>
+                                    </div>
+                                    <p className="text-sm text-slate-400">
+                                        {location.stripe_onboarding_complete
+                                            ? "Stripe account connected and active"
+                                            : "Connect your Stripe account to start accepting payments"}
                                     </p>
-                                    <button className="text-sm text-blue-400 font-medium mt-4 hover:underline">
-                                        Contact sales for custom rates →
-                                    </button>
+                                </div>
+
+                                <div>
+                                    {location.stripe_onboarding_complete ? (
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-400 rounded-full border border-green-500/20 text-sm font-medium">
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            Active
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleOnboarding(location.id)}
+                                            disabled={connectingId !== null}
+                                            className="btn btn-primary px-6 py-2 rounded-xl shadow-lg shadow-orange-500/20 disabled:opacity-50"
+                                        >
+                                            {connectingId === location.id ? (
+                                                <span className="flex items-center gap-2">
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Connecting...
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-2">
+                                                    Connect Stripe
+                                                    <ArrowRight className="w-4 h-4" />
+                                                </span>
+                                            )}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Quick Links */}
-                    <div className="card">
-                        <h3 className="font-bold mb-4">Quick Links</h3>
-                        <div className="space-y-2">
-                            <Link
-                                href="/dashboard/settings/payments/terminals"
-                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <MonitorSmartphone className="h-4 w-4 text-blue-400" />
-                                    <span>Manage Terminals</span>
+                            {!location.stripe_onboarding_complete && (
+                                <div className="mt-8 pt-8 border-t border-slate-800">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <FeatureItem
+                                            icon={<Smartphone className="w-5 h-5 text-orange-400" />}
+                                            title="BYOD Tap-to-Pay"
+                                            desc="Accept cards using just your phone."
+                                        />
+                                        <FeatureItem
+                                            icon={<ShieldCheck className="w-5 h-5 text-orange-400" />}
+                                            title="PCI Compliant"
+                                            desc="End-to-end encryption for every transaction."
+                                        />
+                                        <FeatureItem
+                                            icon={<Building2 className="w-5 h-5 text-orange-400" />}
+                                            title="Instant Payouts"
+                                            desc="Access funds in minutes with Stripe."
+                                        />
+                                    </div>
                                 </div>
-                                <ChevronRight className="h-4 w-4 text-slate-600" />
-                            </Link>
-                            <Link
-                                href="/dashboard/settings/payments/tap-to-pay"
-                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-orange-400 font-medium"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Nfc className="h-4 w-4" />
-                                    <span>Setup Tap-to-Pay</span>
+                            )}
+
+                            {location.stripe_onboarding_complete && (
+                                <div className="mt-8 pt-8 border-t border-slate-800 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <div className="space-y-4">
+                                        <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">Payment Options</h4>
+                                        <div className="space-y-2">
+                                            <MethodToggle label="Visa / Mastercard / Amex" enabled={true} />
+                                            <MethodToggle label="Apple Pay / Google Pay" enabled={true} />
+                                            <MethodToggle label="Tap-to-Pay" enabled={true} />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <h4 className="font-bold text-sm text-slate-400 uppercase tracking-wider">Quick Actions</h4>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <Link
+                                                href={`/dashboard/settings/payments/terminals?locationId=${location.id}`}
+                                                className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <MonitorSmartphone className="h-4 w-4 text-blue-400" />
+                                                    <span>Manage Terminals</span>
+                                                </div>
+                                                <ChevronRight className="h-4 w-4 text-slate-600" />
+                                            </Link>
+                                            <Link
+                                                href={`/dashboard/settings/payments/tap-to-pay?locationId=${location.id}`}
+                                                className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Nfc className="h-4 w-4 text-orange-400" />
+                                                    <span>Setup Tap-to-Pay</span>
+                                                </div>
+                                                <ChevronRight className="h-4 w-4 text-slate-600" />
+                                            </Link>
+                                        </div>
+                                    </div>
                                 </div>
-                                <ChevronRight className="h-4 w-4" />
-                            </Link>
+                            )}
                         </div>
-                    </div>
-                </div>
-            )}
+                    ))
+                )}
+            </div>
         </div>
     );
 }
