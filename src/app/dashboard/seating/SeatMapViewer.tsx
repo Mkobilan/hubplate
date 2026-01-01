@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
 import { toast } from "react-hot-toast";
-import { Order } from "@/types/database";
+import { Order, WaitlistEntry } from "@/types/database";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, addMinutes, isWithinInterval, differenceInMinutes } from "date-fns";
@@ -100,7 +100,7 @@ export default function SeatMapViewer() {
     const [newSectionName, setNewSectionName] = useState("");
     const [isCreating, setIsCreating] = useState(false);
     const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
-    const [seatedWaitlist, setSeatedWaitlist] = useState<any[]>([]);
+    const [seatedWaitlist, setSeatedWaitlist] = useState<WaitlistEntry[]>([]);
 
     // Request tracking for race conditions
     const lastRequestId = useRef<number>(0);

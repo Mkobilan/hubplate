@@ -18,17 +18,10 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import { WaitlistEntry } from "@/types/database";
 import { AddWaitlistModal } from "./AddWaitlistModal";
 import { SeatWaitlistModal } from "./SeatWaitlistModal";
 
-interface WaitlistEntry {
-    id: string;
-    customer_name: string;
-    party_size: number;
-    status: 'waiting' | 'seated' | 'cancelled';
-    estimated_wait_minutes: number;
-    created_at: string;
-}
 
 interface WaitlistSidebarProps {
     isOpen: boolean;
@@ -51,7 +44,7 @@ export function WaitlistSidebar({ isOpen, onClose }: WaitlistSidebarProps) {
             const supabase = createClient();
             const { data, error } = await (supabase
                 .from("waitlist") as any)
-                .select("id, customer_name, party_size, status, estimated_wait_minutes, created_at")
+                .select("*")
                 .eq("location_id", currentLocation.id)
                 .eq("status", "waiting")
                 .order("created_at", { ascending: true });
@@ -102,111 +95,124 @@ export function WaitlistSidebar({ isOpen, onClose }: WaitlistSidebarProps) {
                 .eq("id", id);
 
             if (error) throw error;
-            toast.success("Guest seated!");
+            toast.success("Guest marked as seated");
             fetchWaitlist();
         } catch (err) {
+            console.error("Error seating guest:", err);
             toast.error("Failed to seat guest");
         }
     };
 
     return (
-        <div className={cn(
-            "fixed top-0 right-0 h-full bg-slate-900 border-l border-slate-800 shadow-2xl transition-all duration-300 z-50 flex flex-col",
-            isOpen ? "w-80 translate-x-0" : "w-0 translate-x-full"
-        )}>
-            {/* Sidebar Header */}
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-                <div className="flex items-center gap-2">
-                    <Hourglass className="h-5 w-5 text-orange-500" />
-                    <h2 className="font-bold text-white tracking-tight">{t("waitlist.title")}</h2>
-                    <span className="bg-orange-500/20 text-orange-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        {entries.length}
-                    </span>
+        <>
+            <div
+                className={cn(
+                    "fixed inset-y-0 right-0 w-80 bg-slate-950 border-l border-slate-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col",
+                    isOpen ? "translate-x-0" : "translate-x-full"
+                )}
+            >
+                {/* Header */}
+                <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+                    <div className="flex items-center gap-2">
+                        <Hourglass className="h-5 w-5 text-orange-500" />
+                        <h2 className="text-lg font-bold text-white">{t("waitlist.title")}</h2>
+                        <span className="bg-orange-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            {entries.length}
+                        </span>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="p-1 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors"
-                >
-                    <X className="h-5 w-5" />
-                </button>
-            </div>
 
-            {/* Actions */}
-            <div className="p-3 border-b border-slate-800">
-                <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                    <Plus className="h-4 w-4" />
-                    {t("waitlist.addCustomer")}
-                </button>
-            </div>
+                {/* Actions */}
+                <div className="p-4">
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-600/20"
+                    >
+                        <Plus className="h-4 w-4" />
+                        {t("waitlist.addCustomer")}
+                    </button>
+                </div>
 
-            {/* List */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center h-32 gap-2">
-                        <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
-                        <span className="text-xs text-slate-500">Updating...</span>
-                    </div>
-                ) : entries.length === 0 ? (
-                    <div className="text-center py-10">
-                        <div className="bg-slate-800/50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <Users className="h-6 w-6 text-slate-600" />
+                {/* List */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center h-40 gap-3">
+                            <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+                            <p className="text-slate-500 text-xs">Loading waitlist...</p>
                         </div>
-                        <p className="text-slate-400 text-sm">Waitlist is empty</p>
-                    </div>
-                ) : (
-                    entries.map((entry, index) => (
-                        <div
-                            key={entry.id}
-                            onClick={() => {
-                                setSelectedEntry(entry);
-                                setIsSeatModalOpen(true);
-                            }}
-                            className="bg-slate-950/50 border border-slate-800 rounded-xl p-3 hover:border-slate-700 transition-colors group cursor-pointer"
-                        >
-                            <div className="flex items-start justify-between mb-2">
-                                <div>
-                                    <h3 className="text-white font-semibold text-sm leading-tight truncate w-32">
-                                        {entry.customer_name}
-                                    </h3>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                                            <Users className="h-3 w-3" />
-                                            {entry.party_size}
-                                        </div>
-                                        <div className="flex items-center gap-1 text-[10px] text-orange-400">
-                                            <Clock className="h-3 w-3" />
-                                            {entry.estimated_wait_minutes}m
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="text-[10px] text-slate-500 font-mono">
-                                    #{index + 1}
-                                </div>
+                    ) : entries.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-60 text-center p-6 space-y-3">
+                            <div className="bg-slate-900 p-4 rounded-full border border-slate-800">
+                                <Users className="h-6 w-6 text-slate-600" />
                             </div>
-
-                            <div className="flex items-center justify-between pt-2 border-t border-slate-800/50">
-                                <span className="text-[10px] text-slate-500">
-                                    {formatDistanceToNow(new Date(entry.created_at))} ago
-                                </span>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
+                            <div>
+                                <p className="text-white font-medium text-sm">No one waiting</p>
+                                <p className="text-slate-500 text-xs mt-1">Add guests to see them here</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-slate-800/50">
+                            {entries.map((entry) => (
+                                <div
+                                    key={entry.id}
+                                    onClick={() => {
                                         setSelectedEntry(entry);
                                         setIsSeatModalOpen(true);
                                     }}
-                                    className="bg-green-600/10 hover:bg-green-600 text-green-500 hover:text-white px-3 py-1 rounded-md text-[10px] font-bold transition-all flex items-center gap-1 border border-green-500/20"
+                                    className="p-4 hover:bg-slate-900/50 transition-all group cursor-pointer border-l-2 border-transparent hover:border-orange-600"
                                 >
-                                    <Check className="h-3 w-3" />
-                                    SEAT
-                                </button>
-                            </div>
+                                    <div className="flex items-start justify-between">
+                                        <div className="space-y-1">
+                                            <p className="text-white font-bold group-hover:text-orange-500 transition-colors uppercase tracking-tight">
+                                                {entry.customer_name}
+                                            </p>
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-1 text-slate-400 text-[10px] font-medium">
+                                                    <Users className="h-3 w-3 text-blue-400" />
+                                                    {entry.party_size}
+                                                </div>
+                                                <div className="flex items-center gap-1 text-slate-400 text-[10px] font-medium">
+                                                    <Clock className="h-3 w-3 text-orange-400" />
+                                                    {entry.estimated_wait_minutes} min
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] text-slate-500 font-mono">
+                                                {formatDistanceToNow(new Date(entry.created_at), { addSuffix: false })}
+                                            </p>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedEntry(entry);
+                                                    setIsSeatModalOpen(true);
+                                                }}
+                                                className="mt-2 bg-slate-800 hover:bg-orange-600 text-slate-300 hover:text-white px-3 py-1 rounded text-[10px] font-black transition-all flex items-center gap-1"
+                                            >
+                                                SEAT <ChevronRight className="h-2 w-2" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))
-                )}
+                    )}
+                </div>
             </div>
+
+            {/* Backdrop */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-40 transition-opacity"
+                    onClick={onClose}
+                />
+            )}
 
             <AddWaitlistModal
                 isOpen={isAddModalOpen}
@@ -223,6 +229,6 @@ export function WaitlistSidebar({ isOpen, onClose }: WaitlistSidebarProps) {
                 entry={selectedEntry}
                 onSuccess={fetchWaitlist}
             />
-        </div>
+        </>
     );
 }

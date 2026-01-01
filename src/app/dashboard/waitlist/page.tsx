@@ -23,18 +23,8 @@ import { AddWaitlistModal } from "@/components/waitlist/AddWaitlistModal";
 import { SeatWaitlistModal } from "@/components/waitlist/SeatWaitlistModal";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import { WaitlistEntry } from "@/types/database";
 
-interface WaitlistEntry {
-    id: string;
-    customer_name: string;
-    customer_phone: string;
-    party_size: number;
-    status: 'waiting' | 'seated' | 'cancelled' | 'no_show';
-    notes: string;
-    estimated_wait_minutes: number;
-    created_at: string;
-    seated_at: string | null;
-}
 
 export default function WaitlistPage() {
     const { t } = useTranslation();
@@ -118,7 +108,7 @@ export default function WaitlistPage() {
 
     const filteredEntries = entries.filter(entry => {
         const matchesSearch = entry.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            entry.customer_phone.includes(searchQuery);
+            (entry.customer_phone || "").includes(searchQuery);
         const matchesStatus = statusFilter === 'all' || entry.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
