@@ -39,6 +39,9 @@ export default function SettingsPage() {
         require_manager_approval_for_swaps: false,
         admin_pin: "",
         google_review_link: "",
+        push_notifications: true,
+        email_notifications: true,
+        sms_notifications: false,
     });
 
     const MANAGEMENT_ROLES = ["owner", "manager", "gm", "agm"];
@@ -243,10 +246,10 @@ export default function SettingsPage() {
                             >
                                 <span
                                     className={cn(
-                                        "absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200",
+                                        "absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200",
                                         settings.require_manager_approval_for_swaps
-                                            ? "translate-x-7"
-                                            : "translate-x-1"
+                                            ? "translate-x-6"
+                                            : "translate-x-0"
                                     )}
                                 />
                             </button>
@@ -391,8 +394,8 @@ export default function SettingsPage() {
                             </div>
                         </div>
                         <Toggle
-                            checked={true} // TODO: State binding
-                            onChange={() => { }}
+                            checked={settings.push_notifications}
+                            onChange={(checked) => setSettings({ ...settings, push_notifications: checked })}
                         />
                     </div>
 
@@ -408,8 +411,8 @@ export default function SettingsPage() {
                             </div>
                         </div>
                         <Toggle
-                            checked={true} // TODO: State binding
-                            onChange={() => { }}
+                            checked={settings.email_notifications}
+                            onChange={(checked) => setSettings({ ...settings, email_notifications: checked })}
                         />
                     </div>
 
@@ -425,8 +428,8 @@ export default function SettingsPage() {
                             </div>
                         </div>
                         <Toggle
-                            checked={false} // TODO: State binding
-                            onChange={() => { }}
+                            checked={settings.sms_notifications}
+                            onChange={(checked) => setSettings({ ...settings, sms_notifications: checked })}
                         />
                     </div>
                 </div>
@@ -457,8 +460,8 @@ function Toggle({ checked, onChange }: { checked: boolean, onChange: (checked: b
         >
             <span
                 className={cn(
-                    "absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200",
-                    checked ? "translate-x-7" : "translate-x-1"
+                    "absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200",
+                    checked ? "translate-x-6" : "translate-x-0"
                 )}
             />
         </button>
