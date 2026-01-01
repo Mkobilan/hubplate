@@ -84,11 +84,12 @@ export default function SettingsPage() {
             }
 
             if (orgData) {
-                setSettings({
+                setSettings(prev => ({
+                    ...prev,
                     require_manager_approval_for_swaps: (orgData as any).require_manager_approval_for_swaps || false,
                     admin_pin: (orgData as any).admin_pin || "",
                     google_review_link: googleLink,
-                });
+                }));
             } else {
                 // If orgData not found/accessible, at least set the google link
                 setSettings(prev => ({
