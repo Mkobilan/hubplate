@@ -856,6 +856,53 @@ export interface Database {
                     updated_at?: string;
                 };
             };
+            waitlist: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    customer_name: string;
+                    customer_phone: string | null;
+                    party_size: number;
+                    status: "waiting" | "seated" | "cancelled" | "no_show" | "completed";
+                    notes: string | null;
+                    estimated_wait_minutes: number;
+                    table_id: string | null;
+                    table_label: string | null;
+                    created_at: string;
+                    updated_at: string;
+                    seated_at: string | null;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    customer_name: string;
+                    customer_phone?: string | null;
+                    party_size: number;
+                    status?: "waiting" | "seated" | "cancelled" | "no_show" | "completed";
+                    notes?: string | null;
+                    estimated_wait_minutes?: number;
+                    table_id?: string | null;
+                    table_label?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                    seated_at?: string | null;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    customer_name?: string;
+                    customer_phone?: string | null;
+                    party_size?: number;
+                    status?: "waiting" | "seated" | "cancelled" | "no_show" | "completed";
+                    notes?: string | null;
+                    estimated_wait_minutes?: number;
+                    table_id?: string | null;
+                    table_label?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                    seated_at?: string | null;
+                };
+            };
             employee_custom_fields: {
                 Row: {
                     id: string;
@@ -937,5 +984,6 @@ export type PurchaseOrderItem = Database["public"]["Tables"]["purchase_order_ite
 export type TimeEntry = Database["public"]["Tables"]["time_entries"]["Row"];
 export type Customer = Database["public"]["Tables"]["customers"]["Row"];
 export type CustomerFeedback = Database["public"]["Tables"]["customer_feedback"]["Row"];
+export type WaitlistEntry = Database["public"]["Tables"]["waitlist"]["Row"];
 
 

@@ -29,6 +29,7 @@ import { Stage, Layer, Rect, Circle, Text, Group } from "react-konva";
 import { formatCurrency, cn } from "@/lib/utils";
 import CloseTicketModal from "../orders/components/CloseTicketModal";
 import { Modal } from "@/components/ui/modal";
+import { WaitlistSidebar } from "@/components/waitlist/WaitlistSidebar";
 interface TableConfig {
     id: string;
     label: string;
@@ -98,6 +99,8 @@ export default function SeatMapViewer() {
     const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
     const [newSectionName, setNewSectionName] = useState("");
     const [isCreating, setIsCreating] = useState(false);
+    const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
+    const [seatedWaitlist, setSeatedWaitlist] = useState<any[]>([]);
 
     // Request tracking for race conditions
     const lastRequestId = useRef<number>(0);
@@ -119,6 +122,7 @@ export default function SeatMapViewer() {
                 await fetchActiveOrders();
                 await fetchReservationSettings();
                 await fetchUpcomingReservations();
+                await fetchSeatedWaitlist();
             };
             init();
 
@@ -137,8 +141,24 @@ export default function SeatMapViewer() {
                 )
                 .subscribe();
 
+            // Real-time subscription for waitlist
+            const waitlistChannel = supabaseRef.current
+                .channel('waitlist-seating')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'waitlist',
+                        filter: `location_id=eq.${currentLocation.id}`
+                    },
+                    () => fetchSeatedWaitlist()
+                )
+                .subscribe();
+
             return () => {
                 supabaseRef.current.removeChannel(channel);
+                supabaseRef.current.removeChannel(waitlistChannel);
             };
         }
     }, [currentLocation?.id]);
@@ -258,17 +278,39 @@ export default function SeatMapViewer() {
         }
     };
 
+    const fetchSeatedWaitlist = async () => {
+        const loc = locationRef.current;
+        if (!loc?.id) return;
+
+        try {
+            const { data, error } = await supabaseRef.current
+                .from("waitlist")
+                .select("*")
+                .eq("location_id", loc.id)
+                .eq("status", "seated")
+                .gte("seated_at", new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()); // Last 4 hours
+
+            if (error) throw error;
+            setSeatedWaitlist(data || []);
+        } catch (err) {
+            console.error("Error fetching seated waitlist:", err);
+        }
+    };
+
     const handleSitTable = async () => {
         if (!selectedTable || !currentLocation || !currentEmployee) return;
 
         setActionLoading(true);
         try {
+            const seatedEntry = seatedWaitlist.find(w => w.table_id === selectedTable.id);
+
             const { error } = await (supabaseRef.current
                 .from("orders") as any)
                 .insert({
                     location_id: currentLocation.id,
                     server_id: currentEmployee.id,
                     table_number: selectedTable.label,
+                    customer_name: seatedEntry?.customer_name || null,
                     status: 'pending',
                     subtotal: 0,
                     tax: 0,
@@ -282,9 +324,24 @@ export default function SeatMapViewer() {
                 throw error;
             }
 
+            // Cleanup waitlist if guest was seated from waitlist
+            if (seatedEntry) {
+                await (supabaseRef.current
+                    .from("waitlist") as any)
+                    .update({ status: 'completed' })
+                    .eq('id', seatedEntry.id);
+
+                // Refresh waitlist state
+                fetchSeatedWaitlist();
+            }
+
             toast.success(`Table ${selectedTable.label} seated`);
+            const tableLabel = selectedTable.label;
             setSelectedTable(null);
             fetchActiveOrders();
+
+            // Redirect to orders page
+            router.push(`/dashboard/orders?table=${tableLabel}`);
         } catch (err) {
             console.error("Error sitting table:", err);
             toast.error("Failed to sit table");
@@ -507,10 +564,12 @@ export default function SeatMapViewer() {
         const trimmedLabel = table.label.trim();
         const order = activeOrders.find(o => (o.table_number || "").trim() === trimmedLabel);
         const reservation = getTableReservation(table.id);
+        const seatedWaitlistEntry = seatedWaitlist.find(w => w.table_id === table.id);
 
-        if (order) return { status: "occupied", order, reservation: null };
-        if (reservation) return { status: "reserved", order: null, reservation };
-        return { status: "available", order: null, reservation: null };
+        if (order) return { status: "occupied", order, reservation: null, seatedWaitlistEntry: null };
+        if (seatedWaitlistEntry) return { status: "seated", order: null, reservation: null, seatedWaitlistEntry };
+        if (reservation) return { status: "reserved", order: null, reservation, seatedWaitlistEntry: null };
+        return { status: "available", order: null, reservation: null, seatedWaitlistEntry: null };
     };
 
     if (loading && maps.length === 0) {
@@ -519,7 +578,7 @@ export default function SeatMapViewer() {
 
     // Helper calculate stats
     const totalTables = tables.filter(t => t.object_type !== 'structure').length;
-    const occupiedTables = tables.filter(t => t.object_type !== 'structure' && getTableStatus(t).status === "occupied").length;
+    const occupiedTables = tables.filter(t => t.object_type !== 'structure' && (getTableStatus(t).status === "occupied" || getTableStatus(t).status === "seated")).length;
     const reservedTables = tables.filter(t => t.object_type !== 'structure' && getTableStatus(t).status === "reserved").length;
     const availableTables = totalTables - occupiedTables - reservedTables;
 
@@ -581,6 +640,18 @@ export default function SeatMapViewer() {
                             Edit Map
                         </Link>
                     )}
+                    <button
+                        onClick={() => setIsWaitlistOpen(!isWaitlistOpen)}
+                        className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
+                            isWaitlistOpen
+                                ? "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20"
+                                : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white hover:bg-slate-700"
+                        )}
+                    >
+                        <Hourglass className={cn("h-4 w-4", isWaitlistOpen && "animate-pulse")} />
+                        Waitlist
+                    </button>
                     <div className="h-6 w-px bg-slate-800 mx-2"></div>
                     <StatusBadge status="Available" count={availableTables} />
                     <StatusBadge status="Reserved" count={reservedTables} />
@@ -600,13 +671,13 @@ export default function SeatMapViewer() {
                         <Layer>
                             <Group>
                                 {tables.map((table) => {
-                                    const { status, order, reservation } = getTableStatus(table);
-                                    const isOccupied = status === "occupied";
+                                    const { status, order, reservation, seatedWaitlistEntry } = getTableStatus(table);
+                                    const isOccupied = status === "occupied" || status === "seated";
                                     const isReserved = status === "reserved";
                                     const assignedServer = servers.find(s => s.id === table.assigned_server_id);
                                     const initials = assignedServer ? `${assignedServer.first_name[0]}${assignedServer.last_name[0]}`.toUpperCase() : "";
 
-                                    // Color priority: Occupied (red) > Reserved (custom) > Server color > Default gray
+                                    // Color priority: Occupied/Seated (red) > Reserved (custom) > Server color > Default gray
                                     const tableColor = isOccupied
                                         ? "#ef4444"
                                         : isReserved
@@ -747,19 +818,19 @@ export default function SeatMapViewer() {
                                             })()}
                                             {/* Consolidated Label Rendering */}
                                             {(table.object_type !== 'structure' || table.shape === 'door') && (
-                                                <Text
-                                                    text={initials ? `${table.label}\n${initials}` : table.label}
-                                                    fontSize={initials ? 14 : (table.object_type === 'seat' ? 12 : 16)}
-                                                    fontStyle="bold"
-                                                    fill="white"
-                                                    width={table.width}
-                                                    height={table.height}
-                                                    verticalAlign="middle"
-                                                    align="center"
-                                                    listening={false}
-                                                    opacity={table.shape === 'door' ? 0.9 : 1}
-                                                    lineHeight={1.2}
-                                                />
+                                                <Group y={table.height / 2} listening={false} opacity={table.shape === 'door' ? 0.9 : 1}>
+                                                    <Text
+                                                        text={initials ? `${table.label}\n${initials}` : table.label}
+                                                        width={table.width}
+                                                        fontSize={Math.min(table.width / 3, 16)}
+                                                        fontStyle="bold"
+                                                        fill="white"
+                                                        align="center"
+                                                        verticalAlign="middle"
+                                                        y={0}
+                                                        lineHeight={1}
+                                                    />
+                                                </Group>
                                             )}
                                         </Group>
                                     );
@@ -798,11 +869,17 @@ export default function SeatMapViewer() {
                         total={payingOrder.total}
                         onClose={() => setPayingOrder(null)}
                         onPaymentComplete={() => {
-                            setPayingOrder(null);
                             fetchActiveOrders();
+                            setPayingOrder(null);
                         }}
                     />
                 )}
+
+                {/* Waitlist Sidebar */}
+                <WaitlistSidebar
+                    isOpen={isWaitlistOpen}
+                    onClose={() => setIsWaitlistOpen(false)}
+                />
 
                 {/* Add Section Modal */}
                 <Modal
@@ -851,7 +928,7 @@ export default function SeatMapViewer() {
                         </div>
                     </div>
                 </Modal>
-            </div>
+            </div >
         </div >
     );
 }
@@ -859,7 +936,7 @@ export default function SeatMapViewer() {
 interface TableStatusModalProps {
     table: TableConfig;
     onClose: () => void;
-    status: { status: string; order: any; reservation: any };
+    status: { status: string; order: any; reservation: any; seatedWaitlistEntry: any };
     servers: Server[];
     canEdit: boolean;
     onAssignServer: (id: string | null) => void;
@@ -884,9 +961,11 @@ function TableStatusModal({
     reservationSettings
 }: TableStatusModalProps) {
     const isOccupied = status.status === "occupied";
+    const isSeated = status.status === "seated";
     const isReserved = status.status === "reserved";
     const order = status.order;
     const reservation = status.reservation;
+    const seatedWaitlistEntry = status.seatedWaitlistEntry;
 
     // Calculate camping time
     const [now, setNow] = useState(new Date());
@@ -928,9 +1007,9 @@ function TableStatusModal({
                         <div>
                             <div className="flex items-center gap-3">
                                 <h3 className="text-2xl font-black text-white tracking-tight">Table {table.label}</h3>
-                                {isOccupied && (
+                                {(isOccupied || isSeated) && (
                                     <span className="px-2 py-0.5 rounded bg-red-500 text-[10px] font-black uppercase tracking-widest text-white animate-pulse">
-                                        Occupied
+                                        {isOccupied ? "Occupied" : "Seated"}
                                     </span>
                                 )}
                             </div>
@@ -939,10 +1018,12 @@ function TableStatusModal({
                                     <Users className="h-3.5 w-3.5" />
                                     <span>Capacity: {table.capacity}</span>
                                 </div>
-                                {isOccupied && (
+                                {(isOccupied || isSeated) && (
                                     <div className="flex items-center gap-1.5 text-xs font-medium">
                                         <Hourglass className="h-3.5 w-3.5 text-orange-400" />
-                                        <span>Camping: {campingMinutes}m</span>
+                                        <span>
+                                            {isOccupied ? `Camping: ${campingMinutes}m` : `Seated: ${differenceInMinutes(now, new Date(seatedWaitlistEntry?.seated_at || seatedWaitlistEntry?.created_at || now))}m`}
+                                        </span>
                                     </div>
                                 )}
                             </div>
@@ -958,13 +1039,38 @@ function TableStatusModal({
 
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
                     {/* Status Content */}
-                    {!isOccupied && !isReserved && (
+                    {!isOccupied && !isSeated && !isReserved && (
                         <div className="flex flex-col items-center justify-center py-8 text-center bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-800">
                             <div className="bg-slate-800/50 p-4 rounded-full mb-4">
                                 <Utensils className="h-8 w-8 text-slate-600" />
                             </div>
                             <p className="text-slate-400 font-medium">Table is currently available</p>
                             <p className="text-xs text-slate-500 mt-1">Ready to sit a new party</p>
+                        </div>
+                    )}
+
+                    {isSeated && (
+                        <div className="p-5 rounded-2xl border border-red-500/30 bg-red-500/10">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Users className="h-5 w-5 text-red-500" />
+                                <span className="text-sm font-bold uppercase tracking-wider text-red-500">Guest Seated (Waitlist)</span>
+                            </div>
+                            <div className="space-y-3">
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-1">Guest Name</p>
+                                    <p className="text-xl font-bold text-white">{seatedWaitlistEntry.customer_name}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-1">Party Size</p>
+                                        <p className="text-white font-semibold">{seatedWaitlistEntry.party_size} People</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-1">Phone</p>
+                                        <p className="text-white font-semibold">{seatedWaitlistEntry.customer_phone || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -1103,8 +1209,8 @@ function TableStatusModal({
                                     disabled={actionLoading}
                                     className="sm:col-span-2 w-full flex items-center justify-center gap-2 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black uppercase tracking-widest transition-all transform active:scale-95 disabled:opacity-50 shadow-lg shadow-orange-600/20"
                                 >
-                                    {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserCheck className="h-5 w-5" />}
-                                    Sit Guest
+                                    {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (isSeated ? <Utensils className="h-5 w-5" /> : <UserCheck className="h-5 w-5" />)}
+                                    {isSeated ? "Start Order" : "Sit Guest"}
                                 </button>
                             ) : (
                                 <>

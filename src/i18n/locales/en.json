@@ -43,6 +43,7 @@
         "locations": "Locations",
         "settings": "Settings",
         "seating": "Seating",
+        "waitlist": "Waitlist",
         "profile": "My Profile"
     },
     "staff": {
@@ -117,5 +118,24 @@
         "reorderSuggestions": "Reorder Suggestions",
         "addInventory": "Add Inventory",
         "waste": "Log Waste"
+    },
+    "waitlist": {
+        "title": "Waitlist",
+        "addCustomer": "Add to Waitlist",
+        "name": "Customer Name",
+        "phone": "Phone Number",
+        "partySize": "Party Size",
+        "notes": "Notes",
+        "estimatedWait": "Estimated Wait (mins)",
+        "waiting": "Waiting",
+        "seated": "Seated",
+        "cancelled": "Cancelled",
+        "noShow": "No Show",
+        "seatNow": "Seat Now",
+        "cancel": "Cancel Entry",
+        "noEntries": "Nobody is currently on the waitlist.",
+        "seatGuest": "Seat Guest",
+        "chooseTable": "Choose a Table",
+        "sitPerson": "Sit Person"
     }
 }
