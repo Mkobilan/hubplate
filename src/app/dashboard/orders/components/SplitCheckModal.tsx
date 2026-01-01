@@ -5,21 +5,8 @@ import { X, Users, Split, Plus, Trash2, CheckCircle2, ChevronRight, ChevronLeft 
 import { cn, formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
+import { OrderItem } from "@/types/pos";
 
-interface OrderItem {
-    id: string;
-    menuItemId: string;
-    name: string;
-    price: number;
-    quantity: number;
-    notes?: string;
-    isUpsell?: boolean;
-    isEdited?: boolean;
-    seatNumber: number;
-    status: 'pending' | 'preparing' | 'ready' | 'served';
-    category_name?: string;
-    sent_at?: string;
-}
 
 interface SplitCheckModalProps {
     orderId: string;
