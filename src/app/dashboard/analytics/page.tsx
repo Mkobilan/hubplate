@@ -111,6 +111,13 @@ export default function AnalyticsPage() {
         itemPerformance: []
     });
 
+    const [serverPerformanceData, setServerPerformanceData] = useState<any>({
+        servers: [],
+        totalUpsellRevenue: 0,
+        totalAddOnRevenue: 0,
+        topUpseller: "N/A"
+    });
+
     const fetchAllData = useCallback(async () => {
         if (!currentLocation) return;
 
@@ -129,7 +136,7 @@ export default function AnalyticsPage() {
                 .lte("created_at", endISO);
 
             const completedOrders = (orders || []).filter((o: any) =>
-                o.status === "completed" || o.status === "served"
+                ["completed", "pending", "served"].includes(o.status)
             );
             const totalSales = completedOrders.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
             const orderCount = orders?.length || 0;
@@ -380,7 +387,17 @@ export default function AnalyticsPage() {
                     };
                 }
                 acc[name].quantity += item.quantity || 1;
-                acc[name].revenue += (Number(item.price) || 0) * (item.quantity || 1);
+                let itemRevenue = (Number(item.price) || 0) * (item.quantity || 1);
+
+                // Add modifier revenue (both upsells and add-ons)
+                const modifiers = item.modifiers || item.add_ons || [];
+                if (Array.isArray(modifiers)) {
+                    modifiers.forEach((mod: any) => {
+                        itemRevenue += (Number(mod.price) || 0) * (item.quantity || 1);
+                    });
+                }
+
+                acc[name].revenue += itemRevenue;
             }
 
             const topItems = Object.values(itemGroups)
@@ -473,6 +490,91 @@ export default function AnalyticsPage() {
                 itemPerformance
             });
 
+            // ========== SERVER PERFORMANCE ==========
+            const { data: employees } = await supabase
+                .from("employees")
+                .select("id, first_name, last_name, role")
+                .eq("location_id", currentLocation.id)
+                .is("termination_date", null);
+
+            const { data: signups } = await supabase
+                .from("customers")
+                .select("loyalty_signup_server_id")
+                .eq("location_id", currentLocation.id)
+                .gte("loyalty_signup_at", startISO)
+                .lte("loyalty_signup_at", endISO);
+
+            const serverStats = (employees || []).reduce((acc: any, emp: any) => {
+                const name = `${emp.first_name} ${emp.last_name}`;
+                acc[emp.id] = {
+                    id: emp.id,
+                    name,
+                    role: emp.role,
+                    sales: 0,
+                    upsellRevenue: 0,
+                    addOnRevenue: 0,
+                    reviewsCount: 0,
+                    avgRating: 0,
+                    loyaltySignups: 0
+                };
+                return acc;
+            }, {});
+
+            // Process Orders for Server Stats
+            (orders || []).forEach((order: any) => {
+                if (!order.server_id || !serverStats[order.server_id]) return;
+
+                if (order.status !== "cancelled") {
+                    serverStats[order.server_id].sales += Number(order.total || 0);
+
+                    if (order.items && Array.isArray(order.items)) {
+                        order.items.forEach((item: any) => {
+                            if (item.modifiers && Array.isArray(item.modifiers)) {
+                                item.modifiers.forEach((mod: any) => {
+                                    const modRev = (Number(mod.price) || 0) * (item.quantity || 1);
+                                    if (mod.type === 'upsell') {
+                                        serverStats[order.server_id].upsellRevenue += modRev;
+                                    } else if (mod.type === 'add-on') {
+                                        serverStats[order.server_id].addOnRevenue += modRev;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
+            });
+
+            // Process Feedback for Server Stats
+            (feedback || []).forEach((f: any) => {
+                if (!f.server_id || !serverStats[f.server_id]) return;
+                const stats = serverStats[f.server_id];
+                const newTotal = (stats.avgRating * stats.reviewsCount) + (f.rating || 0);
+                stats.reviewsCount += 1;
+                stats.avgRating = newTotal / stats.reviewsCount;
+            });
+
+            // Process Loyalty Signups
+            (signups || []).forEach((s: any) => {
+                if (s.loyalty_signup_server_id && serverStats[s.loyalty_signup_server_id]) {
+                    serverStats[s.loyalty_signup_server_id].loyaltySignups += 1;
+                }
+            });
+
+            const serverList = Object.values(serverStats)
+                .filter((s: any) => s.sales > 0 || s.reviewsCount > 0 || s.loyaltySignups > 0)
+                .sort((a: any, b: any) => b.sales - a.sales);
+
+            const totalUpsellRevenue = serverList.reduce((sum: number, s: any) => sum + s.upsellRevenue, 0);
+            const totalAddOnRevenue = serverList.reduce((sum: number, s: any) => sum + s.addOnRevenue, 0);
+            const topUpseller = (serverList.sort((a: any, b: any) => b.upsellRevenue - a.upsellRevenue)[0] as any)?.name || "N/A";
+
+            setServerPerformanceData({
+                servers: serverList,
+                totalUpsellRevenue,
+                totalAddOnRevenue,
+                topUpseller
+            });
+
 
         } catch (error) {
             console.error("Error fetching analytics data:", error);
@@ -486,7 +588,9 @@ export default function AnalyticsPage() {
         fetchAllData();
     }, [fetchAllData]);
 
-    // Real-time subscription for orders
+    // Real-time subscription disabled for performance
+    // It was causing too many re-fetches on a data-intensive page
+    /*
     useEffect(() => {
         if (!currentLocation) return;
 
@@ -498,6 +602,7 @@ export default function AnalyticsPage() {
 
         return () => { supabase.removeChannel(channel); };
     }, [currentLocation?.id, fetchAllData]);
+    */
 
     if (!currentLocation) {
         return (
@@ -677,6 +782,110 @@ export default function AnalyticsPage() {
                             <div className="bg-slate-800/30 rounded-xl p-4">
                                 <h4 className="font-semibold text-sm text-slate-400 mb-4">Hours by Role</h4>
                                 <PieChart data={laborData.byRole} size={140} />
+                            </div>
+                        </div>
+                    </CollapsibleCard>
+
+                    {/* SECTION: Server Performance */}
+                    <CollapsibleCard
+                        title="Server Performance"
+                        icon={<Users className="h-5 w-5 text-orange-400" />}
+                        accentColor="bg-orange-500/20"
+                    >
+                        {/* Metrics Row */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <MetricBox
+                                label="Total Upsell Revenue"
+                                value={formatCurrency(serverPerformanceData.totalUpsellRevenue)}
+                                color="text-green-400"
+                            />
+                            <MetricBox
+                                label="Total Add-On Revenue"
+                                value={formatCurrency(serverPerformanceData.totalAddOnRevenue)}
+                                color="text-blue-400"
+                            />
+                            <MetricBox
+                                label="Top Upseller"
+                                value={serverPerformanceData.topUpseller}
+                                color="text-purple-400"
+                            />
+                            <MetricBox
+                                label="Total Loyalty Signups"
+                                value={serverPerformanceData.servers.reduce((sum: number, s: any) => sum + s.loyaltySignups, 0)}
+                                color="text-orange-400"
+                            />
+                        </div>
+
+                        {/* Dedicated Server Area - List by Server */}
+                        <div className="bg-slate-800/30 rounded-xl overflow-hidden border border-slate-700/50">
+                            <div className="p-4 border-b border-slate-700/50 bg-slate-800/50">
+                                <h4 className="font-semibold text-sm text-slate-200 flex items-center gap-2">
+                                    <ShoppingBag className="h-4 w-4 text-orange-500" />
+                                    Individual Server Metrics
+                                </h4>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead>
+                                        <tr className="bg-slate-900/50 text-slate-500 text-[10px] uppercase tracking-widest border-b border-slate-700/50">
+                                            <th className="px-4 py-3 font-bold">Server</th>
+                                            <th className="px-4 py-3 font-bold text-right">Total Sales</th>
+                                            <th className="px-4 py-3 font-bold text-right text-green-400">Upsells</th>
+                                            <th className="px-4 py-3 font-bold text-right text-blue-400">Add-Ons</th>
+                                            <th className="px-4 py-3 font-bold text-center">Reviews</th>
+                                            <th className="px-4 py-3 font-bold text-center">Avg Rating</th>
+                                            <th className="px-4 py-3 font-bold text-center text-purple-400">Loyalty</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-700/30">
+                                        {serverPerformanceData.servers.length > 0 ? (
+                                            serverPerformanceData.servers.map((server: any, i: number) => (
+                                                <tr key={i} className="hover:bg-slate-700/20 transition-colors group">
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium text-slate-200">{server.name}</span>
+                                                            <span className="text-[10px] text-slate-500 uppercase">{server.role}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-semibold text-slate-300">
+                                                        {formatCurrency(server.sales)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-green-500/80 font-mono">
+                                                        {formatCurrency(server.upsellRevenue)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-blue-500/80 font-mono">
+                                                        {formatCurrency(server.addOnRevenue)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center text-slate-400">
+                                                        {server.reviewsCount}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <span className={cn(
+                                                                "font-bold",
+                                                                server.avgRating >= 4.5 ? "text-green-400" : (server.avgRating >= 4 ? "text-yellow-400" : (server.avgRating > 0 ? "text-red-400" : "text-slate-600"))
+                                                            )}>
+                                                                {server.avgRating > 0 ? server.avgRating.toFixed(1) : "—"}
+                                                            </span>
+                                                            {server.avgRating > 0 && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className="badge badge-primary px-2 py-0 h-5 bg-purple-500/20 text-purple-400 border-purple-500/30">
+                                                            {server.loyaltySignups}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={7} className="px-4 py-8 text-center text-slate-500 italic">
+                                                    No server data recorded for this period
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </CollapsibleCard>

@@ -160,6 +160,12 @@ export function DashboardSidebar() {
             requiresManager: true,
         },
         {
+            href: "/dashboard/invoices",
+            icon: <ClipboardList className="h-5 w-5" />, // Using ClipboardList since Receipt isn't in current imports, or I can add Receipt
+            label: t("nav.invoices"),
+            requiresManager: true,
+        },
+        {
             href: "/dashboard/settings",
             icon: <Settings className="h-5 w-5" />,
             label: t("nav.settings"),

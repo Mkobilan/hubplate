@@ -742,6 +742,8 @@ export interface Database {
                     total_spent: number;
                     notes: string | null;
                     birthday: string | null;
+                    loyalty_signup_server_id: string | null;
+                    loyalty_signup_at: string | null;
                     created_at: string;
                     updated_at: string;
                 };
@@ -759,6 +761,8 @@ export interface Database {
                     total_spent?: number;
                     notes?: string | null;
                     birthday?: string | null;
+                    loyalty_signup_server_id?: string | null;
+                    loyalty_signup_at?: string | null;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -776,6 +780,8 @@ export interface Database {
                     total_spent?: number;
                     notes?: string | null;
                     birthday?: string | null;
+                    loyalty_signup_server_id?: string | null;
+                    loyalty_signup_at?: string | null;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -785,6 +791,7 @@ export interface Database {
                     id: string;
                     location_id: string;
                     customer_id: string | null;
+                    server_id: string | null;
                     rating: number;
                     comment: string | null;
                     created_at: string;
@@ -793,6 +800,7 @@ export interface Database {
                     id?: string;
                     location_id: string;
                     customer_id?: string | null;
+                    server_id?: string | null;
                     rating: number;
                     comment?: string | null;
                     created_at?: string;
@@ -961,6 +969,232 @@ export interface Database {
                     updated_at?: string;
                 };
             };
+            vendors: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    name: string;
+                    email: string | null;
+                    phone: string | null;
+                    address: string | null;
+                    account_number: string | null;
+                    payment_terms: string | null;
+                    default_gl_code: string | null;
+                    notes: string | null;
+                    is_active: boolean;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    name: string;
+                    email?: string | null;
+                    phone?: string | null;
+                    address?: string | null;
+                    account_number?: string | null;
+                    payment_terms?: string | null;
+                    default_gl_code?: string | null;
+                    notes?: string | null;
+                    is_active?: boolean;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    name?: string;
+                    email?: string | null;
+                    phone?: string | null;
+                    address?: string | null;
+                    account_number?: string | null;
+                    payment_terms?: string | null;
+                    default_gl_code?: string | null;
+                    notes?: string | null;
+                    is_active?: boolean;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+            };
+            invoices: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    vendor_id: string | null;
+                    invoice_number: string | null;
+                    invoice_date: string | null;
+                    due_date: string | null;
+                    subtotal: number;
+                    tax: number;
+                    total: number;
+                    status: "pending" | "approved" | "paid" | "disputed" | "cancelled";
+                    source: "upload" | "scan" | "manual";
+                    original_file_url: string | null;
+                    original_file_name: string | null;
+                    ocr_raw_data: Json | null;
+                    processing_status: "processing" | "completed" | "needs_review" | "failed";
+                    processing_errors: Json | null;
+                    approved_by: string | null;
+                    approved_at: string | null;
+                    notes: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    vendor_id?: string | null;
+                    invoice_number?: string | null;
+                    invoice_date?: string | null;
+                    due_date?: string | null;
+                    subtotal?: number;
+                    tax?: number;
+                    total?: number;
+                    status?: "pending" | "approved" | "paid" | "disputed" | "cancelled";
+                    source?: "upload" | "scan" | "manual";
+                    original_file_url?: string | null;
+                    original_file_name?: string | null;
+                    ocr_raw_data?: Json | null;
+                    processing_status?: "processing" | "completed" | "needs_review" | "failed";
+                    processing_errors?: Json | null;
+                    approved_by?: string | null;
+                    approved_at?: string | null;
+                    notes?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    vendor_id?: string | null;
+                    invoice_number?: string | null;
+                    invoice_date?: string | null;
+                    due_date?: string | null;
+                    subtotal?: number;
+                    tax?: number;
+                    total?: number;
+                    status?: "pending" | "approved" | "paid" | "disputed" | "cancelled";
+                    source?: "upload" | "scan" | "manual";
+                    original_file_url?: string | null;
+                    original_file_name?: string | null;
+                    ocr_raw_data?: Json | null;
+                    processing_status?: "processing" | "completed" | "needs_review" | "failed";
+                    processing_errors?: Json | null;
+                    approved_by?: string | null;
+                    approved_at?: string | null;
+                    notes?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+            };
+            invoice_line_items: {
+                Row: {
+                    id: string;
+                    invoice_id: string;
+                    inventory_item_id: string | null;
+                    description: string;
+                    quantity: number;
+                    unit: string | null;
+                    unit_price: number;
+                    extended_price: number;
+                    gl_code: string | null;
+                    category: string | null;
+                    sub_category: string | null;
+                    confidence_score: number;
+                    needs_review: boolean;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    invoice_id: string;
+                    inventory_item_id?: string | null;
+                    description: string;
+                    quantity?: number;
+                    unit?: string | null;
+                    unit_price?: number;
+                    extended_price?: number;
+                    gl_code?: string | null;
+                    category?: string | null;
+                    sub_category?: string | null;
+                    confidence_score?: number;
+                    needs_review?: boolean;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    invoice_id?: string;
+                    inventory_item_id?: string | null;
+                    description?: string;
+                    quantity?: number;
+                    unit?: string | null;
+                    unit_price?: number;
+                    extended_price?: number;
+                    gl_code?: string | null;
+                    category?: string | null;
+                    sub_category?: string | null;
+                    confidence_score?: number;
+                    needs_review?: boolean;
+                    created_at?: string;
+                };
+            };
+            ingredient_price_history: {
+                Row: {
+                    id: string;
+                    inventory_item_id: string;
+                    vendor_id: string | null;
+                    invoice_id: string | null;
+                    location_id: string;
+                    price_per_unit: number;
+                    unit: string | null;
+                    recorded_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    inventory_item_id: string;
+                    vendor_id?: string | null;
+                    invoice_id?: string | null;
+                    location_id: string;
+                    price_per_unit: number;
+                    unit?: string | null;
+                    recorded_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    inventory_item_id?: string;
+                    vendor_id?: string | null;
+                    invoice_id?: string | null;
+                    location_id?: string;
+                    price_per_unit?: number;
+                    unit?: string | null;
+                    recorded_at?: string;
+                };
+            };
+            invoice_approvals: {
+                Row: {
+                    id: string;
+                    invoice_id: string;
+                    employee_id: string | null;
+                    action: "submitted" | "approved" | "rejected" | "edited";
+                    notes: string | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    invoice_id: string;
+                    employee_id?: string | null;
+                    action: "submitted" | "approved" | "rejected" | "edited";
+                    notes?: string | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    invoice_id?: string;
+                    employee_id?: string | null;
+                    action?: "submitted" | "approved" | "rejected" | "edited";
+                    notes?: string | null;
+                    created_at?: string;
+                };
+            };
         };
 
 
@@ -985,5 +1219,10 @@ export type TimeEntry = Database["public"]["Tables"]["time_entries"]["Row"];
 export type Customer = Database["public"]["Tables"]["customers"]["Row"];
 export type CustomerFeedback = Database["public"]["Tables"]["customer_feedback"]["Row"];
 export type WaitlistEntry = Database["public"]["Tables"]["waitlist"]["Row"];
+export type Vendor = Database["public"]["Tables"]["vendors"]["Row"];
+export type Invoice = Database["public"]["Tables"]["invoices"]["Row"];
+export type InvoiceLineItem = Database["public"]["Tables"]["invoice_line_items"]["Row"];
+export type IngredientPriceHistory = Database["public"]["Tables"]["ingredient_price_history"]["Row"];
+export type InvoiceApproval = Database["public"]["Tables"]["invoice_approvals"]["Row"];
 
 

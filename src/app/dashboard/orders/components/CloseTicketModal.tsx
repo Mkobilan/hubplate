@@ -62,9 +62,23 @@ export default function CloseTicketModal({
                 .maybeSingle();
 
             if (existing) {
+                const { data: orderData } = await (supabase as any)
+                    .from("orders")
+                    .select("server_id")
+                    .eq("id", orderId)
+                    .single();
+
                 await (supabase as any).from("orders").update({ customer_id: existing.id }).eq("id", orderId);
+
                 if (!existing.is_loyalty_member) {
-                    await (supabase as any).from("customers").update({ is_loyalty_member: true }).eq("id", existing.id);
+                    await (supabase as any)
+                        .from("customers")
+                        .update({
+                            is_loyalty_member: true,
+                            loyalty_signup_server_id: orderData?.server_id || null,
+                            loyalty_signup_at: orderData?.server_id ? new Date().toISOString() : null
+                        })
+                        .eq("id", existing.id);
                 }
                 setLoyaltyName(existing.first_name || "Guest");
                 setLoyaltySuccess(true);
@@ -84,7 +98,7 @@ export default function CloseTicketModal({
         try {
             const supabase = createClient();
             const cleanPhone = loyaltyPhone.replace(/\D/g, "");
-            const { data: orderData } = await (supabase as any).from("orders").select("location_id").eq("id", orderId).single();
+            const { data: orderData } = await (supabase as any).from("orders").select("location_id, server_id").eq("id", orderId).single();
             if (!orderData) throw new Error("Order not found");
 
             const nameParts = loyaltyName.trim().split(" ");
@@ -98,6 +112,8 @@ export default function CloseTicketModal({
                 last_name: lastName,
                 is_loyalty_member: true,
                 birthday: loyaltyBirthday || null,
+                loyalty_signup_server_id: orderData.server_id,
+                loyalty_signup_at: new Date().toISOString(),
                 loyalty_points: 0, total_visits: 0, total_spent: 0
             }).select("id").single();
             if (error) throw error;
@@ -129,12 +145,26 @@ export default function CloseTicketModal({
 
             if (existing) {
                 // Update existing
+                const { data: orderData } = await (supabase as any)
+                    .from("orders")
+                    .select("server_id")
+                    .eq("id", orderId)
+                    .single();
+
+                const updatePayload: any = {
+                    is_loyalty_member: true,
+                    birthday: loyaltyBirthday || null,
+                };
+
+                // Attribute if not already a member
+                if (!existing.is_loyalty_member && orderData?.server_id) {
+                    updatePayload.loyalty_signup_server_id = orderData.server_id;
+                    updatePayload.loyalty_signup_at = new Date().toISOString();
+                }
+
                 await (supabase as any)
                     .from("customers")
-                    .update({
-                        is_loyalty_member: true,
-                        birthday: loyaltyBirthday || null,
-                    })
+                    .update(updatePayload)
                     .eq("id", existing.id);
             } else {
                 if (!loyaltyName) {
@@ -142,15 +172,16 @@ export default function CloseTicketModal({
                     return;
                 }
 
-                // Fetch order for location
+                // Fetch order for location and server attribution
                 const { data: orderData } = await (supabase as any)
                     .from("orders")
-                    .select("location_id")
+                    .select("location_id, server_id")
                     .eq("id", orderId)
                     .single();
 
                 if (!orderData) throw new Error("Order not found");
                 const locationId = orderData.location_id;
+                const serverId = orderData.server_id;
 
                 const nameParts = loyaltyName.trim().split(" ");
                 const firstName = nameParts[0];
@@ -165,6 +196,8 @@ export default function CloseTicketModal({
                         last_name: lastName,
                         is_loyalty_member: true,
                         birthday: loyaltyBirthday || null,
+                        loyalty_signup_server_id: serverId,
+                        loyalty_signup_at: new Date().toISOString(),
                         loyalty_points: 0,
                         total_visits: 0,
                         total_spent: 0

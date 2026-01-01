@@ -14,10 +14,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Order ID and rating are required' }, { status: 400 });
         }
 
-        // Get order details to get location_id and customer_id if exists
+        // Get order details to get location_id, customer_id, and server_id
         const { data: order, error: orderError } = await (supabaseAdmin
             .from('orders') as any)
-            .select('location_id, customer_email, customer_name')
+            .select('location_id, customer_email, customer_name, server_id')
             .eq('id', orderId)
             .single();
 
@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
             .insert({
                 order_id: orderId,
                 location_id: order?.location_id,
+                server_id: order?.server_id,
                 rating,
                 comment,
                 customer_name: customerName || order?.customer_name,

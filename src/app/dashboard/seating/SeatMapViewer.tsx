@@ -259,7 +259,7 @@ export default function SeatMapViewer() {
                 .from("orders")
                 .select("*")
                 .eq("location_id", loc.id)
-                .in("status", ["pending", "in_progress", "ready", "served"]);
+                .in("status", ["sent", "preparing", "ready", "served", "pending"]);
 
             if (error) {
                 console.error("SeatMapViewer: Error fetching active orders:", error);
@@ -304,40 +304,38 @@ export default function SeatMapViewer() {
         try {
             const seatedEntry = seatedWaitlist.find(w => w.table_id === selectedTable.id);
 
-            const { error } = await (supabaseRef.current
-                .from("orders") as any)
-                .insert({
-                    location_id: currentLocation.id,
-                    server_id: currentEmployee.id,
-                    table_number: selectedTable.label,
-                    customer_name: seatedEntry?.customer_name || null,
-                    status: 'pending',
-                    subtotal: 0,
-                    tax: 0,
-                    tip: 0,
-                    total: 0,
-                    order_type: 'dine_in'
-                });
+            // We no longer insert an order here. 
+            // The order will be created in the POS (OrdersPage) when items are actually sent to the kitchen.
 
-            if (error) {
-                console.error("Supabase error sitting table:", error);
-                throw error;
-            }
-
-            // Cleanup waitlist if guest was seated from waitlist
+            // Just update the waitlist entry to reflect the table choice if it came from the waitlist
             if (seatedEntry) {
+                // If it's already 'seated', we just ensure the table_id is correct
                 await (supabaseRef.current
                     .from("waitlist") as any)
-                    .update({ status: 'completed' })
+                    .update({ table_id: selectedTable.id })
                     .eq('id', seatedEntry.id);
-
-                // Refresh waitlist state
-                fetchSeatedWaitlist();
+            } else {
+                // If not from waitlist, we might want to create a 'seated' entry in waitlist 
+                // OR just rely on the fact that the POS will handle the order creation.
+                // For now, let's assume seating is tracked via the waitlist status='seated'.
+                await (supabaseRef.current
+                    .from("waitlist") as any)
+                    .insert({
+                        location_id: currentLocation.id,
+                        customer_name: "Walk-in Guest",
+                        status: 'seated',
+                        table_id: selectedTable.id,
+                        party_size: selectedTable.capacity,
+                        seated_at: new Date().toISOString()
+                    });
             }
 
             toast.success(`Table ${selectedTable.label} seated`);
             const tableLabel = selectedTable.label;
             setSelectedTable(null);
+
+            // Refresh states
+            fetchSeatedWaitlist();
             fetchActiveOrders();
 
             // Redirect to orders page
@@ -578,7 +576,11 @@ export default function SeatMapViewer() {
 
     // Helper calculate stats
     const totalTables = tables.filter(t => t.object_type !== 'structure').length;
-    const occupiedTables = tables.filter(t => t.object_type !== 'structure' && (getTableStatus(t).status === "occupied" || getTableStatus(t).status === "seated")).length;
+    const occupiedTables = tables.filter(t => {
+        if (t.object_type === 'structure') return false;
+        const { status } = getTableStatus(t);
+        return status === "occupied" || status === "seated";
+    }).length;
     const reservedTables = tables.filter(t => t.object_type !== 'structure' && getTableStatus(t).status === "reserved").length;
     const availableTables = totalTables - occupiedTables - reservedTables;
 

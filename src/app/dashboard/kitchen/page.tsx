@@ -13,15 +13,16 @@ interface KitchenOrderItem {
     name: string;
     quantity: number;
     notes?: string;
-    status: string;  // 'pending' | 'preparing' | 'ready' | 'served'
+    status: string;  // 'sent' | 'preparing' | 'ready' | 'served'
     isEdited?: boolean;
     menuItemId?: string;
     seatNumber?: number;
-    addOns?: { name: string; price: number }[];
+    modifiers?: { name: string; price: number; type: 'add-on' | 'upsell' }[];
     sentAt?: string;
     startedAt?: string;
     readyAt?: string;
     servedAt?: string;
+    served_at?: string; // Consistency check
 }
 
 interface KitchenOrder {
@@ -132,19 +133,21 @@ export default function KitchenPage() {
 
     // Derive order status from item statuses
     const deriveOrderStatus = (items: KitchenOrderItem[]): string => {
-        if (items.length === 0) return 'pending';
+        if (items.length === 0) return 'sent';
 
         const allServed = items.every(item => item.status === 'served');
-        if (allServed) return 'served';
+        if (allServed) return 'pending'; // All served = Awaiting Payment
 
         const allReady = items.every(item => item.status === 'ready' || item.status === 'served');
         if (allReady) return 'ready';
 
         const anyPreparing = items.some(item => item.status === 'preparing');
-        const anyReady = items.some(item => item.status === 'ready');
-        if (anyPreparing || anyReady) return 'in_progress';
+        if (anyPreparing) return 'preparing';
 
-        return 'pending';
+        const anyReady = items.some(item => item.status === 'ready');
+        if (anyReady) return 'ready';
+
+        return 'sent';
     };
 
     const fetchOrders = async () => {
@@ -165,7 +168,7 @@ export default function KitchenPage() {
                     server:employees(first_name, last_name)
                 `)
                 .eq("location_id", currentLocation.id)
-                .in("status", ["pending", "in_progress", "ready"])
+                .in("status", ["sent", "preparing", "ready"])
                 .order("created_at", { ascending: true });
 
             if (ordersError) throw ordersError;
@@ -180,11 +183,11 @@ export default function KitchenPage() {
                     name: oi.name || "Unknown Item",
                     quantity: oi.quantity,
                     notes: oi.notes,
-                    status: oi.status || 'pending',
+                    status: oi.status || 'sent',
                     isEdited: oi.is_edited,
                     menuItemId: oi.menu_item_id,
                     seatNumber: oi.seat_number,
-                    addOns: oi.add_ons,
+                    modifiers: oi.modifiers || oi.add_ons, // Fallback to old add_ons if modifiers doesn't exist
                     sentAt: oi.sent_at,
                     startedAt: oi.started_at,
                     readyAt: oi.ready_at,
@@ -307,7 +310,7 @@ export default function KitchenPage() {
                         updatedItem.started_at = new Date().toISOString();
                     } else if (newStatus === 'ready' && !item.ready_at) {
                         updatedItem.ready_at = new Date().toISOString();
-                    } else if (newStatus === 'served' && !item.served_at) {
+                    } else if (newStatus === 'served' && (!item.served_at && !item.served_at)) {
                         updatedItem.served_at = new Date().toISOString();
                     }
 
@@ -318,15 +321,13 @@ export default function KitchenPage() {
 
             // 3. Derive order-level status
             const derivedStatus = deriveOrderStatus(updatedItems);
-            let orderStatus = derivedStatus;
-            if (derivedStatus === 'preparing') orderStatus = 'in_progress';
 
             const updateData: any = {
                 items: updatedItems,
-                status: orderStatus
+                status: derivedStatus
             };
 
-            if (orderStatus === 'ready') {
+            if (derivedStatus === 'ready' || derivedStatus === 'pending') {
                 updateData.completed_at = new Date().toISOString();
             }
 
@@ -362,10 +363,10 @@ export default function KitchenPage() {
 
     // Handle Start button - mark visible items as 'preparing'
     const handleStartItems = (orderId: string, visibleItems: KitchenOrderItem[]) => {
-        const pendingItems = visibleItems.filter(item => item.status === 'pending');
-        if (pendingItems.length === 0) return;
+        const sentItems = visibleItems.filter(item => item.status === 'sent');
+        if (sentItems.length === 0) return;
 
-        const itemIds = pendingItems.map(item => item.id);
+        const itemIds = sentItems.map(item => item.id);
         updateItemsStatus(orderId, itemIds, 'preparing');
     };
 
@@ -380,7 +381,7 @@ export default function KitchenPage() {
 
     // Handle Served button - mark visible items as 'served'
     const handleServedItems = (orderId: string, visibleItems: KitchenOrderItem[]) => {
-        const readyItems = visibleItems.filter(item => item.status === 'ready');
+        const readyItems = visibleItems.filter(item => item.status === 'ready' || item.status === 'preparing' || item.status === 'sent');
         if (readyItems.length === 0) return;
 
         const itemIds = readyItems.map(item => item.id);
@@ -450,8 +451,8 @@ export default function KitchenPage() {
     };
 
     const filteredOrders = getFilteredOrders();
-    const pendingOrders = filteredOrders.filter((o) => o.status === "pending");
-    const preparingOrders = filteredOrders.filter((o) => o.status === "in_progress" || o.status === "preparing");
+    const sentOrders = filteredOrders.filter((o) => o.status === "sent");
+    const preparingOrders = filteredOrders.filter((o) => o.status === "preparing");
     const readyOrders = filteredOrders.filter((o) => o.status === "ready");
 
     // Horizontal scroll handlers
@@ -470,8 +471,8 @@ export default function KitchenPage() {
     // Get item status badge
     const getItemStatusBadge = (status: string) => {
         switch (status) {
-            case 'pending':
-                return <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold uppercase tracking-wider">Pending</span>;
+            case 'sent':
+                return <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold uppercase tracking-wider">Sent</span>;
             case 'preparing':
                 return <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold uppercase tracking-wider animate-pulse">Cooking</span>;
             case 'ready':
@@ -485,18 +486,18 @@ export default function KitchenPage() {
 
     // Determine which button to show based on item statuses
     const getActionButton = (order: KitchenOrder) => {
-        const pendingCount = order.items.filter(i => i.status === 'pending').length;
+        const sentCount = order.items.filter(i => i.status === 'sent').length;
         const preparingCount = order.items.filter(i => i.status === 'preparing').length;
         const readyCount = order.items.filter(i => i.status === 'ready').length;
 
-        if (pendingCount > 0) {
+        if (sentCount > 0) {
             return (
                 <button
                     onClick={() => handleStartItems(order.id, order.items)}
                     className="btn btn-secondary flex-1 flex items-center justify-center gap-2"
                 >
                     <PlayCircle className="h-4 w-4" />
-                    Start ({pendingCount})
+                    Start ({sentCount})
                 </button>
             );
         }
@@ -530,13 +531,13 @@ export default function KitchenPage() {
 
     // Get card border color based on items' statuses
     const getCardStyle = (order: KitchenOrder) => {
-        const hasPending = order.items.some(i => i.status === 'pending');
+        const hasSent = order.items.some(i => i.status === 'sent');
         const hasPreparing = order.items.some(i => i.status === 'preparing');
         const allReady = order.items.every(i => i.status === 'ready');
 
         if (allReady) return "border-green-500/50 bg-green-500/5 animate-pulse";
         if (hasPreparing) return "border-amber-500/50 bg-amber-500/5";
-        if (hasPending) return "border-blue-500/50 bg-blue-500/5";
+        if (hasSent) return "border-blue-500/50 bg-blue-500/5";
         return "border-slate-700";
     };
 
@@ -616,7 +617,7 @@ export default function KitchenPage() {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4">
                 <div className="card text-center">
-                    <span className="text-3xl font-bold text-blue-400">{pendingOrders.length}</span>
+                    <span className="text-3xl font-bold text-blue-400">{sentOrders.length}</span>
                     <p className="text-sm text-slate-400 mt-1">{t("kitchen.newOrders")}</p>
                 </div>
                 <div className="card text-center">
@@ -738,11 +739,19 @@ export default function KitchenPage() {
                                                             </p>
                                                         </div>
                                                     )}
-                                                    {item.addOns && item.addOns.length > 0 && (
+                                                    {item.modifiers && item.modifiers.length > 0 && (
                                                         <div className="mt-1 flex flex-wrap gap-1">
-                                                            {item.addOns.map((addon, idx) => (
-                                                                <span key={idx} className="text-[10px] bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/20 font-bold uppercase">
-                                                                    + {addon.name}
+                                                            {item.modifiers.map((mod, idx) => (
+                                                                <span
+                                                                    key={idx}
+                                                                    className={cn(
+                                                                        "text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase",
+                                                                        mod.type === 'upsell'
+                                                                            ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                                                                            : "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                                                                    )}
+                                                                >
+                                                                    {mod.type === 'upsell' ? '★ ' : '+ '}{mod.name}
                                                                 </span>
                                                             ))}
                                                         </div>
@@ -801,7 +810,7 @@ export default function KitchenPage() {
                                             {/* Item-Level Actions */}
                                             {selectedItemId === item.id && (
                                                 <div className="flex gap-2 p-1 animate-in slide-in-from-top-2 duration-200">
-                                                    {item.status === 'pending' && (
+                                                    {item.status === 'sent' && (
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -813,7 +822,7 @@ export default function KitchenPage() {
                                                             <PlayCircle className="h-4 w-4 mr-2" /> Start Item
                                                         </button>
                                                     )}
-                                                    {(item.status === 'preparing' || item.status === 'pending') && (
+                                                    {(item.status === 'preparing' || item.status === 'sent') && (
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { X, Clock, DollarSign, LayoutList, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
@@ -19,37 +19,36 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const supabase = createClient();
 
+    const fetchMyTickets = useCallback(async () => {
+        if (!currentLocation?.id || !currentEmployee?.id) {
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from("orders")
+                .select("*")
+                .eq("location_id", currentLocation.id)
+                .eq("server_id", currentEmployee.id)
+                .or('payment_status.neq.paid,payment_status.is.null')
+                .neq("status", "completed")
+                .neq("status", "cancelled")
+                .order("created_at", { ascending: false });
+
+            if (error) throw error;
+            setOrders(data || []);
+        } catch (error) {
+            console.error("Error fetching tickets:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [currentLocation?.id, currentEmployee?.id, supabase]);
+
     useEffect(() => {
-        const fetchMyTickets = async () => {
-            if (!currentLocation?.id || !currentEmployee?.id) {
-                // If we don't have IDs yet, we should still stop loading eventually 
-                // but let's wait a bit for them to potentially load
-                const timeout = setTimeout(() => setLoading(false), 2000);
-                return () => clearTimeout(timeout);
-            }
-
-            try {
-                const { data, error } = await supabase
-                    .from("orders")
-                    .select("*")
-                    .eq("location_id", currentLocation.id)
-                    .eq("server_id", currentEmployee.id)
-                    .neq("payment_status", "paid")
-                    .neq("status", "completed")
-                    .neq("status", "cancelled")
-                    .order("created_at", { ascending: false });
-
-                if (error) throw error;
-                setOrders(data || []);
-            } catch (error) {
-                console.error("Error fetching tickets:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchMyTickets();
-    }, [currentLocation?.id, currentEmployee?.id]);
+    }, [fetchMyTickets]);
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -58,11 +57,20 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
                 <div className="flex items-center justify-between p-4 border-b border-slate-800">
                     <div className="flex items-center gap-2">
                         <LayoutList className="h-6 w-6 text-orange-500" />
-                        <h2 className="text-xl font-bold text-slate-100">My Active Tickets</h2>
+                        <h2 className="text-xl font-bold">My Active Tickets</h2>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-                        <X className="h-6 w-6" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={fetchMyTickets}
+                            className="p-2 hover:bg-slate-800 rounded-full transition-colors"
+                            title="Refresh"
+                        >
+                            <Clock className={cn("h-5 w-5", loading && "animate-spin")} />
+                        </button>
+                        <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
+                            <X className="h-6 w-6" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4">
@@ -87,12 +95,13 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
                                         </div>
                                         <span className={cn(
                                             "badge text-[10px] uppercase",
-                                            order.status === 'pending' && "badge-info",
-                                            order.status === 'in_progress' && "badge-warning",
-                                            order.status === 'ready' && "badge-success animate-pulse",
-                                            order.status === 'served' && "bg-slate-700 text-slate-300"
+                                            order.status === 'sent' && "bg-blue-500/10 text-blue-400 border-blue-500/20",
+                                            order.status === 'preparing' && "bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse",
+                                            order.status === 'ready' && "bg-green-500/10 text-green-400 border-green-500/20 animate-bounce",
+                                            order.status === 'served' && "bg-slate-400/10 text-slate-400 border-slate-400/20",
+                                            order.status === 'pending' && "bg-rose-500/10 text-rose-400 border-rose-500/20"
                                         )}>
-                                            {order.status}
+                                            {order.status === 'pending' ? 'Pending Payment' : order.status}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-4 mt-auto">

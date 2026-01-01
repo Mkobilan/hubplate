@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         console.log('Customer API request:', body);
-        let { email, phone, firstName, lastName, locationId, orderId, marketingOptIn, discountAmount, pointsRedeemed } = body;
+        let { email, phone, firstName, lastName, locationId, orderId, serverId, marketingOptIn, discountAmount, pointsRedeemed } = body;
 
         // Standardize empty strings to null for UUIDs
         if (!locationId || locationId === "") locationId = null;
@@ -31,25 +31,32 @@ export async function POST(request: NextRequest) {
             const { data } = await (supabaseAdmin.from('customers') as any)
                 .select('*')
                 .eq('email', email)
-                .maybeSingle();
-            customerData = data;
+                .limit(1);
+            customerData = data && data.length > 0 ? data[0] : null;
         } else if (phone) {
             const { data } = await (supabaseAdmin.from('customers') as any)
                 .select('*')
                 .eq('phone', phone)
-                .maybeSingle();
-            customerData = data;
+                .limit(1);
+            customerData = data && data.length > 0 ? data[0] : null;
         }
 
-        const customerPayload = {
-            email,
-            phone,
-            first_name: firstName,
-            last_name: lastName,
-            location_id: locationId,
-            marketing_opt_in: marketingOptIn ?? true,
+        const customerPayload: any = {
+            email: email || customerData?.email,
+            phone: phone || customerData?.phone,
+            first_name: firstName || customerData?.first_name,
+            last_name: lastName || customerData?.last_name,
+            location_id: locationId || customerData?.location_id,
+            is_loyalty_member: true,
+            marketing_opt_in: marketingOptIn ?? customerData?.marketing_opt_in ?? true,
             updated_at: new Date().toISOString()
         };
+
+        // Only set attribution if not already a loyalty member or if attribution is missing
+        if ((!customerData?.is_loyalty_member || !customerData?.loyalty_signup_server_id) && serverId) {
+            customerPayload.loyalty_signup_server_id = serverId;
+            customerPayload.loyalty_signup_at = new Date().toISOString();
+        }
 
         let result;
         if (customerData) {
@@ -64,6 +71,8 @@ export async function POST(request: NextRequest) {
             result = await (supabaseAdmin.from('customers') as any)
                 .insert({
                     ...customerPayload,
+                    loyalty_signup_server_id: serverId || null,
+                    loyalty_signup_at: serverId ? new Date().toISOString() : null,
                     created_at: new Date().toISOString()
                 })
                 .select()
@@ -79,6 +88,7 @@ export async function POST(request: NextRequest) {
         if (orderId) {
             await (supabaseAdmin.from('orders') as any)
                 .update({
+                    customer_id: result.data.id,
                     customer_email: email,
                     customer_name: `${firstName} ${lastName}`.trim(),
                     customer_phone: phone,

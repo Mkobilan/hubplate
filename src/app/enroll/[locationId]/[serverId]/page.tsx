@@ -32,20 +32,51 @@ export default function EnrollmentPage() {
             const supabase = createClient();
 
             // 1. Check if customer already exists or create new one
-            const { data: customer, error: customerError } = await ((supabase
+            let { data: customer } = await ((supabase
                 .from('customers') as any)
-                .upsert({
-                    location_id: locationId,
-                    first_name: form.firstName,
-                    last_name: form.lastName,
-                    email: form.email,
-                    phone: form.phone,
-                    is_loyalty_member: true
-                }, { onConflict: 'location_id,email' })
-                .select()
-                .single());
+                .select('*')
+                .eq('location_id', locationId)
+                .eq('email', form.email)
+                .maybeSingle());
 
-            if (customerError) throw customerError;
+            const customerPayload: any = {
+                location_id: locationId,
+                first_name: form.firstName,
+                last_name: form.lastName,
+                email: form.email,
+                phone: form.phone,
+                is_loyalty_member: true
+            };
+
+            // Only attribute if they are a NEW loyalty member or missing attribution
+            if ((!customer || !customer.is_loyalty_member || !customer.loyalty_signup_server_id) && serverId) {
+                customerPayload.loyalty_signup_server_id = serverId;
+                customerPayload.loyalty_signup_at = new Date().toISOString();
+            }
+
+            if (customer) {
+                const { data: updated, error: updateError } = await ((supabase
+                    .from('customers') as any)
+                    .update(customerPayload)
+                    .eq('id', customer.id)
+                    .select()
+                    .single());
+                if (updateError) throw updateError;
+                customer = updated;
+            } else {
+                const { data: created, error: createError } = await ((supabase
+                    .from('customers') as any)
+                    .insert({
+                        ...customerPayload,
+                        loyalty_points: 0,
+                        total_visits: 0,
+                        total_spent: 0
+                    })
+                    .select()
+                    .single());
+                if (createError) throw createError;
+                customer = created;
+            }
 
             // 2. Find the most recent active order for this table at this location
             const { data: order } = await ((supabase

@@ -19,13 +19,14 @@ export async function GET(request: NextRequest) {
         // Standardize phone number: strip all non-numeric characters
         phone = phone.replace(/\D/g, '');
 
-        // Search for customer by phone at this location
-        const { data: customer, error } = await (supabaseAdmin
+        // Search for customer by phone anywhere in the system
+        const { data: customers, error } = await (supabaseAdmin
             .from('customers') as any)
             .select('*')
-            .eq('location_id', locationId)
             .eq('phone', phone)
-            .maybeSingle();
+            .limit(1);
+
+        const customer = customers && customers.length > 0 ? customers[0] : null;
 
         if (error) {
             console.error('Error looking up customer:', error);

@@ -19,6 +19,7 @@ interface OrderDetails {
     tax: number;
     total: number;
     payment_status: string;
+    server_id?: string;
     items: Array<{
         name: string;
         quantity: number;
@@ -132,7 +133,10 @@ export default function PaymentPage() {
                 setAvailableRewards(data.availableRewards || []);
                 setShowLoyaltyField(false);
             } else {
-                setError("No loyalty account found with this phone number.");
+                // Instead of an error, we just show the name/email fields below 
+                // by staying in the loyalty flow but acknowledging it's a new sign-up
+                setShowLoyaltyField(false);
+                setLoyaltyCustomer(null);
             }
         } catch (err) {
             setError("Failed to look up loyalty account.");
@@ -375,6 +379,7 @@ export default function PaymentPage() {
                         <PaymentForm
                             orderId={orderId}
                             locationId={order?.location_id || ""}
+                            serverId={order?.server_id}
                             total={(order?.total || 0) + tip - currentDiscount}
                             reward={appliedReward}
                             discountAmount={currentDiscount}
@@ -392,9 +397,10 @@ export default function PaymentPage() {
     );
 }
 
-function PaymentForm({ orderId, locationId, total, reward, discountAmount, customerPhone, loyaltyCustomer }: {
+function PaymentForm({ orderId, locationId, serverId, total, reward, discountAmount, customerPhone, loyaltyCustomer }: {
     orderId: string;
     locationId: string;
+    serverId?: string;
     total: number;
     reward?: any;
     discountAmount: number;
@@ -445,6 +451,7 @@ function PaymentForm({ orderId, locationId, total, reward, discountAmount, custo
                         lastName,
                         locationId,
                         orderId,
+                        serverId, // Pass serverId for attribution
                         marketingOptIn: joinLoyalty,
                         discountAmount: discountAmount || 0,
                         pointsRedeemed: reward?.points_required || 0

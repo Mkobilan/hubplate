@@ -27,6 +27,7 @@ export async function GET(
                 tax,
                 total,
                 payment_status,
+                server_id,
                 items
             `)
             .eq('id', orderId)
@@ -46,6 +47,7 @@ export async function GET(
             tax: order.tax,
             total: order.total,
             payment_status: order.payment_status || 'unpaid',
+            server_id: order.server_id,
             items: order.items || []
         });
     } catch (error) {

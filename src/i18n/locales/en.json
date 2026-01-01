@@ -38,6 +38,7 @@
         "inventory": "Inventory",
         "reports": "Reports",
         "payments": "Payments",
+        "invoices": "Invoices",
         "customers": "Customers",
         "analytics": "Analytics",
         "locations": "Locations",

@@ -47,7 +47,7 @@ interface OrderItem {
     price: number;
     quantity: number;
     notes?: string;
-    addOns?: { name: string; price: number }[];
+    modifiers?: { name: string; price: number; type: 'add-on' | 'upsell' }[];
     seatNumber: number;
     status: 'pending' | 'preparing' | 'ready' | 'served';
     category_name?: string;
@@ -169,14 +169,14 @@ function OrdersPageContent() {
         (item) => (item.category?.name || "Uncategorized") === selectedCategory && !item.is_86d
     );
 
-    const handleAddToOrder = (item: MenuItemType, notesList: string[], selectedAddOns: { name: string; price: number }[]) => {
+    const handleAddToOrder = (item: MenuItemType, notesList: string[], selectedModifiers: { name: string; price: number; type: 'add-on' | 'upsell' }[]) => {
         const notes = notesList.length > 0 ? notesList.join(", ") : undefined;
 
         if (editingTicketItem) {
             // Updating an existing item in the ticket
             setOrderItems(orderItems.map(oi =>
                 oi.id === editingTicketItem.id
-                    ? { ...oi, notes, addOns: selectedAddOns, isEdited: true }
+                    ? { ...oi, notes, modifiers: selectedModifiers, isEdited: true }
                     : oi
             ));
             setEditingTicketItem(null);
@@ -186,7 +186,7 @@ function OrdersPageContent() {
                     o.seatNumber === selectedSeat &&
                     o.notes === notes &&
                     o.status === 'pending' &&
-                    JSON.stringify(o.addOns) === JSON.stringify(selectedAddOns)
+                    JSON.stringify(o.modifiers) === JSON.stringify(selectedModifiers)
             );
 
             if (existingIndex !== -1) {
@@ -207,9 +207,9 @@ function OrdersPageContent() {
                         price: item.price,
                         quantity: 1,
                         notes: notes,
-                        addOns: selectedAddOns,
+                        modifiers: selectedModifiers,
                         seatNumber: selectedSeat,
-                        status: 'pending',
+                        status: 'sent',
                         category_name: item.category?.name
                     },
                 ]);
@@ -263,7 +263,7 @@ function OrdersPageContent() {
                     .eq("location_id", currentLocation.id)
                     .eq("table_number", tableNumber.trim())
                     .neq("payment_status", "paid")
-                    .in("status", ["pending", "in_progress", "ready", "served"])
+                    .in("status", ["sent", "preparing", "ready", "served", "pending"])
                     .maybeSingle();
 
                 if (data && !error) {
@@ -295,8 +295,8 @@ function OrdersPageContent() {
 
     const subtotal = orderItems.reduce(
         (sum, item) => {
-            const addOnsTotal = (item.addOns || []).reduce((s, a) => s + a.price, 0);
-            return sum + (item.price + addOnsTotal) * item.quantity;
+            const modifiersTotal = (item.modifiers || []).reduce((s, a) => s + a.price, 0);
+            return sum + (item.price + modifiersTotal) * item.quantity;
         },
         0
     );
@@ -320,11 +320,11 @@ function OrdersPageContent() {
                 quantity: item.quantity,
                 price: item.price,
                 notes: item.notes || null,
-                status: item.status || "pending",
+                status: item.status || "sent",
                 seat_number: item.seatNumber,
                 is_upsell: item.isUpsell || false,
                 category_name: item.category_name,
-                add_ons: item.addOns || [],
+                modifiers: item.modifiers || [],
                 sent_at: item.sent_at || new Date().toISOString(),
                 started_at: item.started_at,
                 ready_at: item.ready_at,
@@ -337,10 +337,10 @@ function OrdersPageContent() {
                     .from("orders") as any)
                     .insert({
                         location_id: currentLocation.id,
-                        server_id: currentEmployee?.id || null,
+                        server_id: currentEmployee?.id || useAppStore.getState().currentEmployee?.id || null,
                         table_number: orderType === "dine_in" ? tableNumber : null,
                         seat_number: orderType === "dine_in" ? selectedSeat : null,
-                        status: "pending",
+                        status: "sent",
                         order_type: orderType,
                         subtotal: subtotal,
                         tax: tax,
@@ -352,12 +352,29 @@ function OrdersPageContent() {
 
                 if (orderError) throw orderError;
                 orderId = order.id;
+
+                // Clear the waitlist entry now that an order has been created
+                if (orderType === "dine_in" && tableNumber) {
+                    // Find the table ID by matching the label
+                    const { data: tables } = await (supabase.from("seating_tables") as any)
+                        .select("id")
+                        .eq("label", tableNumber)
+                        .eq("is_active", true)
+                        .limit(1);
+
+                    if (tables && tables.length > 0) {
+                        await (supabase.from("waitlist") as any)
+                            .delete()
+                            .eq("table_id", tables[0].id)
+                            .eq("status", "seated");
+                    }
+                }
             } else {
                 // Update existing order
                 const { error: orderUpdateError } = await (supabase
                     .from("orders") as any)
                     .update({
-                        status: "pending", // Reset status so it reappears in kitchen
+                        status: "sent", // Reset status so it reappears in kitchen
                         table_number: orderType === "dine_in" ? tableNumber : null,
                         seat_number: orderType === "dine_in" ? selectedSeat : null,
                         subtotal,
@@ -400,10 +417,10 @@ function OrdersPageContent() {
                 notes: i.notes || undefined,
                 isEdited: false,
                 seatNumber: i.seat_number || 1,
-                status: i.status || 'pending',
+                status: i.status || 'sent',
                 isUpsell: i.is_upsell || false,
                 category_name: i.category_name,
-                addOns: i.add_ons || [],
+                modifiers: i.modifiers || i.add_ons || [],
                 sent_at: i.sent_at,
                 started_at: i.started_at,
                 ready_at: i.ready_at,
@@ -593,11 +610,14 @@ function OrdersPageContent() {
                                                         {item.notes}
                                                     </div>
                                                 )}
-                                                {(item.addOns || []).length > 0 && (
+                                                {(item.modifiers || []).length > 0 && (
                                                     <div className="mt-1 flex flex-wrap gap-1">
-                                                        {item.addOns?.map((ao, idx) => (
-                                                            <span key={idx} className="text-[10px] bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
-                                                                + {ao.name}
+                                                        {item.modifiers?.map((mod, idx) => (
+                                                            <span key={idx} className={cn(
+                                                                "text-[10px] border px-1.5 py-0.5 rounded",
+                                                                mod.type === 'upsell' ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-slate-800 border-slate-700 text-slate-300"
+                                                            )}>
+                                                                + {mod.name}
                                                             </span>
                                                         ))}
                                                     </div>
@@ -692,12 +712,12 @@ function OrdersPageContent() {
                 <ItemCustomizationModal
                     item={customizingItem}
                     initialNotes={editingTicketItem?.notes}
-                    initialAddOns={editingTicketItem?.addOns}
+                    initialModifiers={editingTicketItem?.modifiers}
                     onClose={() => {
                         setCustomizingItem(null);
                         setEditingTicketItem(null);
                     }}
-                    onConfirm={(notes, addOns) => handleAddToOrder(customizingItem, notes, addOns)}
+                    onConfirm={(notes, modifiers) => handleAddToOrder(customizingItem, notes, modifiers)}
                 />
             )}
 
@@ -756,23 +776,22 @@ export default function OrdersPage() {
 function ItemCustomizationModal({
     item,
     initialNotes,
-    initialAddOns,
+    initialModifiers,
     onClose,
     onConfirm,
 }: {
     item: MenuItemType;
     initialNotes?: string;
-    initialAddOns?: { name: string; price: number }[];
+    initialModifiers?: { name: string; price: number; type: 'add-on' | 'upsell' }[];
     onClose: () => void;
-    onConfirm: (notes: string[], addOns: { name: string; price: number }[]) => void;
+    onConfirm: (notes: string[], modifiers: { name: string; price: number; type: 'add-on' | 'upsell' }[]) => void;
 }) {
     const { t } = useTranslation();
     const [notes, setNotes] = useState<string[]>([]);
-    const [selectedAddOns, setSelectedAddOns] = useState<{ name: string; price: number }[]>(initialAddOns || []);
+    const [selectedModifiers, setSelectedModifiers] = useState<{ name: string; price: number; type: 'add-on' | 'upsell' }[]>(initialModifiers || []);
     const [customText, setCustomText] = useState("");
 
-    const [availableAddOns, setAvailableAddOns] = useState<{ name: string; price: number }[]>([]);
-    const [availableUpsells, setAvailableUpsells] = useState<{ name: string; price: number }[]>([]);
+    const [availableOptions, setAvailableOptions] = useState<{ name: string; price: number; type: 'add-on' | 'upsell' }[]>([]);
     const [loading, setLoading] = useState(true);
 
     const supabase = createClient();
@@ -789,18 +808,17 @@ function ItemCustomizationModal({
                     .eq("category_id", item.category_id);
 
                 const addOnIds = (assignments || []).map((a: any) => a.add_on_id);
-
+                let combinedOptions: { name: string; price: number; type: 'add-on' | 'upsell' }[] = [];
                 if (addOnIds.length > 0) {
                     const { data: addOnsData } = await (supabase.from("add_ons") as any)
                         .select("name, price")
                         .eq("location_id", currentLocation.id)
                         .eq("is_active", true)
                         .in("id", addOnIds);
-                    setAvailableAddOns(addOnsData || []);
-                } else {
-                    setAvailableAddOns([]);
+                    if (addOnsData) {
+                        combinedOptions = [...combinedOptions, ...addOnsData.map((a: any) => ({ ...a, type: 'add-on' as const }))];
+                    }
                 }
-
                 // 2. Fetch relevant Upsells for the item or category
                 const { data: upsellAssignments } = await (supabase.from("upsell_assignments") as any)
                     .select("upsell_id")
@@ -814,10 +832,11 @@ function ItemCustomizationModal({
                         .eq("location_id", currentLocation.id)
                         .eq("is_active", true)
                         .in("id", upsellIds);
-                    setAvailableUpsells(upsellsData || []);
-                } else {
-                    setAvailableUpsells([]);
+                    if (upsellsData) {
+                        combinedOptions = [...combinedOptions, ...upsellsData.map((u: any) => ({ ...u, type: 'upsell' as const }))];
+                    }
                 }
+                setAvailableOptions(combinedOptions);
             } catch (error) {
                 console.error("Error fetching options:", error);
             } finally {
@@ -840,11 +859,11 @@ function ItemCustomizationModal({
         }
     };
 
-    const toggleAddOn = (addon: { name: string; price: number }) => {
-        setSelectedAddOns(prev =>
-            prev.some(a => a.name === addon.name)
-                ? prev.filter(a => a.name !== addon.name)
-                : [...prev, addon]
+    const toggleModifier = (mod: { name: string; price: number; type: 'add-on' | 'upsell' }) => {
+        setSelectedModifiers(prev =>
+            prev.some(a => a.name === mod.name)
+                ? prev.filter(a => a.name !== mod.name)
+                : [...prev, mod]
         );
     };
 
@@ -897,21 +916,29 @@ function ItemCustomizationModal({
                             <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
                                 <Loader2 className="h-3 w-3 animate-spin" /> Fetching options...
                             </div>
-                        ) : (availableAddOns.length > 0 || availableUpsells.length > 0) ? (
+                        ) : availableOptions.length > 0 ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[250px] overflow-y-auto pr-1">
-                                {[...availableAddOns, ...availableUpsells].map((ao, idx) => (
+                                {availableOptions.map((mod, idx) => (
                                     <button
-                                        key={`${ao.name}-${idx}`}
-                                        onClick={() => toggleAddOn(ao)}
+                                        key={`${mod.name}-${idx}`}
+                                        onClick={() => toggleModifier(mod)}
                                         className={cn(
                                             "flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-all",
-                                            selectedAddOns.some(a => a.name === ao.name)
+                                            selectedModifiers.some(a => a.name === mod.name)
                                                 ? "bg-orange-500 border-orange-400 text-white"
                                                 : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
                                         )}
                                     >
-                                        <span>{ao.name}</span>
-                                        <span className="font-bold">+{formatCurrency(ao.price)}</span>
+                                        <div className="flex flex-col items-start">
+                                            <span>{mod.name}</span>
+                                            <span className={cn(
+                                                "text-[8px] uppercase font-black",
+                                                selectedModifiers.some(a => a.name === mod.name) ? "text-orange-200" : (mod.type === 'upsell' ? "text-green-500" : "text-slate-500")
+                                            )}>
+                                                {mod.type}
+                                            </span>
+                                        </div>
+                                        <span className="font-bold">+{formatCurrency(mod.price)}</span>
                                     </button>
                                 ))}
                             </div>
@@ -925,7 +952,7 @@ function ItemCustomizationModal({
                             Cancel
                         </button>
                         <button
-                            onClick={() => onConfirm(notes, selectedAddOns)}
+                            onClick={() => onConfirm(notes, selectedModifiers)}
                             className="btn btn-primary flex-[2] text-lg font-bold"
                         >
                             Confirm
