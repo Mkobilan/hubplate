@@ -21,13 +21,20 @@ export function SessionHandler() {
             const { data: { session } } = await supabase.auth.getSession();
 
             if (!session?.user) {
-                // No session, ensure store is clear just in case
-                // But don't clear if we are in terminal mode and maybe offline? 
-                // Actually safer to clear strict auth state if no session.
                 return;
             }
 
+            // --- CRITICAL: User Mismatch Check ---
+            // If we have a persisted session but it belongs to a DIFFERENT user, purge it now.
+            const store = useAppStore.getState();
+            if (store.currentEmployee && store.currentEmployee.user_id && store.currentEmployee.user_id !== session.user.id) {
+                console.warn("User mismatch: Persisted employee belongs to different user. Resetting store.");
+                store.reset();
+            }
+            // ------------------------------------
+
             // 1. Check if user is an organization owner
+            setIsOrgOwner(false);
             const { data: orgData } = await supabase
                 .from("organizations")
                 .select("*")
@@ -91,8 +98,10 @@ export function SessionHandler() {
                     }
                 }
 
-                // If no location set, pick first location for this org
-                if (!currentLocation) {
+                // Strict Location Check: Ensure current location belongs to this organization
+                const isLocationStale = currentLocation && (currentLocation as any).organization_id !== org.id;
+
+                if (!currentLocation || isLocationStale) {
                     const { data: locData } = await supabase
                         .from("locations")
                         .select("*")
@@ -158,8 +167,10 @@ export function SessionHandler() {
             if (validatedEmployee) {
                 setCurrentEmployee(validatedEmployee as any);
 
-                // If no location is selected, but employee has a location_id, set it
-                if (!currentLocation && (validatedEmployee as any).location_id) {
+                // Strict Location Check: Ensure location matches employee's assigned location
+                const isEmployeeLocationStale = currentLocation && currentLocation.id !== (validatedEmployee as any).location_id;
+
+                if (!currentLocation || isEmployeeLocationStale) {
                     const { data: loc } = await supabase
                         .from("locations")
                         .select("*")

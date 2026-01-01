@@ -120,7 +120,7 @@ export interface Database {
                     user_id?: string | null;
                     first_name: string;
                     last_name: string;
-                    role: "owner" | "manager" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    role: "owner" | "manager" | "gm" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     pin_code?: string | null;
                     hourly_rate?: number | null;
                     is_active?: boolean;
@@ -146,7 +146,7 @@ export interface Database {
                 Row: {
                     id: string;
                     employee_id: string;
-                    role: "owner" | "manager" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
+                    role: "owner" | "manager" | "gm" | "agm" | "server" | "cook" | "host" | "bartender" | "busser" | "dishwasher" | "driver" | "expo";
                     rank: number;
                     hourly_rate: number | null;
                     created_at: string;
@@ -1195,6 +1195,117 @@ export interface Database {
                     created_at?: string;
                 };
             };
+            payroll_periods: {
+                Row: {
+                    id: string;
+                    organization_id: string | null;
+                    location_id: string;
+                    start_date: string;
+                    end_date: string;
+                    status: "open" | "processing" | "completed" | "cancelled";
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    organization_id?: string | null;
+                    location_id: string;
+                    start_date: string;
+                    end_date: string;
+                    status?: "open" | "processing" | "completed" | "cancelled";
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    organization_id?: string | null;
+                    location_id?: string;
+                    start_date?: string;
+                    end_date?: string;
+                    status?: "open" | "processing" | "completed" | "cancelled";
+                    updated_at?: string;
+                };
+            };
+            payroll_runs: {
+                Row: {
+                    id: string;
+                    period_id: string;
+                    employee_id: string;
+                    regular_hours: number;
+                    overtime_hours: number;
+                    gross_regular_pay: number;
+                    gross_overtime_pay: number;
+                    tips_earned: number;
+                    deductions_total: number;
+                    net_pay_estimated: number;
+                    metadata: Json;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    period_id: string;
+                    employee_id: string;
+                    regular_hours?: number;
+                    overtime_hours?: number;
+                    gross_regular_pay?: number;
+                    gross_overtime_pay?: number;
+                    tips_earned?: number;
+                    deductions_total?: number;
+                    net_pay_estimated?: number;
+                    metadata?: Json;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    period_id?: string;
+                    employee_id?: string;
+                    regular_hours?: number;
+                    overtime_hours?: number;
+                    gross_regular_pay?: number;
+                    gross_overtime_pay?: number;
+                    tips_earned?: number;
+                    deductions_total?: number;
+                    net_pay_estimated?: number;
+                    metadata?: Json;
+                    updated_at?: string;
+                };
+            };
+            tip_pools: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    name: string;
+                    description: string | null;
+                    contribution_rules: Json;
+                    distribution_rules: Json;
+                    is_active: boolean;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    name: string;
+                    description?: string | null;
+                    contribution_rules?: Json;
+                    distribution_rules?: Json;
+                    is_active?: boolean;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    name?: string;
+                    description?: string | null;
+                    contribution_rules?: Json;
+                    distribution_rules?: Json;
+                    is_active?: boolean;
+                    updated_at?: string;
+                };
+            };
         };
 
 
@@ -1224,5 +1335,8 @@ export type Invoice = Database["public"]["Tables"]["invoices"]["Row"];
 export type InvoiceLineItem = Database["public"]["Tables"]["invoice_line_items"]["Row"];
 export type IngredientPriceHistory = Database["public"]["Tables"]["ingredient_price_history"]["Row"];
 export type InvoiceApproval = Database["public"]["Tables"]["invoice_approvals"]["Row"];
+export type PayrollPeriod = Database["public"]["Tables"]["payroll_periods"]["Row"];
+export type PayrollRun = Database["public"]["Tables"]["payroll_runs"]["Row"];
+export type TipPool = Database["public"]["Tables"]["tip_pools"]["Row"];
 
 

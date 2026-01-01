@@ -28,7 +28,8 @@ import {
     Armchair,
     CalendarClock,
     Lock,
-    Hourglass
+    Hourglass,
+    Coins
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
@@ -128,6 +129,12 @@ export function DashboardSidebar() {
             href: "/dashboard/staff",
             icon: <Users className="h-5 w-5" />,
             label: t("nav.staff"),
+            requiresManager: true,
+        },
+        {
+            href: "/dashboard/payroll",
+            icon: <Coins className="h-5 w-5" />,
+            label: "Payroll",
             requiresManager: true,
         },
         {
