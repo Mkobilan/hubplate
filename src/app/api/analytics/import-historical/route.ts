@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
                 const comps = parseFloat(row[Object.keys(mappings).find(k => mappings[k] === "comp_amount") || ""]?.toString().replace(/[^0-9.]/g, '') || "0") || 0;
                 const orders = parseInt(row[Object.keys(mappings).find(k => mappings[k] === "order_count") || ""]?.toString().replace(/[^0-9]/g, '') || "0") || 0;
 
-                const { error } = await supabase
+                const { error } = await (supabase as any)
                     .from("historical_sales")
                     .insert({
                         location_id: locationId,
