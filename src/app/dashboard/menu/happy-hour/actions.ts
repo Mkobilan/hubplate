@@ -19,8 +19,8 @@ export type PricingRule = {
 
 export async function getPricingRules(locationId: string) {
     const supabase = createClient();
-    const { data, error } = await supabase
-        .from("pricing_rules")
+    const { data, error } = await (supabase
+        .from("pricing_rules") as any)
         .select("*")
         .eq("location_id", locationId)
         .order("created_at", { ascending: false });
@@ -49,8 +49,8 @@ export async function createPricingRule(rule: Omit<PricingRule, 'id' | 'created_
 
 export async function updatePricingRule(id: string, rule: Partial<PricingRule>) {
     const supabase = createClient();
-    const { data, error } = await supabase
-        .from("pricing_rules")
+    const { data, error } = await (supabase
+        .from("pricing_rules") as any)
         .update(rule)
         .eq("id", id)
         .select()
@@ -65,8 +65,8 @@ export async function updatePricingRule(id: string, rule: Partial<PricingRule>) 
 
 export async function deletePricingRule(id: string) {
     const supabase = createClient();
-    const { error } = await supabase
-        .from("pricing_rules")
+    const { error } = await (supabase
+        .from("pricing_rules") as any)
         .delete()
         .eq("id", id);
 
