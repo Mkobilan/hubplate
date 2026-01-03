@@ -29,7 +29,8 @@ import {
     CalendarClock,
     Lock,
     Hourglass,
-    Coins
+    Coins,
+    Globe
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
@@ -115,20 +116,43 @@ export function DashboardSidebar() {
             label: t("nav.reservations"),
         },
         {
-            href: "/dashboard/settings/payments",
-            icon: <CreditCard className="h-5 w-5" />,
-            label: t("nav.payments"),
-            requiresManager: true,
-        },
-        {
             href: "/dashboard/customers",
             icon: <Heart className="h-5 w-5" />,
             label: t("nav.customers"),
         },
         {
+            href: "/dashboard/schedule",
+            icon: <Calendar className="h-5 w-5" />,
+            label: t("nav.schedule"),
+        },
+        {
             href: "/dashboard/staff",
             icon: <Users className="h-5 w-5" />,
             label: t("nav.staff"),
+            requiresManager: true,
+        },
+        {
+            href: "/dashboard/profile",
+            icon: <User className="h-5 w-5" />,
+            label: t("nav.profile"),
+        },
+        // Manager items
+        {
+            href: "/dashboard/inventory",
+            icon: <Package className="h-5 w-5" />,
+            label: t("nav.inventory"),
+            requiresManager: true,
+        },
+        {
+            href: "/dashboard/invoices",
+            icon: <ClipboardList className="h-5 w-5" />,
+            label: t("nav.invoices"),
+            requiresManager: true,
+        },
+        {
+            href: "/dashboard/analytics",
+            icon: <Activity className="h-5 w-5" />,
+            label: t("nav.analytics"),
             requiresManager: true,
         },
         {
@@ -138,21 +162,9 @@ export function DashboardSidebar() {
             requiresManager: true,
         },
         {
-            href: "/dashboard/schedule",
-            icon: <Calendar className="h-5 w-5" />,
-            label: t("nav.schedule"),
-        },
-        {
-            href: "/dashboard/profile",
-            icon: <User className="h-5 w-5" />,
-            label: t("nav.profile"),
-        },
-        // Manager items
-        {
-            href: "/dashboard/analytics",
-            icon: <Activity className="h-5 w-5" />,
-            label: t("nav.analytics"),
-            requiresManager: true,
+            href: "/dashboard/online-ordering",
+            icon: <Globe className="h-5 w-5" />,
+            label: "Online Ordering",
         },
         {
             href: "/dashboard/locations",
@@ -161,15 +173,9 @@ export function DashboardSidebar() {
             requiresManager: true,
         },
         {
-            href: "/dashboard/inventory",
-            icon: <Package className="h-5 w-5" />,
-            label: t("nav.inventory"),
-            requiresManager: true,
-        },
-        {
-            href: "/dashboard/invoices",
-            icon: <ClipboardList className="h-5 w-5" />, // Using ClipboardList since Receipt isn't in current imports, or I can add Receipt
-            label: t("nav.invoices"),
+            href: "/dashboard/settings/payments",
+            icon: <CreditCard className="h-5 w-5" />,
+            label: t("nav.payments"),
             requiresManager: true,
         },
         {

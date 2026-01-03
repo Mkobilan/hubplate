@@ -59,6 +59,11 @@ export interface Database {
                     is_active: boolean;
                     tax_rate: number;
                     google_review_link: string | null;
+                    slug: string | null;
+                    brand_color: string | null;
+                    logo_url: string | null;
+                    banner_url: string | null;
+                    ordering_enabled: boolean;
                     created_at: string;
                     updated_at: string;
                 };
@@ -77,6 +82,11 @@ export interface Database {
                     is_active?: boolean;
                     tax_rate?: number;
                     google_review_link?: string | null;
+                    slug?: string | null;
+                    brand_color?: string | null;
+                    logo_url?: string | null;
+                    banner_url?: string | null;
+                    ordering_enabled?: boolean;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -94,6 +104,11 @@ export interface Database {
                     is_active?: boolean;
                     tax_rate?: number;
                     google_review_link?: string | null;
+                    slug?: string | null;
+                    brand_color?: string | null;
+                    logo_url?: string | null;
+                    banner_url?: string | null;
+                    ordering_enabled?: boolean;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -172,7 +187,7 @@ export interface Database {
                 Row: {
                     id: string;
                     location_id: string;
-                    category: string;
+                    category_id: string | null;
                     name: string;
                     description: string | null;
                     price: number;
@@ -186,7 +201,7 @@ export interface Database {
                 Insert: {
                     id?: string;
                     location_id: string;
-                    category: string;
+                    category_id?: string | null;
                     name: string;
                     description?: string | null;
                     price: number;
@@ -200,7 +215,7 @@ export interface Database {
                 Update: {
                     id?: string;
                     location_id?: string;
-                    category?: string;
+                    category_id?: string | null;
                     name?: string;
                     description?: string | null;
                     price?: number;
@@ -210,6 +225,34 @@ export interface Database {
                     image_url?: string | null;
                     sort_order?: number;
                     created_at?: string;
+                };
+            };
+            menu_categories: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    name: string;
+                    sort_order: number;
+                    is_active: boolean;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    name: string;
+                    sort_order?: number;
+                    is_active?: boolean;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    name?: string;
+                    sort_order?: number;
+                    is_active?: boolean;
+                    updated_at?: string;
                 };
             };
             orders: {
