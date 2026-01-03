@@ -136,6 +136,11 @@ export function DashboardSidebar() {
             icon: <User className="h-5 w-5" />,
             label: t("nav.profile"),
         },
+        {
+            href: "/dashboard/recipes",
+            icon: <ChefHat className="h-5 w-5" />,
+            label: "Recipes",
+        },
         // Manager items
         {
             href: "/dashboard/inventory",

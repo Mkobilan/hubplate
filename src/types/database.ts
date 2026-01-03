@@ -9,7 +9,7 @@ export type Json =
     | { [key: string]: Json | undefined }
     | Json[];
 
-export interface Database {
+export type Database = {
     public: {
         Tables: {
             organizations: {
@@ -41,6 +41,119 @@ export interface Database {
                     is_active?: boolean;
                     created_at?: string;
                     updated_at?: string;
+                };
+            };
+            recipes: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    name: string;
+                    description: string | null;
+                    instructions: string | null;
+                    image_url: string | null;
+                    is_active: boolean;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    name: string;
+                    description?: string | null;
+                    instructions?: string | null;
+                    image_url?: string | null;
+                    is_active?: boolean;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    name?: string;
+                    description?: string | null;
+                    instructions?: string | null;
+                    image_url?: string | null;
+                    is_active?: boolean;
+                    updated_at?: string;
+                };
+            };
+            recipe_ingredients: {
+                Row: {
+                    id: string;
+                    recipe_id: string;
+                    inventory_item_id: string;
+                    quantity_used: number;
+                    unit: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    recipe_id: string;
+                    inventory_item_id: string;
+                    quantity_used: number;
+                    unit?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    recipe_id?: string;
+                    inventory_item_id?: string;
+                    quantity_used?: number;
+                    unit?: string | null;
+                    updated_at?: string;
+                };
+            };
+            recipe_menu_items: {
+                Row: {
+                    recipe_id: string;
+                    menu_item_id: string;
+                };
+                Insert: {
+                    recipe_id: string;
+                    menu_item_id: string;
+                };
+                Update: {
+                    recipe_id?: string;
+                    menu_item_id?: string;
+                };
+            };
+            pours: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    recipe_id: string | null;
+                    inventory_item_id: string;
+                    employee_id: string | null;
+                    quantity: number;
+                    unit: string;
+                    pour_type: "standard" | "double" | "shot" | "manual";
+                    notes: string | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    recipe_id?: string | null;
+                    inventory_item_id: string;
+                    employee_id?: string | null;
+                    quantity: number;
+                    unit: string;
+                    pour_type?: "standard" | "double" | "shot" | "manual";
+                    notes?: string | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    recipe_id?: string | null;
+                    inventory_item_id?: string;
+                    employee_id?: string | null;
+                    quantity?: number;
+                    unit?: string;
+                    pour_type?: "standard" | "double" | "shot" | "manual";
+                    notes?: string | null;
                 };
             };
             locations: {
@@ -1356,7 +1469,7 @@ export interface Database {
         Functions: {};
         Enums: {};
     };
-}
+};
 
 // Convenience types
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
@@ -1381,5 +1494,8 @@ export type InvoiceApproval = Database["public"]["Tables"]["invoice_approvals"][
 export type PayrollPeriod = Database["public"]["Tables"]["payroll_periods"]["Row"];
 export type PayrollRun = Database["public"]["Tables"]["payroll_runs"]["Row"];
 export type TipPool = Database["public"]["Tables"]["tip_pools"]["Row"];
+export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
+export type RecipeIngredient = Database["public"]["Tables"]["recipe_ingredients"]["Row"];
+export type Pour = Database["public"]["Tables"]["pours"]["Row"];
 
 
