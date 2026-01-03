@@ -9,8 +9,11 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(request: NextRequest) {
+    console.log('--- START ONLINE ORDER PROCESS ---');
     try {
         const body = await request.json();
+        console.log('Request Body:', JSON.stringify(body, null, 2));
+
         const {
             locationId,
             tableNumber,
@@ -25,6 +28,7 @@ export async function POST(request: NextRequest) {
 
         // Validate required fields
         if (!locationId || !items || items.length === 0) {
+            console.error('Validation Error: Missing required fields');
             return NextResponse.json(
                 { error: 'Missing required fields' },
                 { status: 400 }
@@ -32,6 +36,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify location exists and has ordering enabled
+        console.log('Verifying location:', locationId);
         const { data: location, error: locationError } = await supabaseAdmin
             .from('locations')
             .select('id, name, ordering_enabled')
@@ -39,6 +44,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (locationError || !location) {
+            console.error('Location Error:', locationError);
             return NextResponse.json(
                 { error: 'Location not found' },
                 { status: 404 }
@@ -46,24 +52,25 @@ export async function POST(request: NextRequest) {
         }
 
         if (!location.ordering_enabled) {
+            console.warn('Ordering Disabled for location:', locationId);
             return NextResponse.json(
                 { error: 'Online ordering is not enabled for this location' },
                 { status: 400 }
             );
         }
 
-        // Build order data with all items formatted for KDS
+        // Build order data
+        // Removing 'source' and 'payment_status' for now to be safe
         const orderData: any = {
             location_id: locationId,
             table_number: tableNumber || null,
             order_type: orderType || 'pickup',
-            status: 'sent', // Important: This ensures it shows up in the KDS
-            payment_status: 'unpaid',
+            status: 'sent',
             subtotal: subtotal,
             tax: tax,
             total: total,
             items: items.map((item: any) => ({
-                id: item.id || crypto.randomUUID(),
+                id: item.id || `item_${Math.random().toString(36).substr(2, 9)}`,
                 menu_item_id: item.menu_item_id,
                 name: item.name,
                 price: item.price,
@@ -73,10 +80,10 @@ export async function POST(request: NextRequest) {
                 status: 'sent',
                 sent_at: item.sent_at || new Date().toISOString()
             })),
-            notes: orderNotes || null,
-            server_id: null, // No server for online orders
-            source: 'online' // Mark as online order
+            notes: orderNotes || null
         };
+
+        console.log('Inserting order data:', JSON.stringify(orderData, null, 2));
 
         // Create the order
         const { data: order, error: orderError } = await supabaseAdmin
@@ -86,85 +93,89 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (orderError) {
-            console.error('Error creating order:', orderError);
+            console.error('Supabase Order Insertion Error:', orderError);
             return NextResponse.json(
-                { error: 'Failed to create order' },
+                { error: `Database Error: ${orderError.message}` },
                 { status: 500 }
             );
         }
 
-        // If customer info provided, save it
+        console.log('Order created successfully with ID:', order.id);
+
+        // If customer info provided, try to save/link it
         if (customer && (customer.name || customer.phone || customer.email)) {
+            console.log('Processing customer info:', customer);
             try {
                 const nameParts = (customer.name || '').trim().split(/\s+/);
                 const firstName = nameParts[0] || '';
                 const lastName = nameParts.slice(1).join(' ');
 
-                // Check if customer exists by phone or email
-                let existingCustomer = null;
-                if (customer.phone) {
-                    const { data } = await supabaseAdmin
-                        .from('customers')
-                        .select('id')
-                        .eq('phone', customer.phone.trim())
-                        .eq('location_id', locationId)
-                        .maybeSingle();
-                    existingCustomer = data;
-                }
+                // We'll try to find an existing customer first
+                const { data: existingCustomer } = await supabaseAdmin
+                    .from('customers')
+                    .select('id')
+                    .or(`email.eq.${customer.email || '___'},phone.eq.${customer.phone || '___'}`)
+                    .limit(1)
+                    .maybeSingle();
 
-                if (!existingCustomer && customer.email) {
-                    const { data } = await supabaseAdmin
-                        .from('customers')
-                        .select('id')
-                        .eq('email', customer.email.trim())
-                        .eq('location_id', locationId)
-                        .maybeSingle();
-                    existingCustomer = data;
-                }
+                let finalCustomerId = existingCustomer?.id;
 
-                if (!existingCustomer) {
+                if (!finalCustomerId) {
                     // Create new customer
-                    await supabaseAdmin
+                    // Removing 'source' to be safe
+                    const { data: newCustomer, error: custError } = await supabaseAdmin
                         .from('customers')
                         .insert({
                             location_id: locationId,
                             first_name: firstName,
                             last_name: lastName,
                             phone: customer.phone?.trim() || null,
-                            email: customer.email?.trim() || null,
-                            source: 'online_order'
-                        });
+                            email: customer.email?.trim() || null
+                        })
+                        .select('id')
+                        .single();
+
+                    if (custError) {
+                        console.error('Customer Creation Error (Non-blocking):', custError);
+                    } else {
+                        finalCustomerId = newCustomer.id;
+                    }
                 }
 
-                // Link customer to order (update order with customer info in notes)
-                if (customer.name || customer.phone) {
-                    const customerInfo = [customer.name, customer.phone].filter(Boolean).join(' - ');
-                    const updatedNotes = orderNotes
-                        ? `${orderNotes}\n\nCustomer: ${customerInfo}`
-                        : `Customer: ${customerInfo}`;
+                // Update order with customer info and customer_id if we have it
+                const customerInfo = [customer.name, customer.phone].filter(Boolean).join(' - ');
+                const updatedNotes = orderNotes
+                    ? `${orderNotes}\n\nCustomer: ${customerInfo}`
+                    : `Customer: ${customerInfo}`;
 
-                    await supabaseAdmin
-                        .from('orders')
-                        .update({ notes: updatedNotes })
-                        .eq('id', order.id);
+                const updatePayload: any = { notes: updatedNotes };
+                if (finalCustomerId) {
+                    updatePayload.customer_id = finalCustomerId;
+                    updatePayload.customer_email = customer.email || null;
+                    updatePayload.customer_phone = customer.phone || null;
+                    updatePayload.customer_name = customer.name || null;
                 }
-            } catch (customerError) {
-                console.error('Error saving customer info:', customerError);
-                // Don't fail the order if customer save fails
+
+                await supabaseAdmin
+                    .from('orders')
+                    .update(updatePayload)
+                    .eq('id', order.id);
+
+            } catch (customerErr) {
+                console.error('Customer linking error (Non-blocking):', customerErr);
             }
         }
 
-        console.log(`Online order created: ${order.id} for location ${locationId}`);
-
+        console.log('--- END ONLINE ORDER PROCESS SUCCESS ---');
         return NextResponse.json({
             orderId: order.id,
             message: 'Order created successfully'
         });
 
-    } catch (error) {
-        console.error('Online order error:', error);
+    } catch (error: any) {
+        console.error('Catch-all Online Order Error:', error);
         return NextResponse.json(
-            { error: 'Failed to process order' },
+            { error: `Server Error: ${error.message || 'Unknown'}` },
             { status: 500 }
         );
     }
