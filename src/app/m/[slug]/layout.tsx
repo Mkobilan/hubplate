@@ -22,7 +22,7 @@ export async function generateMetadata(
         .select("name, logo_url, banner_url")
         .eq("slug", slug)
         .eq("ordering_enabled", true)
-        .single();
+        .single() as any;
 
     if (!location) {
         return {
@@ -46,7 +46,7 @@ export default async function GuestLayout({
     params: Promise<{ slug: string }>;
 }) {
     const { slug } = await params;
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // We fetch basic location info here to wrap the page with branding
     // The Page component will fetch the menu data
@@ -55,7 +55,7 @@ export default async function GuestLayout({
         .select("*")
         .eq("slug", slug)
         .eq("ordering_enabled", true)
-        .single();
+        .single() as any;
 
     if (error || !location) {
         notFound();
