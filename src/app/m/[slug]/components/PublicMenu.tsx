@@ -25,6 +25,15 @@ export type PublicMenuItem = {
     image_url?: string | null;
 };
 
+export type PricingRule = {
+    id: string;
+    name: string;
+    rule_type: 'discount' | 'surge';
+    discount_type: 'percentage' | 'fixed';
+    value: number;
+    category_ids: string[];
+};
+
 export type PublicCategory = {
     id: string;
     name: string;
@@ -37,6 +46,7 @@ interface PublicMenuProps {
     locationName: string;
     tableNumber?: string;
     taxRate: number;
+    pricingRules?: PricingRule[];
 }
 
 export default function PublicMenu({
@@ -45,7 +55,8 @@ export default function PublicMenu({
     locationId,
     locationName,
     tableNumber,
-    taxRate
+    taxRate,
+    pricingRules = []
 }: PublicMenuProps) {
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [cartOpen, setCartOpen] = useState(false);
@@ -136,6 +147,40 @@ export default function PublicMenu({
         setCheckoutOpen(false);
     };
 
+    // Helper to calculate adjusted price
+    const getAdjustedPrice = (item: PublicMenuItem) => {
+        let adjustedPrice = item.price;
+        let appliedRule: PricingRule | null = null;
+
+        // Find the first applicable rule
+        for (const rule of pricingRules) {
+            const appliesToCategory = rule.category_ids.length === 0 || rule.category_ids.includes(item.category_id);
+            if (appliesToCategory) {
+                appliedRule = rule;
+                if (rule.rule_type === 'surge') {
+                    if (rule.discount_type === 'percentage') {
+                        adjustedPrice += (item.price * rule.value) / 100;
+                    } else {
+                        adjustedPrice += rule.value;
+                    }
+                } else {
+                    if (rule.discount_type === 'percentage') {
+                        adjustedPrice -= (item.price * rule.value) / 100;
+                    } else {
+                        adjustedPrice -= rule.value;
+                    }
+                }
+                break; // Only apply one rule for simplicity
+            }
+        }
+
+        return {
+            price: Math.max(0, adjustedPrice),
+            isAdjusted: appliedRule !== null,
+            ruleType: appliedRule?.rule_type
+        };
+    };
+
     return (
         <div className="pb-24 animate-in fade-in duration-500">
             {/* Context Header */}
@@ -218,9 +263,25 @@ export default function PublicMenu({
                         <div className="flex-1 space-y-1">
                             <div className="flex justify-between items-start">
                                 <h3 className="font-bold text-slate-100">{item.name}</h3>
-                                <span className="font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded text-sm">
-                                    {formatCurrency(item.price)}
-                                </span>
+                                <div className="flex flex-col items-end">
+                                    {getAdjustedPrice(item).isAdjusted ? (
+                                        <>
+                                            <span className={cn(
+                                                "font-bold px-2 py-0.5 rounded text-sm",
+                                                getAdjustedPrice(item).ruleType === 'surge' ? "text-orange-400 bg-orange-500/10" : "text-green-400 bg-green-500/10"
+                                            )}>
+                                                {formatCurrency(getAdjustedPrice(item).price)}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 line-through">
+                                                {formatCurrency(item.price)}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <span className="font-bold text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded text-sm">
+                                            {formatCurrency(item.price)}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                                 {item.description || "No description available."}
