@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
             location_id: locationId,
             table_number: tableNumber || null,
             order_type: orderType || 'takeout',
-            status: 'sent',
+            status: 'pending',
             subtotal: subtotal,
             tax: tax,
             total: total,
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
                 quantity: item.quantity,
                 notes: item.notes || null,
                 modifiers: item.modifiers || [],
-                status: 'sent',
+                status: 'pending',
                 sent_at: item.sent_at || new Date().toISOString()
             })),
             notes: orderNotes || null

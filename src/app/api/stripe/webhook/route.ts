@@ -65,6 +65,23 @@ export async function POST(request: NextRequest) {
                     console.log(`Stripe Total: ${stripeTotal}, Base Total: ${baseTotalBeforeTip}, Derived Tip: ${derivedTip}`);
                     console.log('PaymentIntent Metadata:', JSON.stringify(paymentIntent.metadata));
 
+                    // Determine if this is an online order that needs to be sent to kitchen
+                    // If any items are 'pending', it means it hasn't been sent to KDS yet.
+                    const hasPendingItems = (order.items || []).some((item: any) => item.status === 'pending');
+                    const newStatus = hasPendingItems ? 'sent' : 'completed';
+
+                    // Update items to 'sent' if they were 'pending'
+                    const updatedItems = (order.items || []).map((item: any) => {
+                        if (item.status === 'pending') {
+                            return {
+                                ...item,
+                                status: 'sent',
+                                sent_at: new Date().toISOString()
+                            };
+                        }
+                        return item;
+                    });
+
                     // Update order as paid with all payment details
                     const { data: updatedOrder, error: updateError } = await (supabaseAdmin
                         .from('orders') as any)
@@ -73,7 +90,8 @@ export async function POST(request: NextRequest) {
                             payment_method: 'card',
                             tip: derivedTip,
                             total: stripeTotal, // Use the actual amount from Stripe
-                            status: 'completed',
+                            status: newStatus,
+                            items: updatedItems,
                             stripe_payment_intent_id: paymentIntent.id,
                             completed_at: new Date().toISOString()
                         })
