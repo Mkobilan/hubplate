@@ -8,16 +8,18 @@ export default async function GuestMenuPage({
     params,
     searchParams
 }: {
-    params: { slug: string };
-    searchParams: { [key: string]: string | undefined };
+    params: Promise<{ slug: string }>;
+    searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
+    const { slug } = await params;
+    const { table: tableNumber } = await searchParams;
     const supabase = await createClient();
 
     // 1. Get Location by Slug
     const { data: location } = await supabase
         .from("locations")
         .select("id, name, ordering_enabled")
-        .eq("slug", params.slug)
+        .eq("slug", slug)
         .single() as any;
 
     if (!location || !location.ordering_enabled) {
@@ -52,7 +54,7 @@ export default async function GuestMenuPage({
         finalItems = fetchedItems || [];
     }
 
-    const tableNumber = searchParams.table;
+
 
     return (
         <PublicMenu

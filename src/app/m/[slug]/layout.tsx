@@ -6,19 +6,21 @@ import { Metadata, ResolvingMetadata } from "next";
 export const dynamic = "force-dynamic";
 
 type Props = {
-    params: { slug: string };
-    searchParams: { [key: string]: string | string[] | undefined };
+    params: Promise<{ slug: string }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export async function generateMetadata(
     { params }: Props,
     parent: ResolvingMetadata
 ): Promise<Metadata> {
-    const supabase = createClient();
+    const { slug } = await params;
+
+    const supabase = await createClient();
     const { data: location } = await supabase
         .from("locations")
         .select("name, logo_url, banner_url")
-        .eq("slug", params.slug)
+        .eq("slug", slug)
         .eq("ordering_enabled", true)
         .single();
 
@@ -41,8 +43,9 @@ export default async function GuestLayout({
     params
 }: {
     children: React.ReactNode;
-    params: { slug: string };
+    params: Promise<{ slug: string }>;
 }) {
+    const { slug } = await params;
     const supabase = createClient();
 
     // We fetch basic location info here to wrap the page with branding
@@ -50,7 +53,7 @@ export default async function GuestLayout({
     const { data: location, error } = await supabase
         .from("locations")
         .select("*")
-        .eq("slug", params.slug)
+        .eq("slug", slug)
         .eq("ordering_enabled", true)
         .single();
 
