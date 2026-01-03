@@ -69,8 +69,8 @@ export default async function GuestMenuPage({
     }
 
     // 4. Get Active Pricing Rules
-    const { data: pricingRules } = await (supabase
-        .rpc("get_active_pricing_rules", { p_location_id: location.id }) as any);
+    const { data: pricingRules } = await (supabase as any)
+        .rpc("get_active_pricing_rules", { p_location_id: location.id });
 
     return (
         <PublicMenu
