@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         const orderData: any = {
             location_id: locationId,
             table_number: tableNumber || null,
-            order_type: orderType || 'pickup',
+            order_type: orderType || 'takeout',
             status: 'sent',
             subtotal: subtotal,
             tax: tax,

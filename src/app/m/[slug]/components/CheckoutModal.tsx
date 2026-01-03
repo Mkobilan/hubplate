@@ -64,7 +64,7 @@ export default function CheckoutModal({
                 body: JSON.stringify({
                     locationId,
                     tableNumber: tableNumber || null,
-                    orderType: tableNumber ? "dine_in" : "pickup",
+                    orderType: tableNumber ? "dine_in" : "takeout",
                     items: cart.map(item => ({
                         id: crypto.randomUUID(),
                         menu_item_id: item.id,
