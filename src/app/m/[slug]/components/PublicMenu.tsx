@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { toast } from "react-hot-toast";
+import ItemCustomizationModal, { CartModifier } from "./ItemCustomizationModal";
+import CheckoutModal, { CartItem } from "./CheckoutModal";
 
 export type PublicMenuItem = {
     id: string;
@@ -34,6 +36,7 @@ interface PublicMenuProps {
     locationId: string;
     locationName: string;
     tableNumber?: string;
+    taxRate: number;
 }
 
 export default function PublicMenu({
@@ -41,13 +44,17 @@ export default function PublicMenu({
     categories,
     locationId,
     locationName,
-    tableNumber
+    tableNumber,
+    taxRate
 }: PublicMenuProps) {
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [cartOpen, setCartOpen] = useState(false);
-    const [cart, setCart] = useState<{ id: string, name: string, price: number, quantity: number }[]>([]);
+    const [cart, setCart] = useState<CartItem[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
-    const [placingOrder, setPlacingOrder] = useState(false);
+
+    // Modal states
+    const [customizingItem, setCustomizingItem] = useState<PublicMenuItem | null>(null);
+    const [checkoutOpen, setCheckoutOpen] = useState(false);
 
     // Filter items
     const filteredItems = items.filter(item => {
@@ -65,48 +72,68 @@ export default function PublicMenu({
     const categoryNames = ["All", ...categories.map(c => c.name)];
 
     const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-    const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const cartSubtotal = cart.reduce((sum, item) => {
+        const modifiersTotal = item.modifiers.reduce((m, mod) => m + mod.price, 0);
+        return sum + (item.price + modifiersTotal) * item.quantity;
+    }, 0);
 
-    const addToCart = (item: PublicMenuItem) => {
-        const existing = cart.find(c => c.id === item.id);
-        if (existing) {
-            setCart(cart.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c));
-        } else {
-            setCart([...cart, { id: item.id, name: item.name, price: item.price, quantity: 1 }]);
-        }
-        toast.success(`Added ${item.name} to order`);
+    // Handle item click - open customization modal
+    const handleItemClick = (item: PublicMenuItem) => {
+        setCustomizingItem(item);
     };
 
-    const updateQuantity = (id: string, delta: number) => {
-        setCart(cart.map(c => c.id === id ? { ...c, quantity: c.quantity + delta } : c).filter(c => c.quantity > 0));
-    };
+    // Handle adding item with customizations to cart
+    const handleAddToCart = (notes: string, modifiers: CartModifier[]) => {
+        if (!customizingItem) return;
 
-    const handlePlaceOrder = async () => {
-        if (!cart.length) return;
+        // Check if a similar item already exists (same id, notes, and modifiers)
+        const existingIndex = cart.findIndex(c =>
+            c.id === customizingItem.id &&
+            c.notes === notes &&
+            JSON.stringify(c.modifiers) === JSON.stringify(modifiers)
+        );
 
-        setPlacingOrder(true);
-        // TODO: Implement actual order creation in Phase 4
-        try {
-            // diverse error simulation
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success("Proceeding to checkout...");
-
-            // For now, valid checkout will happen when we have the API
-            const orderPayload = {
-                locationId,
-                items: cart.map(c => ({ itemId: c.id, quantity: c.quantity })),
-                tableNumber: tableNumber || "Takeout",
-                type: tableNumber ? "dine_in" : "pickup"
+        if (existingIndex !== -1) {
+            // Increment quantity
+            const newCart = [...cart];
+            newCart[existingIndex] = {
+                ...newCart[existingIndex],
+                quantity: newCart[existingIndex].quantity + 1
             };
-
-            console.log("Order Payload:", orderPayload);
-            toast("Checkout integration coming in Phase 4!", { icon: "🚧" });
-
-        } catch (error) {
-            toast.error("Something went wrong");
-        } finally {
-            setPlacingOrder(false);
+            setCart(newCart);
+        } else {
+            // Add as new item
+            setCart([...cart, {
+                id: customizingItem.id,
+                name: customizingItem.name,
+                price: customizingItem.price,
+                quantity: 1,
+                notes: notes || undefined,
+                modifiers,
+                category_id: customizingItem.category_id
+            }]);
         }
+
+        toast.success(`Added ${customizingItem.name} to order`);
+        setCustomizingItem(null);
+    };
+
+    const updateQuantity = (index: number, delta: number) => {
+        const newCart = cart.map((item, i) =>
+            i === index ? { ...item, quantity: item.quantity + delta } : item
+        ).filter(item => item.quantity > 0);
+        setCart(newCart);
+    };
+
+    const handleCheckout = () => {
+        if (cart.length === 0) return;
+        setCartOpen(false);
+        setCheckoutOpen(true);
+    };
+
+    const handleCheckoutSuccess = () => {
+        setCart([]);
+        setCheckoutOpen(false);
     };
 
     return (
@@ -186,7 +213,7 @@ export default function PublicMenu({
                     <div
                         key={item.id}
                         className="bg-slate-900/50 border border-slate-800/50 rounded-2xl p-4 flex gap-4 active:scale-[0.99] transition-transform cursor-pointer"
-                        onClick={() => addToCart(item)}
+                        onClick={() => handleItemClick(item)}
                     >
                         <div className="flex-1 space-y-1">
                             <div className="flex justify-between items-start">
@@ -224,29 +251,45 @@ export default function PublicMenu({
                         </h2>
 
                         <div className="space-y-4 max-h-[50vh] overflow-y-auto mb-6 pr-2">
-                            {cart.map(item => (
-                                <div key={item.id} className="flex items-center justify-between group">
-                                    <div>
-                                        <p className="font-bold text-sm text-slate-200">{item.name}</p>
-                                        <p className="text-xs text-slate-500">{formatCurrency(item.price)}</p>
+                            {cart.map((item, idx) => {
+                                const modifiersTotal = item.modifiers.reduce((m, mod) => m + mod.price, 0);
+                                const itemTotal = item.price + modifiersTotal;
+                                return (
+                                    <div key={idx} className="flex items-start justify-between group py-2 border-b border-slate-800/50 last:border-0">
+                                        <div className="flex-1">
+                                            <p className="font-bold text-sm text-slate-200">{item.name}</p>
+                                            <p className="text-xs text-slate-500">{formatCurrency(itemTotal)}</p>
+                                            {item.modifiers.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {item.modifiers.map((mod, i) => (
+                                                        <span key={i} className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">
+                                                            +{mod.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {item.notes && (
+                                                <p className="text-[10px] text-orange-400 italic mt-1">"{item.notes}"</p>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3 bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800">
+                                            <button
+                                                onClick={() => updateQuantity(idx, -1)}
+                                                className="hover:text-white text-slate-400 transition-colors"
+                                            >
+                                                <Minus className="w-4 h-4" />
+                                            </button>
+                                            <span className="text-sm font-bold w-4 text-center text-slate-200">{item.quantity}</span>
+                                            <button
+                                                onClick={() => updateQuantity(idx, 1)}
+                                                className="hover:text-white text-slate-400 transition-colors"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-3 bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800">
-                                        <button
-                                            onClick={() => updateQuantity(item.id, -1)}
-                                            className="hover:text-white text-slate-400 transition-colors"
-                                        >
-                                            <Minus className="w-4 h-4" />
-                                        </button>
-                                        <span className="text-sm font-bold w-4 text-center text-slate-200">{item.quantity}</span>
-                                        <button
-                                            onClick={() => updateQuantity(item.id, 1)}
-                                            className="hover:text-white text-slate-400 transition-colors"
-                                        >
-                                            <Plus className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                             {cart.length === 0 && (
                                 <div className="text-center py-12">
                                     <ShoppingCart className="w-12 h-12 text-slate-800 mx-auto mb-3" />
@@ -263,22 +306,16 @@ export default function PublicMenu({
 
                         <div className="space-y-4 pt-4 border-t border-slate-800">
                             <div className="flex justify-between items-center">
-                                <span className="text-slate-400">Total</span>
-                                <span className="text-3xl font-bold text-slate-100">{formatCurrency(cartTotal)}</span>
+                                <span className="text-slate-400">Subtotal</span>
+                                <span className="text-3xl font-bold text-slate-100">{formatCurrency(cartSubtotal)}</span>
                             </div>
                             <button
-                                onClick={handlePlaceOrder}
+                                onClick={handleCheckout}
                                 className="btn btn-primary w-full py-4 rounded-2xl text-lg font-bold shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
-                                disabled={cart.length === 0 || placingOrder}
+                                disabled={cart.length === 0}
                             >
-                                {placingOrder ? (
-                                    <Loader2 className="w-6 h-6 animate-spin" />
-                                ) : (
-                                    <>
-                                        Checkout
-                                        <ChevronRight className="w-5 h-5 opacity-50" />
-                                    </>
-                                )}
+                                Checkout
+                                <ChevronRight className="w-5 h-5 opacity-50" />
                             </button>
                         </div>
                     </div>
@@ -286,7 +323,7 @@ export default function PublicMenu({
             )}
 
             {/* Bottom Bar (Mobile) */}
-            {cartCount > 0 && !cartOpen && (
+            {cartCount > 0 && !cartOpen && !checkoutOpen && (
                 <div
                     className="fixed bottom-6 left-4 right-4 z-40 bg-slate-100 rounded-2xl p-4 shadow-2xl flex items-center justify-between animate-slide-up cursor-pointer active:scale-95 transition-transform"
                     onClick={() => setCartOpen(true)}
@@ -297,8 +334,31 @@ export default function PublicMenu({
                         </div>
                         <span className="font-bold text-slate-900">View Order</span>
                     </div>
-                    <span className="font-bold text-slate-900 text-lg">{formatCurrency(cartTotal)}</span>
+                    <span className="font-bold text-slate-900 text-lg">{formatCurrency(cartSubtotal)}</span>
                 </div>
+            )}
+
+            {/* Item Customization Modal */}
+            {customizingItem && (
+                <ItemCustomizationModal
+                    item={customizingItem}
+                    locationId={locationId}
+                    onClose={() => setCustomizingItem(null)}
+                    onConfirm={handleAddToCart}
+                />
+            )}
+
+            {/* Checkout Modal */}
+            {checkoutOpen && (
+                <CheckoutModal
+                    cart={cart}
+                    locationId={locationId}
+                    locationName={locationName}
+                    tableNumber={tableNumber}
+                    taxRate={taxRate}
+                    onClose={() => setCheckoutOpen(false)}
+                    onSuccess={handleCheckoutSuccess}
+                />
             )}
         </div>
     );

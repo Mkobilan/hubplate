@@ -15,10 +15,10 @@ export default async function GuestMenuPage({
     const { table: tableNumber } = await searchParams;
     const supabase = await createClient();
 
-    // 1. Get Location by Slug
+    // 1. Get Location by Slug (include tax_rate for checkout)
     const { data: location } = await supabase
         .from("locations")
-        .select("id, name, ordering_enabled")
+        .select("id, name, ordering_enabled, tax_rate")
         .eq("slug", slug)
         .single() as any;
 
@@ -68,8 +68,6 @@ export default async function GuestMenuPage({
         finalItems = fetchedItems || [];
     }
 
-
-
     return (
         <PublicMenu
             items={finalItems}
@@ -77,6 +75,7 @@ export default async function GuestMenuPage({
             locationId={location.id}
             locationName={location.name}
             tableNumber={tableNumber}
+            taxRate={location.tax_rate ?? 8.75}
         />
     );
 }
