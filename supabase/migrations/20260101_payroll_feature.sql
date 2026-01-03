@@ -51,13 +51,29 @@ ALTER TABLE public.payroll_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tip_pools ENABLE ROW LEVEL SECURITY;
 
 -- 5. RLS Policies (Managers and Owners only for payroll)
+DROP POLICY IF EXISTS "Managers can manage payroll periods" ON public.payroll_periods;
 CREATE POLICY "Managers can manage payroll periods" ON public.payroll_periods
-    FOR ALL USING (
+    FOR ALL TO authenticated USING (
         public.check_is_manager(organization_id)
     );
 
-CREATE POLICY "Managers can manage payroll runs" ON public.payroll_runs
-    FOR ALL USING (
+-- Consolidated SELECT policy for payroll runs (Performance & Security)
+DROP POLICY IF EXISTS "Managers can manage payroll runs" ON public.payroll_runs;
+DROP POLICY IF EXISTS "Employees can view own payroll runs" ON public.payroll_runs;
+
+CREATE POLICY "payroll_runs_select" ON public.payroll_runs
+    FOR SELECT TO authenticated USING (
+        employee_id IN (SELECT id FROM public.employees WHERE user_id = (select auth.uid()))
+        OR EXISTS (
+            SELECT 1 FROM public.payroll_periods pp
+            WHERE pp.id = public.payroll_runs.period_id
+            AND public.check_is_manager(pp.organization_id)
+        )
+    );
+
+-- Separate policies for management (INSERT, UPDATE, DELETE)
+CREATE POLICY "payroll_runs_insert" ON public.payroll_runs
+    FOR INSERT TO authenticated WITH CHECK (
         EXISTS (
             SELECT 1 FROM public.payroll_periods pp
             WHERE pp.id = public.payroll_runs.period_id
@@ -65,14 +81,27 @@ CREATE POLICY "Managers can manage payroll runs" ON public.payroll_runs
         )
     );
 
--- Employees can view their own payroll runs
-CREATE POLICY "Employees can view own payroll runs" ON public.payroll_runs
-    FOR SELECT USING (
-        employee_id IN (SELECT id FROM public.employees WHERE user_id = auth.uid())
+CREATE POLICY "payroll_runs_update" ON public.payroll_runs
+    FOR UPDATE TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.payroll_periods pp
+            WHERE pp.id = public.payroll_runs.period_id
+            AND public.check_is_manager(pp.organization_id)
+        )
     );
 
+CREATE POLICY "payroll_runs_delete" ON public.payroll_runs
+    FOR DELETE TO authenticated USING (
+        EXISTS (
+            SELECT 1 FROM public.payroll_periods pp
+            WHERE pp.id = public.payroll_runs.period_id
+            AND public.check_is_manager(pp.organization_id)
+        )
+    );
+
+DROP POLICY IF EXISTS "Managers can manage tip pools" ON public.tip_pools;
 CREATE POLICY "Managers can manage tip pools" ON public.tip_pools
-    FOR ALL USING (
+    FOR ALL TO authenticated USING (
         EXISTS (
             SELECT 1 FROM public.locations l
             WHERE l.id = public.tip_pools.location_id

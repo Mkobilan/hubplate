@@ -15,11 +15,13 @@ import {
     ChevronRight,
     Plus,
     X,
-    QrCode
+    QrCode,
+    FileUp
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
+import { CustomerUploadModal } from "@/components/dashboard/customers/CustomerUploadModal";
 
 const quickLinks = [
     {
@@ -71,6 +73,7 @@ export default function CustomersPage() {
     const [showQr, setShowQr] = useState(false);
     const [enrollmentUrl, setEnrollmentUrl] = useState("");
     const [showAllModal, setShowAllModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
     const [allCustomers, setAllCustomers] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -175,7 +178,14 @@ export default function CustomersPage() {
                 </p>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+                <button
+                    onClick={() => setShowImportModal(true)}
+                    className="btn btn-secondary"
+                >
+                    <FileUp className="h-4 w-4" />
+                    Import
+                </button>
                 <button
                     onClick={() => setShowAddModal(true)}
                     className="btn btn-primary"
@@ -445,6 +455,13 @@ export default function CustomersPage() {
                 isOpen={!!selectedCustomer}
                 onClose={() => setSelectedCustomer(null)}
                 customerId={selectedCustomer}
+            />
+
+            <CustomerUploadModal
+                isOpen={showImportModal}
+                onClose={() => setShowImportModal(false)}
+                locationId={currentLocation.id}
+                onImportComplete={fetchData}
             />
         </div>
     );

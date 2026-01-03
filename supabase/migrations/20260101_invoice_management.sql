@@ -122,228 +122,244 @@ ALTER TABLE ingredient_price_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoice_approvals ENABLE ROW LEVEL SECURITY;
 
 -- Vendors RLS: Users can access vendors at their location
+DROP POLICY IF EXISTS vendors_select_policy ON vendors;
 CREATE POLICY vendors_select_policy ON vendors FOR SELECT
 USING (
     location_id IN (
-        SELECT location_id FROM employees WHERE user_id = auth.uid() AND is_active = true
+        SELECT location_id FROM employees WHERE user_id = (select auth.uid()) AND is_active = true
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS vendors_insert_policy ON vendors;
 CREATE POLICY vendors_insert_policy ON vendors FOR INSERT
 WITH CHECK (
     location_id IN (
         SELECT location_id FROM employees 
-        WHERE user_id = auth.uid() AND is_active = true 
+        WHERE user_id = (select auth.uid()) AND is_active = true 
         AND role IN ('owner', 'manager', 'gm', 'agm')
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS vendors_update_policy ON vendors;
 CREATE POLICY vendors_update_policy ON vendors FOR UPDATE
 USING (
     location_id IN (
         SELECT location_id FROM employees 
-        WHERE user_id = auth.uid() AND is_active = true 
+        WHERE user_id = (select auth.uid()) AND is_active = true 
         AND role IN ('owner', 'manager', 'gm', 'agm')
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS vendors_delete_policy ON vendors;
 CREATE POLICY vendors_delete_policy ON vendors FOR DELETE
 USING (
     location_id IN (
         SELECT location_id FROM employees 
-        WHERE user_id = auth.uid() AND is_active = true 
+        WHERE user_id = (select auth.uid()) AND is_active = true 
         AND role IN ('owner', 'manager', 'gm')
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
 -- Invoices RLS: Same pattern
+DROP POLICY IF EXISTS invoices_select_policy ON invoices;
 CREATE POLICY invoices_select_policy ON invoices FOR SELECT
 USING (
     location_id IN (
-        SELECT location_id FROM employees WHERE user_id = auth.uid() AND is_active = true
+        SELECT location_id FROM employees WHERE user_id = (select auth.uid()) AND is_active = true
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS invoices_insert_policy ON invoices;
 CREATE POLICY invoices_insert_policy ON invoices FOR INSERT
 WITH CHECK (
     location_id IN (
         SELECT location_id FROM employees 
-        WHERE user_id = auth.uid() AND is_active = true 
+        WHERE user_id = (select auth.uid()) AND is_active = true 
         AND role IN ('owner', 'manager', 'gm', 'agm')
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS invoices_update_policy ON invoices;
 CREATE POLICY invoices_update_policy ON invoices FOR UPDATE
 USING (
     location_id IN (
         SELECT location_id FROM employees 
-        WHERE user_id = auth.uid() AND is_active = true 
+        WHERE user_id = (select auth.uid()) AND is_active = true 
         AND role IN ('owner', 'manager', 'gm', 'agm')
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS invoices_delete_policy ON invoices;
 CREATE POLICY invoices_delete_policy ON invoices FOR DELETE
 USING (
     location_id IN (
         SELECT location_id FROM employees 
-        WHERE user_id = auth.uid() AND is_active = true 
+        WHERE user_id = (select auth.uid()) AND is_active = true 
         AND role IN ('owner', 'manager', 'gm')
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
 -- Invoice Line Items RLS: Access through invoice
+DROP POLICY IF EXISTS invoice_line_items_select_policy ON invoice_line_items;
 CREATE POLICY invoice_line_items_select_policy ON invoice_line_items FOR SELECT
 USING (
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
-            SELECT location_id FROM employees WHERE user_id = auth.uid() AND is_active = true
+            SELECT location_id FROM employees WHERE user_id = (select auth.uid()) AND is_active = true
         )
     )
     OR
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
-            SELECT id FROM locations WHERE owner_id = auth.uid()
+            SELECT id FROM locations WHERE owner_id = (select auth.uid())
         )
     )
 );
 
+DROP POLICY IF EXISTS invoice_line_items_insert_policy ON invoice_line_items;
 CREATE POLICY invoice_line_items_insert_policy ON invoice_line_items FOR INSERT
 WITH CHECK (
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
             SELECT location_id FROM employees 
-            WHERE user_id = auth.uid() AND is_active = true 
+            WHERE user_id = (select auth.uid()) AND is_active = true 
             AND role IN ('owner', 'manager', 'gm', 'agm')
         )
     )
     OR
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
-            SELECT id FROM locations WHERE owner_id = auth.uid()
+            SELECT id FROM locations WHERE owner_id = (select auth.uid())
         )
     )
 );
 
+DROP POLICY IF EXISTS invoice_line_items_update_policy ON invoice_line_items;
 CREATE POLICY invoice_line_items_update_policy ON invoice_line_items FOR UPDATE
 USING (
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
             SELECT location_id FROM employees 
-            WHERE user_id = auth.uid() AND is_active = true 
+            WHERE user_id = (select auth.uid()) AND is_active = true 
             AND role IN ('owner', 'manager', 'gm', 'agm')
         )
     )
     OR
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
-            SELECT id FROM locations WHERE owner_id = auth.uid()
+            SELECT id FROM locations WHERE owner_id = (select auth.uid())
         )
     )
 );
 
+DROP POLICY IF EXISTS invoice_line_items_delete_policy ON invoice_line_items;
 CREATE POLICY invoice_line_items_delete_policy ON invoice_line_items FOR DELETE
 USING (
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
             SELECT location_id FROM employees 
-            WHERE user_id = auth.uid() AND is_active = true 
+            WHERE user_id = (select auth.uid()) AND is_active = true 
             AND role IN ('owner', 'manager', 'gm')
         )
     )
     OR
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
-            SELECT id FROM locations WHERE owner_id = auth.uid()
+            SELECT id FROM locations WHERE owner_id = (select auth.uid())
         )
     )
 );
 
 -- Price History RLS
+DROP POLICY IF EXISTS price_history_select_policy ON ingredient_price_history;
 CREATE POLICY price_history_select_policy ON ingredient_price_history FOR SELECT
 USING (
     location_id IN (
-        SELECT location_id FROM employees WHERE user_id = auth.uid() AND is_active = true
+        SELECT location_id FROM employees WHERE user_id = (select auth.uid()) AND is_active = true
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS price_history_insert_policy ON ingredient_price_history;
 CREATE POLICY price_history_insert_policy ON ingredient_price_history FOR INSERT
 WITH CHECK (
     location_id IN (
         SELECT location_id FROM employees 
-        WHERE user_id = auth.uid() AND is_active = true 
+        WHERE user_id = (select auth.uid()) AND is_active = true 
         AND role IN ('owner', 'manager', 'gm', 'agm')
     )
     OR
     location_id IN (
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
 -- Invoice Approvals RLS
+DROP POLICY IF EXISTS invoice_approvals_select_policy ON invoice_approvals;
 CREATE POLICY invoice_approvals_select_policy ON invoice_approvals FOR SELECT
 USING (
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
-            SELECT location_id FROM employees WHERE user_id = auth.uid() AND is_active = true
+            SELECT location_id FROM employees WHERE user_id = (select auth.uid()) AND is_active = true
         )
     )
     OR
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
-            SELECT id FROM locations WHERE owner_id = auth.uid()
+            SELECT id FROM locations WHERE owner_id = (select auth.uid())
         )
     )
 );
 
+DROP POLICY IF EXISTS invoice_approvals_insert_policy ON invoice_approvals;
 CREATE POLICY invoice_approvals_insert_policy ON invoice_approvals FOR INSERT
 WITH CHECK (
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
             SELECT location_id FROM employees 
-            WHERE user_id = auth.uid() AND is_active = true 
+            WHERE user_id = (select auth.uid()) AND is_active = true 
             AND role IN ('owner', 'manager', 'gm', 'agm')
         )
     )
     OR
     invoice_id IN (
         SELECT id FROM invoices WHERE location_id IN (
-            SELECT id FROM locations WHERE owner_id = auth.uid()
+            SELECT id FROM locations WHERE owner_id = (select auth.uid())
         )
     )
 );
@@ -366,7 +382,7 @@ BEGIN
     
     RETURN COALESCE(NEW, OLD);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS invoice_line_items_totals_trigger ON invoice_line_items;
 CREATE TRIGGER invoice_line_items_totals_trigger
@@ -403,7 +419,7 @@ BEGIN
     
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS invoice_line_items_price_history_trigger ON invoice_line_items;
 CREATE TRIGGER invoice_line_items_price_history_trigger
@@ -424,36 +440,39 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage policy for invoices bucket
+DROP POLICY IF EXISTS invoices_bucket_select ON storage.objects;
 CREATE POLICY invoices_bucket_select ON storage.objects FOR SELECT
 USING (
     bucket_id = 'invoices' AND
     (storage.foldername(name))[1]::uuid IN (
-        SELECT location_id FROM employees WHERE user_id = auth.uid() AND is_active = true
+        SELECT location_id FROM employees WHERE user_id = (select auth.uid()) AND is_active = true
         UNION
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS invoices_bucket_insert ON storage.objects;
 CREATE POLICY invoices_bucket_insert ON storage.objects FOR INSERT
 WITH CHECK (
     bucket_id = 'invoices' AND
     (storage.foldername(name))[1]::uuid IN (
         SELECT location_id FROM employees 
-        WHERE user_id = auth.uid() AND is_active = true 
+        WHERE user_id = (select auth.uid()) AND is_active = true 
         AND role IN ('owner', 'manager', 'gm', 'agm')
         UNION
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );
 
+DROP POLICY IF EXISTS invoices_bucket_delete ON storage.objects;
 CREATE POLICY invoices_bucket_delete ON storage.objects FOR DELETE
 USING (
     bucket_id = 'invoices' AND
     (storage.foldername(name))[1]::uuid IN (
         SELECT location_id FROM employees 
-        WHERE user_id = auth.uid() AND is_active = true 
+        WHERE user_id = (select auth.uid()) AND is_active = true 
         AND role IN ('owner', 'manager', 'gm')
         UNION
-        SELECT id FROM locations WHERE owner_id = auth.uid()
+        SELECT id FROM locations WHERE owner_id = (select auth.uid())
     )
 );

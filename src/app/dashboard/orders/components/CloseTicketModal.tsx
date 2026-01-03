@@ -6,6 +6,7 @@ import { Capacitor } from '@capacitor/core';
 import { StripeTerminal, TerminalConnectTypes } from '@capacitor-community/stripe-terminal';
 import { formatCurrency } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
+import { toast } from "react-hot-toast";
 
 interface CloseTicketModalProps {
     orderId: string;
@@ -29,7 +30,7 @@ export default function CloseTicketModal({
 }: CloseTicketModalProps) {
     const [paymentStatus, setPaymentStatus] = useState<string>("");
     const [isNative, setIsNative] = useState(false);
-    const [activeOption, setActiveOption] = useState<"print" | "card" | "qr" | "cash" | null>(null);
+    const [activeOption, setActiveOption] = useState<"print" | "card" | "qr" | "cash" | "gift" | null>(null);
     const [copied, setCopied] = useState(false);
     const [processingCash, setProcessingCash] = useState(false);
     const [tip, setTip] = useState<number>(0);
@@ -43,6 +44,12 @@ export default function CloseTicketModal({
     const [joiningLoyalty, setJoiningLoyalty] = useState(false);
     const [loyaltySuccess, setLoyaltySuccess] = useState(false);
     const [hasCheckedIn, setHasCheckedIn] = useState(false); // To toggle between check-in and registration input
+
+    // Gift Card
+    const [giftCardNumber, setGiftCardNumber] = useState("");
+    const [checkingGiftCard, setCheckingGiftCard] = useState(false);
+    const [giftCardBalance, setGiftCardBalance] = useState<number | null>(null);
+    const [giftCardError, setGiftCardError] = useState<string | null>(null);
 
     useEffect(() => {
         setIsNative(Capacitor.isNativePlatform());
@@ -391,6 +398,79 @@ export default function CloseTicketModal({
         }
     };
 
+    const handleGiftCardCheck = async () => {
+        if (!giftCardNumber) return;
+        setCheckingGiftCard(true);
+        setGiftCardError(null);
+        try {
+            const supabase = createClient();
+            const { data, error } = await (supabase as any)
+                .from("gift_cards")
+                .select("current_balance, is_active")
+                .eq("card_number", giftCardNumber)
+                .single();
+
+            if (error || !data) throw new Error("Gift card not found");
+            if (!data.is_active) throw new Error("Gift card is inactive");
+
+            setGiftCardBalance(Number(data.current_balance));
+        } catch (err: any) {
+            setGiftCardError(err.message);
+        } finally {
+            setCheckingGiftCard(false);
+        }
+    };
+
+    const handleGiftCardPayment = async () => {
+        if (giftCardBalance === null) return;
+        setCheckingGiftCard(true);
+        try {
+            const totalToPay = total + tip;
+            const amountToCharge = Math.min(giftCardBalance, totalToPay);
+            const remainingBalance = giftCardBalance - amountToCharge;
+
+            const supabase = createClient();
+
+            // 1. Update Gift Card balance
+            const { error: gcError } = await (supabase as any)
+                .from("gift_cards")
+                .update({
+                    current_balance: remainingBalance,
+                    last_used_at: new Date().toISOString()
+                })
+                .eq("card_number", giftCardNumber);
+
+            if (gcError) throw gcError;
+
+            // 2. Update Order
+            if (amountToCharge >= totalToPay) {
+                const { error: orderError } = await (supabase.from("orders") as any)
+                    .update({
+                        payment_status: "paid",
+                        payment_method: "gift_card",
+                        tip: tip,
+                        total: totalToPay,
+                        status: "completed",
+                        completed_at: new Date().toISOString()
+                    })
+                    .eq("id", orderId);
+
+                if (orderError) throw orderError;
+
+                toast.success("Payment successful!");
+                onPaymentComplete?.();
+                onClose();
+            } else {
+                // Partial payment - for now we just show error as full partial support isn't implemented
+                toast.error(`Gift card only covers ${formatCurrency(amountToCharge)}. Partial payments coming soon.`);
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Gift card payment failed");
+        } finally {
+            setCheckingGiftCard(false);
+        }
+    };
+
     // Generate payment URL for QR code
     const paymentUrl = typeof window !== "undefined"
         ? `${window.location.origin}/pay/${orderId}`
@@ -584,6 +664,19 @@ export default function CloseTicketModal({
                                 <p className="text-sm text-slate-400">Mark as paid with cash</p>
                             </div>
                         </button>
+
+                        <button
+                            onClick={() => setActiveOption("gift")}
+                            className="w-full flex items-center gap-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl hover:border-purple-500/50 hover:bg-purple-500/20 transition-all group"
+                        >
+                            <div className="p-3 bg-purple-500/20 rounded-lg group-hover:bg-purple-500/30 transition-colors">
+                                <Gift className="h-6 w-6 text-purple-400" />
+                            </div>
+                            <div className="text-left">
+                                <p className="font-semibold text-purple-400">Gift Card</p>
+                                <p className="text-sm text-slate-400">Use existing gift card</p>
+                            </div>
+                        </button>
                     </div>
                 )}
 
@@ -759,6 +852,76 @@ export default function CloseTicketModal({
                                 )}
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* Gift Card Payment */}
+                {activeOption === "gift" && (
+                    <div className="space-y-6 py-4 animate-in slide-in-from-bottom-2">
+                        <div className="text-center">
+                            <Gift className="h-16 w-16 mx-auto text-purple-400 mb-4" />
+                            <h3 className="text-lg font-semibold text-slate-300">Gift Card Payment</h3>
+                        </div>
+
+                        {!giftCardBalance ? (
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase px-1">Card Number</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Enter card number"
+                                            className="flex-1 input"
+                                            value={giftCardNumber}
+                                            onChange={(e) => setGiftCardNumber(e.target.value)}
+                                        />
+                                        <button
+                                            onClick={handleGiftCardCheck}
+                                            disabled={checkingGiftCard || !giftCardNumber}
+                                            className="btn btn-primary bg-purple-600 hover:bg-purple-700 border-none shrink-0"
+                                        >
+                                            {checkingGiftCard ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
+                                        </button>
+                                    </div>
+                                    {giftCardError && <p className="text-xs text-red-400 px-1 font-medium">{giftCardError}</p>}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-sm text-purple-200">Current Balance</span>
+                                        <span className="text-lg font-bold text-purple-400">{formatCurrency(giftCardBalance)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-purple-200">Amount to Pay</span>
+                                        <span className="text-lg font-bold text-white">{formatCurrency(total + tip)}</span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={handleGiftCardPayment}
+                                    disabled={checkingGiftCard}
+                                    className="w-full btn btn-primary bg-purple-600 hover:bg-purple-700 border-none font-bold"
+                                >
+                                    {checkingGiftCard ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Confirm & Pay"}
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        setGiftCardBalance(null);
+                                        setGiftCardNumber("");
+                                    }}
+                                    className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                                >
+                                    Use different card
+                                </button>
+                            </div>
+                        )}
+
+                        <button onClick={() => setActiveOption(null)} className="w-full btn btn-secondary">
+                            Back
+                        </button>
                     </div>
                 )}
 

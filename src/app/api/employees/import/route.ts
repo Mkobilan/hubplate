@@ -176,6 +176,11 @@ export async function POST(request: NextRequest) {
                     hourly_rate: emp.hourly_rate || null,
                     hire_date: emp.hire_date || null,
                     pin_code: emp.pin_code || null,
+                    external_id: emp.external_id || null,
+                    ytd_gross: emp.ytd_gross || 0,
+                    ytd_net: emp.ytd_net || 0,
+                    ytd_tax: emp.ytd_tax || 0,
+                    metadata: (emp as any).custom_fields || {},
                     is_active: true
                 };
 

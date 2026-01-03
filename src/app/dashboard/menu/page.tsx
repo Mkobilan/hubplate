@@ -17,6 +17,7 @@ import {
     X,
     Layers,
     Sparkles,
+    FileUp
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 

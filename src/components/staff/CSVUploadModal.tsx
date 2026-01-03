@@ -105,6 +105,13 @@ export function CSVUploadModal({
 
             setCsvData(parsed);
 
+            // Initialize mappings with skip first so UI shows immediately
+            const initialMappings: FieldMapping[] = parsed.headers.map(h => ({
+                csvColumn: h,
+                targetField: "skip"
+            }));
+            setMappings(initialMappings);
+
             // Get AI suggestions for field mapping via API route
             setIsLoadingAI(true);
             try {
@@ -121,26 +128,25 @@ export function CSVUploadModal({
                 const suggestions: AIFieldMappingSuggestion[] = data.suggestions || [];
                 setAiSuggestions(suggestions);
 
-                // Initialize mappings from AI suggestions
-                const initialMappings: FieldMapping[] = suggestions.map(s => ({
-                    csvColumn: s.csvColumn,
-                    targetField: s.suggestedField,
-                    customFieldName: s.customFieldName,
-                    customFieldLabel: s.customFieldLabel,
-                    customFieldType: "text"
+                // Update mappings with AI suggestions
+                setMappings(prev => prev.map(m => {
+                    const s = suggestions.find(suggest => suggest.csvColumn === m.csvColumn);
+                    if (s) {
+                        return {
+                            ...m,
+                            targetField: s.suggestedField as any,
+                            customFieldName: s.customFieldName,
+                            customFieldLabel: s.customFieldLabel
+                        };
+                    }
+                    return m;
                 }));
-                setMappings(initialMappings);
             } catch (aiError) {
                 console.error("AI mapping error:", aiError);
-                // Use basic mappings as fallback
-                const basicMappings: FieldMapping[] = parsed.headers.map(h => ({
-                    csvColumn: h,
-                    targetField: "skip"
-                }));
-                setMappings(basicMappings);
+            } finally {
+                setIsLoadingAI(false);
+                setStep("mapping");
             }
-            setIsLoadingAI(false);
-            setStep("mapping");
         } catch (err: any) {
             setError(err.message || "Failed to parse CSV file");
         }

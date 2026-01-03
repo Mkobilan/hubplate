@@ -13,9 +13,72 @@ export const STANDARD_EMPLOYEE_FIELDS = {
     hourly_rate: { label: "Hourly Rate", required: false, type: "number" },
     hire_date: { label: "Hire Date", required: false, type: "date" },
     pin_code: { label: "PIN Code", required: false, type: "text" },
+    external_id: { label: "External/Payroll ID", required: false, type: "text" },
+    ytd_gross: { label: "YTD Gross Pay", required: false, type: "number" },
+    ytd_net: { label: "YTD Net Pay", required: false, type: "number" },
+    ytd_tax: { label: "YTD Taxes", required: false, type: "number" },
+} as const;
+
+// Standard customer fields that can be mapped
+export const STANDARD_CUSTOMER_FIELDS = {
+    first_name: { label: "First Name", required: false, type: "text" },
+    last_name: { label: "Last Name", required: false, type: "text" },
+    email: { label: "Email", required: false, type: "email" },
+    phone: { label: "Phone", required: false, type: "phone" },
+    birthday: { label: "Birthday", required: false, type: "date" },
+    is_loyalty_member: { label: "Loyalty Member", required: false, type: "boolean" },
+    loyalty_points: { label: "Loyalty Points", required: false, type: "number" },
+    loyalty_tier: { label: "Loyalty Tier", required: false, type: "text" },
+    total_spent: { label: "Total Spent", required: false, type: "number" },
+    total_visits: { label: "Total Visits", required: false, type: "number" },
+    notes: { label: "Notes", required: false, type: "text" },
+} as const;
+
+// Standard menu fields that can be mapped
+export const STANDARD_MENU_FIELDS = {
+    name: { label: "Item Name", required: true, type: "text" },
+    description: { label: "Description", required: false, type: "text" },
+    category: { label: "Category", required: true, type: "text" },
+    price: { label: "Price", required: true, type: "number" },
+    cost: { label: "Cost", required: false, type: "number" },
+    kds_station: { label: "KDS Station", required: false, type: "text" },
+} as const;
+
+// Standard vendor fields that can be mapped
+export const STANDARD_VENDOR_FIELDS = {
+    name: { label: "Vendor Name", required: true, type: "text" },
+    email: { label: "Email", required: false, type: "email" },
+    phone: { label: "Phone", required: false, type: "phone" },
+    address: { label: "Address", required: false, type: "text" },
+    account_number: { label: "Account #", required: false, type: "text" },
+    payment_terms: { label: "Terms", required: false, type: "text" },
+} as const;
+
+// Standard gift card fields that can be mapped
+export const STANDARD_GIFT_CARD_FIELDS = {
+    card_number: { label: "Card Number", required: true, type: "text" },
+    current_balance: { label: "Current Balance", required: true, type: "number" },
+    original_balance: { label: "Original Balance", required: false, type: "number" },
+    is_active: { label: "Is Active?", required: false, type: "boolean" },
+} as const;
+
+// Standard inventory fields that can be mapped
+export const STANDARD_INVENTORY_FIELDS = {
+    name: { label: "Item Name", required: true, type: "text" },
+    stock_quantity: { label: "Current Stock", required: true, type: "number" },
+    unit: { label: "Unit", required: true, type: "text" },
+    par_level: { label: "Par Level", required: false, type: "number" },
+    cost_per_unit: { label: "Unit Cost", required: false, type: "number" },
+    supplier: { label: "Supplier", required: false, type: "text" },
+    category: { label: "Category", required: false, type: "text" },
 } as const;
 
 export type StandardFieldKey = keyof typeof STANDARD_EMPLOYEE_FIELDS;
+export type CustomerFieldKey = keyof typeof STANDARD_CUSTOMER_FIELDS;
+export type MenuFieldKey = keyof typeof STANDARD_MENU_FIELDS;
+export type VendorFieldKey = keyof typeof STANDARD_VENDOR_FIELDS;
+export type GiftCardFieldKey = keyof typeof STANDARD_GIFT_CARD_FIELDS;
+export type InventoryFieldKey = keyof typeof STANDARD_INVENTORY_FIELDS;
 
 // Valid roles in the system (including new AGM/GM roles)
 export const VALID_ROLES = [
@@ -117,9 +180,11 @@ export interface CSVParseResult {
     rawData: string[][];
 }
 
+export type AllFieldKey = StandardFieldKey | CustomerFieldKey | MenuFieldKey | VendorFieldKey | GiftCardFieldKey | InventoryFieldKey;
+
 export interface FieldMapping {
     csvColumn: string;
-    targetField: StandardFieldKey | "custom" | "skip";
+    targetField: AllFieldKey | "custom" | "skip";
     customFieldName?: string;
     customFieldLabel?: string;
     customFieldType?: "text" | "number" | "date" | "boolean" | "phone" | "email";
@@ -127,7 +192,7 @@ export interface FieldMapping {
 
 export interface AIFieldMappingSuggestion {
     csvColumn: string;
-    suggestedField: StandardFieldKey | "custom" | "skip";
+    suggestedField: AllFieldKey | "custom" | "skip";
     confidence: number; // 0-1
     customFieldName?: string;
     customFieldLabel?: string;
@@ -148,6 +213,27 @@ export interface ParsedEmployee {
     hourly_rate?: number;
     hire_date?: string;
     pin_code?: string;
+    external_id?: string;
+    ytd_gross?: number;
+    ytd_net?: number;
+    ytd_tax?: number;
+    custom_fields: Record<string, string>;
+    validation_errors: ValidationError[];
+    row_index: number;
+}
+
+export interface ParsedCustomer {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    phone?: string;
+    birthday?: string;
+    is_loyalty_member: boolean;
+    loyalty_points: number;
+    loyalty_tier?: string;
+    total_spent: number;
+    total_visits: number;
+    notes?: string;
     custom_fields: Record<string, string>;
     validation_errors: ValidationError[];
     row_index: number;
@@ -320,6 +406,12 @@ function fallbackFieldMapping(headers: string[]): AIFieldMappingSuggestion[] {
         "pin": "pin_code",
         "pin_code": "pin_code",
         "pin code": "pin_code",
+        "external_id": "external_id",
+        "external id": "external_id",
+        "payroll_id": "external_id",
+        "payroll id": "external_id",
+        "employee_id": "external_id",
+        "employee id": "external_id",
     };
 
     return headers.map(header => {
@@ -484,6 +576,27 @@ export function transformCSVToEmployees(
                             }
                         }
                         break;
+                    case "external_id":
+                        employee.external_id = value || undefined;
+                        break;
+                    case "ytd_gross":
+                        if (value) {
+                            const val = parseFloat(value.replace(/[^0-9.]/g, ""));
+                            if (!isNaN(val)) employee.ytd_gross = val;
+                        }
+                        break;
+                    case "ytd_net":
+                        if (value) {
+                            const val = parseFloat(value.replace(/[^0-9.]/g, ""));
+                            if (!isNaN(val)) employee.ytd_net = val;
+                        }
+                        break;
+                    case "ytd_tax":
+                        if (value) {
+                            const val = parseFloat(value.replace(/[^0-9.]/g, ""));
+                            if (!isNaN(val)) employee.ytd_tax = val;
+                        }
+                        break;
                 }
             }
         });
@@ -505,6 +618,88 @@ export function transformCSVToEmployees(
         }
 
         return employee;
+    });
+}
+
+/**
+ * Validate and transform customers from CSV data
+ */
+export function transformCSVToCustomers(
+    csvRows: Record<string, string>[],
+    mappings: FieldMapping[],
+): ParsedCustomer[] {
+    return csvRows.map((row, index) => {
+        const customer: ParsedCustomer = {
+            is_loyalty_member: false,
+            loyalty_points: 0,
+            total_spent: 0,
+            total_visits: 0,
+            custom_fields: {},
+            validation_errors: [],
+            row_index: index + 2
+        };
+
+        mappings.forEach(mapping => {
+            if (mapping.targetField === "skip") return;
+
+            const value = row[mapping.csvColumn]?.trim() || "";
+
+            if (mapping.targetField === "custom") {
+                if (value && mapping.customFieldName) {
+                    customer.custom_fields[mapping.customFieldName] = value;
+                }
+            } else {
+                const target = mapping.targetField as CustomerFieldKey;
+                switch (target) {
+                    case "first_name":
+                        customer.first_name = value;
+                        break;
+                    case "last_name":
+                        customer.last_name = value;
+                        break;
+                    case "email":
+                        if (value && !isValidEmail(value)) {
+                            customer.validation_errors.push({
+                                row: customer.row_index,
+                                column: mapping.csvColumn,
+                                message: `Invalid email format: ${value}`
+                            });
+                        } else {
+                            customer.email = value || undefined;
+                        }
+                        break;
+                    case "phone":
+                        customer.phone = value || undefined;
+                        break;
+                    case "birthday":
+                        if (value) {
+                            const date = parseDate(value);
+                            if (date) customer.birthday = date;
+                        }
+                        break;
+                    case "is_loyalty_member":
+                        customer.is_loyalty_member = value.toLowerCase() === "true" || value === "1" || value.toLowerCase() === "yes";
+                        break;
+                    case "loyalty_points":
+                        customer.loyalty_points = parseInt(value) || 0;
+                        break;
+                    case "loyalty_tier":
+                        customer.loyalty_tier = value;
+                        break;
+                    case "total_spent":
+                        customer.total_spent = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
+                        break;
+                    case "total_visits":
+                        customer.total_visits = parseInt(value) || 0;
+                        break;
+                    case "notes":
+                        customer.notes = value;
+                        break;
+                }
+            }
+        });
+
+        return customer;
     });
 }
 

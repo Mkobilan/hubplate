@@ -201,6 +201,39 @@ export default function SeatMapEditor() {
         }
     };
 
+    const handleDeleteMap = async () => {
+        if (!currentMap) return;
+        if (!window.confirm(`Are you sure you want to delete the entire section "${currentMap.name}"? This will also delete all tables in this section.`)) return;
+
+        try {
+            setSaving(true);
+            const response = await fetch(`/api/seating/${currentMap.id}`, {
+                method: "DELETE",
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || "Failed to delete map");
+            }
+
+            toast.success("Section deleted!");
+
+            // Remove from local list and select another
+            const remainingMaps = maps.filter(m => m.id !== currentMap.id);
+            setMaps(remainingMaps);
+
+            if (remainingMaps.length > 0) {
+                setCurrentMap(remainingMaps[0]);
+            } else {
+                router.push("/dashboard/seating");
+            }
+        } catch (error: any) {
+            toast.error(error.message || "Failed to delete section");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleSave = async () => {
         if (!currentMap) return;
         try {
@@ -365,6 +398,13 @@ export default function SeatMapEditor() {
                                 setIsEditingMapName(true);
                             }} className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white">
                                 <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                                onClick={handleDeleteMap}
+                                disabled={saving}
+                                className="p-1.5 hover:bg-slate-800 rounded text-red-400/70 hover:text-red-400"
+                            >
+                                <Trash2 className="h-4 w-4" />
                             </button>
                             <button onClick={() => setIsCreatingMap(true)} className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white">
                                 <Plus className="h-4 w-4" />

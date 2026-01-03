@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+
 import {
     X,
     Upload,
@@ -11,12 +12,19 @@ import {
     Loader2,
     Sparkles,
     ChevronRight,
-    Search
+    Search,
+    ChevronLeft
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import Papa from "papaparse";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
+import {
+    STANDARD_INVENTORY_FIELDS,
+    type FieldMapping,
+    type AIFieldMappingSuggestion,
+    type InventoryFieldKey
+} from "@/lib/csv/csvUtils";
 
 interface CSVUploadModalProps {
     isOpen: boolean;
@@ -27,23 +35,14 @@ interface CSVUploadModalProps {
 
 type Step = "upload" | "mapping" | "preview" | "importing";
 
-const DB_COLUMNS = [
-    { key: "name", label: "Item Name", required: true },
-    { key: "stock_quantity", label: "Current Stock", required: true },
-    { key: "unit", label: "Unit (lb, oz, each)", required: true },
-    { key: "par_level", label: "Par Level", required: false },
-    { key: "cost_per_unit", label: "Unit Cost", required: false },
-    { key: "supplier", label: "Supplier", required: false },
-    { key: "category", label: "Category", required: false },
-];
-
 export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete }: CSVUploadModalProps) {
     const [step, setStep] = useState<Step>("upload");
     const [file, setFile] = useState<File | null>(null);
     const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
     const [csvData, setCsvData] = useState<any[]>([]);
-    const [mappings, setMappings] = useState<Record<string, string>>({});
-    const [customFieldNames, setCustomFieldNames] = useState<Record<string, string>>({});
+    const [mappings, setMappings] = useState<FieldMapping[]>([]);
+    const [aiSuggestions, setAiSuggestions] = useState<AIFieldMappingSuggestion[]>([]);
+    const [isLoadingAI, setIsLoadingAI] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,13 +61,70 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
         Papa.parse(selectedFile, {
             header: true,
             skipEmptyLines: true,
-            complete: (results) => {
-                if (results.meta.fields) {
-                    setCsvHeaders(results.meta.fields);
+            complete: async (results) => {
+                if (results.meta.fields && results.meta.fields.length > 0) {
+                    const headers = results.meta.fields;
+                    setCsvHeaders(headers);
                     setCsvData(results.data);
                     setFile(selectedFile);
-                    autoMap(results.meta.fields);
                     setStep("mapping");
+
+                    // Initialize with skip/basic auto-map
+                    const initialMappings: FieldMapping[] = headers.map(header => {
+                        const h = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        let target: any = "skip";
+
+                        if (h === 'name' || h === 'item' || h === 'product' || h === 'description') target = 'name';
+                        else if ((h.includes('qty') || h.includes('stock') || h.includes('quantity') || h === 'onhand') &&
+                            !h.includes('id') && !h.includes('sku') && !h.includes('no') && !h.includes('code')) target = 'stock_quantity';
+                        else if (h.includes('unit') || h === 'uom') target = 'unit';
+                        else if (h.includes('par') || h.includes('min')) target = 'par_level';
+                        else if (h.includes('cost') || h.includes('price')) target = 'cost_per_unit';
+                        else if (h.includes('supplier') || h.includes('vendor')) target = 'supplier';
+                        else if (h.includes('category') || h.includes('dept')) target = 'category';
+
+                        return {
+                            csvColumn: header,
+                            targetField: target
+                        };
+                    });
+                    setMappings(initialMappings);
+
+                    // Then try AI mapping
+                    setIsLoadingAI(true);
+                    try {
+                        const response = await fetch("/api/ai/csv-mapping", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                headers,
+                                sampleData: results.data.slice(0, 5),
+                                type: "inventory"
+                            })
+                        });
+
+                        if (response.ok) {
+                            const { suggestions } = await response.json();
+                            setAiSuggestions(suggestions);
+
+                            setMappings(prev => prev.map(m => {
+                                const s = suggestions.find((suggest: any) => suggest.csvColumn === m.csvColumn);
+                                if (s && s.confidence > 0.7 && s.suggestedField !== "skip") {
+                                    return {
+                                        ...m,
+                                        targetField: s.suggestedField as any,
+                                        customFieldName: s.customFieldName,
+                                        customFieldLabel: s.customFieldLabel
+                                    };
+                                }
+                                return m;
+                            }));
+                        }
+                    } catch (err) {
+                        console.error("AI Mapping failed", err);
+                    } finally {
+                        setIsLoadingAI(false);
+                    }
                 } else {
                     toast.error("Could not find headers in CSV");
                 }
@@ -81,29 +137,11 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
         });
     };
 
-    const autoMap = (headers: string[]) => {
-        const newMappings: Record<string, string> = {};
-        headers.forEach(header => {
-            const h = header.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-            // Item Name
-            if (h === 'name' || h === 'item' || h === 'product' || h === 'description') {
-                newMappings[header] = 'name';
-            }
-            // Quantity (be careful not to map IDs)
-            else if ((h.includes('qty') || h.includes('stock') || h.includes('quantity') || h === 'onhand') &&
-                !h.includes('id') && !h.includes('sku') && !h.includes('no') && !h.includes('code')) {
-                newMappings[header] = 'stock_quantity';
-            }
-            else if (h.includes('unit') || h === 'uom') newMappings[header] = 'unit';
-            else if (h.includes('par') || h.includes('min')) newMappings[header] = 'par_level';
-            else if (h.includes('cost') || h.includes('price')) newMappings[header] = 'cost_per_unit';
-            else if (h.includes('supplier') || h.includes('vendor')) newMappings[header] = 'supplier';
-            else if (h.includes('category') || h.includes('dept')) newMappings[header] = 'category';
-        });
-        setMappings(newMappings);
+    const updateMapping = (csvColumn: string, updates: Partial<FieldMapping>) => {
+        setMappings(prev => prev.map(m =>
+            m.csvColumn === csvColumn ? { ...m, ...updates } : m
+        ));
     };
-
 
     const handleImport = async () => {
         setStep("importing");
@@ -111,45 +149,39 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
         const supabase = createClient();
 
         try {
-            // Prepare data
             const itemsToUpsert = csvData.map(row => {
                 const item: any = { location_id: locationId };
                 const metadata: Record<string, any> = {};
-                Object.entries(mappings).forEach(([csvHeader, dbKey]) => {
-                    if (dbKey) {
-                        let value = row[csvHeader];
-                        if (dbKey === 'custom') {
-                            const customName = customFieldNames[csvHeader] || csvHeader;
-                            metadata[customName] = value;
-                        } else {
-                            // Basic sanitization
-                            if (dbKey === 'stock_quantity' || dbKey === 'par_level' || dbKey === 'cost_per_unit') {
-                                value = parseFloat(value?.toString().replace(/[^0-9.]/g, '')) || 0;
-                            }
-                            item[dbKey] = value;
+
+                mappings.forEach(m => {
+                    const csvValue = row[m.csvColumn];
+                    if (m.targetField === 'skip') return;
+
+                    if (m.targetField === 'custom') {
+                        const customName = m.customFieldName || m.csvColumn.toLowerCase().replace(/\s+/g, '_');
+                        metadata[customName] = csvValue;
+                    } else {
+                        let value = csvValue;
+                        // Basic sanitization
+                        if (m.targetField === 'stock_quantity' || m.targetField === 'par_level' || m.targetField === 'cost_per_unit') {
+                            value = parseFloat(value?.toString().replace(/[^0-9.]/g, '')) || 0;
                         }
+                        item[m.targetField] = value;
                     }
                 });
+
                 item.metadata = metadata;
                 return item;
             });
 
-
-            // Filter out items without a name
             const validItems = itemsToUpsert.filter(i => i.name && i.name.trim() !== "");
-
             if (validItems.length === 0) {
                 throw new Error("No valid items found to import (Missing names)");
             }
 
-            // Perform upsert (match on location_id and name)
-            // Note: In real life we'd want a unique constraint on (location_id, name)
             const { error } = await (supabase
                 .from('inventory_items' as any) as any)
                 .upsert(validItems, { onConflict: 'location_id, name' });
-
-
-
 
             if (error) throw error;
 
@@ -165,13 +197,13 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
         }
     };
 
-    const isMappingComplete = DB_COLUMNS.filter(c => c.required).every(c =>
-        Object.values(mappings).includes(c.key)
-    );
+    const isMappingComplete = Object.entries(STANDARD_INVENTORY_FIELDS)
+        .filter(([_, f]) => f.required)
+        .every(([key]) => mappings.some((m: FieldMapping) => m.targetField === key));
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="card w-full max-w-2xl bg-slate-900 border-slate-800 shadow-2xl relative flex flex-col max-h-[90vh]">
+            <div className="card w-full max-w-3xl bg-slate-900 border-slate-800 shadow-2xl relative flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="p-6 border-b border-slate-800 flex items-center justify-between">
                     <div>
@@ -217,65 +249,104 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
 
                     {step === 'mapping' && (
                         <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4 text-xs font-bold uppercase tracking-wider text-slate-500 px-2">
-                                <span>CSV Header</span>
-                                <span>Maps To</span>
-                            </div>
+                            {(isLoadingAI) && (
+                                <div className="flex items-center gap-2 text-orange-400 bg-orange-500/10 px-4 py-2 rounded-lg">
+                                    <Sparkles className="w-4 h-4 animate-pulse" />
+                                    <span className="text-sm">AI is analyzing your columns...</span>
+                                </div>
+                            )}
+
                             <div className="space-y-3">
-                                {csvHeaders.map(header => (
-                                    <div key={header} className="grid grid-cols-2 gap-4 items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-slate-600 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-1.5 bg-slate-700 rounded-lg">
-                                                <FileText className="h-4 w-4 text-slate-400" />
+                                {mappings.map((mapping: FieldMapping) => {
+                                    const suggestion = aiSuggestions.find((s: AIFieldMappingSuggestion) => s.csvColumn === mapping.csvColumn);
+                                    const sampleValue = csvData[0]?.[mapping.csvColumn] || "";
+
+                                    return (
+                                        <div key={mapping.csvColumn} className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-medium truncate">{mapping.csvColumn}</p>
+                                                        {suggestion && suggestion.confidence > 0.8 && (
+                                                            <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded uppercase font-bold flex items-center gap-1">
+                                                                <Sparkles className="w-3 h-3" />
+                                                                AI Match
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 truncate">e.g., "{sampleValue}"</p>
+                                                </div>
+
+                                                <ArrowRight className="w-4 h-4 text-slate-600 shrink-0" />
+
+                                                <div className="w-48">
+                                                    <select
+                                                        className="input py-1.5 text-sm w-full bg-slate-900 border-slate-700"
+                                                        value={mapping.targetField}
+                                                        onChange={(e) => {
+                                                            const value = e.target.value as InventoryFieldKey | "custom" | "skip";
+                                                            updateMapping(mapping.csvColumn, {
+                                                                targetField: value,
+                                                                customFieldName: value === "custom" ? mapping.csvColumn.toLowerCase().replace(/\s+/g, "_") : undefined,
+                                                                customFieldLabel: value === "custom" ? mapping.csvColumn : undefined
+                                                            });
+                                                        }}
+                                                    >
+                                                        <option value="skip">-- Skip Column --</option>
+                                                        <optgroup label="Standard Fields">
+                                                            {Object.entries(STANDARD_INVENTORY_FIELDS).map(([key, field]) => (
+                                                                <option key={key} value={key}>{field.label} {field.required ? "*" : ""}</option>
+                                                            ))}
+                                                        </optgroup>
+                                                        <option value="custom">→ Create Custom Field</option>
+                                                    </select>
+                                                </div>
                                             </div>
-                                            <span className="font-medium text-sm truncate">{header}</span>
+
+                                            {mapping.targetField === 'custom' && (
+                                                <div className="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="text-xs text-slate-500">Field Name (internal)</label>
+                                                        <input
+                                                            type="text"
+                                                            className="input py-1.5 text-sm"
+                                                            value={mapping.customFieldName || ""}
+                                                            onChange={(e) => updateMapping(mapping.csvColumn, { customFieldName: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
+                                                            placeholder="e.g., bin_location"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs text-slate-500">Display Label</label>
+                                                        <input
+                                                            type="text"
+                                                            className="input py-1.5 text-sm"
+                                                            value={mapping.customFieldLabel || ""}
+                                                            onChange={(e) => updateMapping(mapping.csvColumn, { customFieldLabel: e.target.value })}
+                                                            placeholder="e.g., Bin Location"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                        <select
-                                            value={mappings[header] || ""}
-                                            onChange={(e) => setMappings(prev => ({ ...prev, [header]: e.target.value }))}
-                                            className="input !py-1 text-sm bg-slate-900 border-slate-700"
-                                        >
-                                            <option value="">Skip this column</option>
-                                            {DB_COLUMNS.map(col => (
-                                                <option key={col.key} value={col.key}>
-                                                    {col.label} {col.required ? "*" : ""}
-                                                </option>
-                                            ))}
-                                            <option value="custom">+ Create Field...</option>
-                                        </select>
-
-                                        {mappings[header] === 'custom' && (
-                                            <div className="col-span-2 mt-2 pl-12 flex gap-2 animate-in slide-in-from-top-1">
-                                                <ArrowRight className="h-4 w-4 text-slate-500 self-center" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Field Name (e.g. Storage Location)"
-                                                    value={customFieldNames[header] || ""}
-                                                    onChange={(e) => setCustomFieldNames(prev => ({ ...prev, [header]: e.target.value }))}
-                                                    className="input !py-1 text-xs bg-slate-800 border-orange-500/30 focus:border-orange-500"
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-
+                                    );
+                                })}
                             </div>
 
                             {!isMappingComplete && (
                                 <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl flex gap-3">
                                     <AlertCircle className="h-5 w-5 text-orange-500 shrink-0" />
-                                    <p className="text-sm text-orange-200/80">
-                                        Please map the required fields: {DB_COLUMNS.filter(c => c.required && !Object.values(mappings).includes(c.key)).map(c => c.label).join(", ")}.
-                                    </p>
+                                    <div className="text-sm text-orange-200/80">
+                                        <p className="font-bold">Required Fields Missing:</p>
+                                        <ul className="list-disc list-inside">
+                                            {Object.entries(STANDARD_INVENTORY_FIELDS)
+                                                .filter(([_, f]) => f.required)
+                                                .filter(([key]) => !mappings.some((m: FieldMapping) => m.targetField === key))
+                                                .map(([_, f]) => <li key={f.label}>{f.label}</li>)
+                                            }
+                                        </ul>
+                                    </div>
                                 </div>
                             )}
-
-                            <div className="card border-blue-500/30 bg-blue-500/5 p-4 flex items-center gap-3">
-                                <Sparkles className="h-5 w-5 text-blue-400" />
-                                <p className="text-xs text-blue-200/60">
-                                    We've automatically suggested mappings based on your CSV headers. Please verify them before importing.
-                                </p>
-                            </div>
                         </div>
                     )}
 
@@ -301,6 +372,7 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
                             className="btn btn-secondary"
                             disabled={loading}
                         >
+                            <ChevronLeft className="w-4 h-4 mr-2" />
                             Back
                         </button>
                         <button
@@ -316,7 +388,7 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
                             ) : (
                                 <>
                                     Import {csvData.length} Items
-                                    <ArrowRight className="h-4 w-4 ml-1" />
+                                    <ArrowRight className="h-4 w-4 ml-2" />
                                 </>
                             )}
                         </button>

@@ -286,3 +286,44 @@ JSON:`;
 
     return JSON.parse(jsonMatch[0]);
 }
+
+// Parse a floor plan image into structured table data
+export async function parseFloorplan(imageBase64: string): Promise<{ tables: any[] }> {
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+
+    const prompt = `You are a floor plan analysis expert. Analyze this restaurant floor plan image and identify all tables and seating objects.
+        
+For each object, provide:
+1. label (e.g., T1, T2, Booth 5, Bar 1)
+2. shape (rect, circle, or booth)
+3. x, y (relative coordinates 0-1000)
+4. width, height (relative sizes)
+5. capacity (integer)
+
+Return ONLY a JSON object:
+{
+  "tables": [
+    { "label": "T1", "shape": "rect", "x": 100, "y": 150, "width": 60, "height": 60, "capacity": 4 },
+    ...
+  ]
+}`;
+
+    const result = await model.generateContent([
+        prompt,
+        {
+            inlineData: {
+                mimeType: imageBase64.startsWith('data:') ? imageBase64.split(';')[0].split(':')[1] : "image/jpeg",
+                data: imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64,
+            },
+        },
+    ]);
+
+    const text = result.response.text();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+
+    if (!jsonMatch) {
+        throw new Error("Failed to parse AI response: No JSON found");
+    }
+
+    return JSON.parse(jsonMatch[0]);
+}

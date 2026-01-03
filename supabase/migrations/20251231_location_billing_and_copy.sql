@@ -25,7 +25,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public;
 
 DROP TRIGGER IF EXISTS tr_auto_pay_first_location ON public.locations;
 CREATE TRIGGER tr_auto_pay_first_location
@@ -108,4 +108,4 @@ BEGIN
     END LOOP;
 
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

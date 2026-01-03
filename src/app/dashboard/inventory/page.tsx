@@ -17,6 +17,7 @@ import {
     Upload,
     Settings2,
     ChevronDown,
+    Truck,
     Check,
     X
 } from "lucide-react";
@@ -32,6 +33,7 @@ import Link from "next/link";
 import { toast } from "react-hot-toast";
 import CSVUploadModal from "@/components/dashboard/inventory/CSVUploadModal";
 
+import { VendorImportModal } from "@/components/dashboard/inventory/VendorImportModal";
 import CreatePOModal from "@/components/dashboard/inventory/CreatePOModal";
 
 
@@ -44,6 +46,7 @@ export default function InventoryPage() {
 
     const [searchQuery, setSearchQuery] = useState("");
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [showVendorModal, setShowVendorModal] = useState(false);
     const [showPOModal, setShowPOModal] = useState(false);
     const [showColumnDropdown, setShowColumnDropdown] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -226,13 +229,18 @@ export default function InventoryPage() {
                         )}
                     </div>
 
-                    <button className="btn btn-secondary" onClick={() => setShowUploadModal(true)}>
-                        <Upload className="h-4 w-4" />
-                        Upload CSV
-                    </button>
+
                     <button className="btn btn-secondary" onClick={fetchInventory}>
                         <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                         Refresh
+                    </button>
+                    <Link href="/dashboard/vendors" className="btn btn-secondary">
+                        <Truck className="h-4 w-4" />
+                        Vendors
+                    </Link>
+                    <button className="btn btn-secondary" onClick={() => setShowVendorModal(true)}>
+                        <Upload className="h-4 w-4" />
+                        Vendor CSV
                     </button>
                     <button className="btn btn-primary" onClick={() => setShowPOModal(true)}>
                         <ShoppingCart className="h-4 w-4" />
@@ -585,6 +593,13 @@ export default function InventoryPage() {
             <CSVUploadModal
                 isOpen={showUploadModal}
                 onClose={() => setShowUploadModal(false)}
+                locationId={currentLocation.id}
+                onComplete={fetchInventory}
+            />
+
+            <VendorImportModal
+                isOpen={showVendorModal}
+                onClose={() => setShowVendorModal(false)}
                 locationId={currentLocation.id}
                 onComplete={fetchInventory}
             />
