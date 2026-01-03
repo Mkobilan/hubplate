@@ -41,15 +41,13 @@ export default async function GuestMenuPage({
         .order("sort_order");
 
     // 3. Get Menu Items (filtered by categories for this location)
-    const categoryIds = categories?.map((c: any) => c.id) || [];
-    let finalItems: any[] = [];
-
-    if (categoryIds.length > 0) {
+    // 3. Get Menu Items (filtered by location)
+    if (location.id) {
         const { data: fetchedItems } = await supabase
             .from("menu_items")
             .select("id, name, description, price, category_id, image_url")
-            .in("category_id", categoryIds)
-            .eq("is_available", true);
+            .eq("location_id", location.id)
+            .eq("is_available", true) as any;
 
         finalItems = fetchedItems || [];
     }

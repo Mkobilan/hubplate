@@ -68,7 +68,7 @@ export default async function GuestLayout({
 
                 {/* Banner Image (Small) */}
                 {location.banner_url && (
-                    <div className="h-2 w-full bg-cover bg-center" style={{ backgroundImage: `url(${location.banner_url})` }} />
+                    <div className="h-32 md:h-48 w-full bg-cover bg-center" style={{ backgroundImage: `url(${location.banner_url})` }} />
                 )}
 
                 <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
