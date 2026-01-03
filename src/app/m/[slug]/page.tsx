@@ -42,6 +42,7 @@ export default async function GuestMenuPage({
 
     // 3. Get Menu Items (filtered by categories for this location)
     // 3. Get Menu Items (filtered by location)
+    let finalItems: any[] = [];
     if (location.id) {
         const { data: fetchedItems } = await supabase
             .from("menu_items")
