@@ -40,15 +40,30 @@ export default async function GuestMenuPage({
         .eq("location_id", location.id)
         .order("sort_order");
 
-    // 3. Get Menu Items (filtered by categories for this location)
     // 3. Get Menu Items (filtered by location)
     let finalItems: any[] = [];
     if (location.id) {
-        const { data: fetchedItems } = await supabase
+        console.log(`Fetching items for Location ID: ${location.id}`);
+
+        const { data: fetchedItems, error } = await supabase
             .from("menu_items")
-            .select("id, name, description, price, category_id, image_url")
+            .select("id, name, description, price, category_id, image_url, location_id, available")
             .eq("location_id", location.id)
-            .eq("is_available", true) as any;
+            .eq("available", true);
+
+        if (error) {
+            console.error("Error fetching items:", error);
+        } else {
+            console.log(`Fetched ${fetchedItems?.length || 0} items for location.`);
+            if (fetchedItems?.length === 0) {
+                // Try fetching without 'available' filter to debug
+                const { count } = await supabase
+                    .from("menu_items")
+                    .select("*", { count: 'exact', head: true })
+                    .eq("location_id", location.id);
+                console.log(`Total items in DB for this location (ignoring avail status): ${count}`);
+            }
+        }
 
         finalItems = fetchedItems || [];
     }

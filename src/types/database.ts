@@ -192,7 +192,7 @@ export interface Database {
                     description: string | null;
                     price: number;
                     cost: number | null;
-                    is_available: boolean;
+                    available: boolean;
                     is_86d: boolean;
                     image_url: string | null;
                     sort_order: number;
@@ -206,7 +206,7 @@ export interface Database {
                     description?: string | null;
                     price: number;
                     cost?: number | null;
-                    is_available?: boolean;
+                    available?: boolean;
                     is_86d?: boolean;
                     image_url?: string | null;
                     sort_order?: number;
@@ -220,7 +220,7 @@ export interface Database {
                     description?: string | null;
                     price?: number;
                     cost?: number | null;
-                    is_available?: boolean;
+                    available?: boolean;
                     is_86d?: boolean;
                     image_url?: string | null;
                     sort_order?: number;

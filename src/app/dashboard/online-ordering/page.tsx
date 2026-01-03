@@ -47,13 +47,13 @@ export default function OnlineOrderingPage() {
             if (error) throw error;
 
             if (data) {
+                console.log("Fetched Settings:", data);
                 setSlug(data.slug || "");
                 setOriginalSlug(data.slug || "");
-                // Ensure data.brand_color is string | null
                 setBrandColor(data.brand_color || "#f97316");
                 setLogoUrl(data.logo_url || "");
                 setBannerUrl(data.banner_url || "");
-                setOrderingEnabled(data.ordering_enabled || false);
+                setOrderingEnabled(data.ordering_enabled ?? false); // Use nullish coalescing
             }
         } catch (error) {
             console.error("Error fetching settings:", error);

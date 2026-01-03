@@ -40,9 +40,8 @@ ON public.menu_items FOR SELECT
 TO anon, authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM public.menu_categories
-    JOIN public.locations ON locations.id = menu_categories.location_id
-    WHERE menu_categories.id = menu_items.category_id
+    SELECT 1 FROM public.locations
+    WHERE locations.id = menu_items.location_id
     AND locations.ordering_enabled = true
   )
 );
