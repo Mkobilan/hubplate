@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 1. Create a new map
-        const { data: map, error: mapError } = await supabase
+        const { data: map, error: mapError } = await (supabase as any)
             .from("seating_maps")
             .insert({
                 location_id: locationId,
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
                 is_active: true
             }));
 
-            const { error: tablesError } = await supabase
+            const { error: tablesError } = await (supabase as any)
                 .from("seating_tables")
                 .insert(tablesToInsert);
 
