@@ -141,7 +141,7 @@ function OrdersPageContent() {
         (item) => (item.category?.name || "Uncategorized") === selectedCategory && !item.is_86d
     );
 
-    const handleAddToOrder = (item: MenuItemType, notesList: string[], selectedModifiers: { name: string; price: number; type: 'add-on' | 'upsell' }[]) => {
+    const handleAddToOrder = (item: MenuItemType, notesList: string[], selectedModifiers: { name: string; price: number; type: 'add-on' | 'upsell' | 'side' }[]) => {
         const notes = notesList.length > 0 ? notesList.join(", ") : undefined;
 
         if (editingTicketItem) {
@@ -587,7 +587,9 @@ function OrdersPageContent() {
                                                         {item.modifiers?.map((mod, idx) => (
                                                             <span key={idx} className={cn(
                                                                 "text-[10px] border px-1.5 py-0.5 rounded",
-                                                                mod.type === 'upsell' ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-slate-800 border-slate-700 text-slate-300"
+                                                                mod.type === 'upsell' ? "bg-green-500/10 border-green-500/30 text-green-400" :
+                                                                    mod.type === 'side' ? "bg-blue-500/10 border-blue-500/30 text-blue-400" :
+                                                                        "bg-slate-800 border-slate-700 text-slate-300"
                                                             )}>
                                                                 + {mod.name}
                                                             </span>
@@ -689,7 +691,7 @@ function OrdersPageContent() {
                         setCustomizingItem(null);
                         setEditingTicketItem(null);
                     }}
-                    onConfirm={(notes, modifiers) => handleAddToOrder(customizingItem, notes, modifiers)}
+                    onConfirm={(notes, modifiers) => handleAddToOrder(customizingItem, notes, modifiers as any)}
                 />
             )}
 
@@ -754,16 +756,16 @@ function ItemCustomizationModal({
 }: {
     item: MenuItemType;
     initialNotes?: string;
-    initialModifiers?: { name: string; price: number; type: 'add-on' | 'upsell' }[];
+    initialModifiers?: { id?: string; name: string; price: number; type: 'add-on' | 'upsell' | 'side' | 'dressing' }[];
     onClose: () => void;
-    onConfirm: (notes: string[], modifiers: { name: string; price: number; type: 'add-on' | 'upsell' }[]) => void;
+    onConfirm: (notes: string[], modifiers: { id?: string; name: string; price: number; type: 'add-on' | 'upsell' | 'side' | 'dressing' }[]) => void;
 }) {
     const { t } = useTranslation();
     const [notes, setNotes] = useState<string[]>([]);
-    const [selectedModifiers, setSelectedModifiers] = useState<{ name: string; price: number; type: 'add-on' | 'upsell' }[]>(initialModifiers || []);
+    const [selectedModifiers, setSelectedModifiers] = useState<{ id?: string; name: string; price: number; type: 'add-on' | 'upsell' | 'side' | 'dressing' }[]>(initialModifiers || []);
     const [customText, setCustomText] = useState("");
 
-    const [availableOptions, setAvailableOptions] = useState<{ name: string; price: number; type: 'add-on' | 'upsell' }[]>([]);
+    const [availableOptions, setAvailableOptions] = useState<{ id?: string; name: string; price: number; type: 'add-on' | 'upsell' | 'side' | 'dressing' }[]>([]);
     const [loading, setLoading] = useState(true);
 
     const supabase = createClient();
@@ -774,16 +776,16 @@ function ItemCustomizationModal({
             if (!currentLocation?.id) return;
             setLoading(true);
             try {
-                // 1. Fetch relevant Add Ons for the category
-                const { data: assignments } = await (supabase.from("add_on_category_assignments") as any)
+                // 1. Fetch relevant Add Ons for the category or item
+                const { data: assignments } = await (supabase.from("add_on_assignments") as any)
                     .select("add_on_id")
-                    .eq("category_id", item.category_id);
+                    .or(`menu_item_id.eq.${item.id},category_id.eq.${item.category_id}`);
 
                 const addOnIds = (assignments || []).map((a: any) => a.add_on_id);
-                let combinedOptions: { name: string; price: number; type: 'add-on' | 'upsell' }[] = [];
+                let combinedOptions: { name: string; price: number; type: 'add-on' | 'upsell' | 'side' | 'dressing' }[] = [];
                 if (addOnIds.length > 0) {
                     const { data: addOnsData } = await (supabase.from("add_ons") as any)
-                        .select("name, price")
+                        .select("id, name, price")
                         .eq("location_id", currentLocation.id)
                         .eq("is_active", true)
                         .in("id", addOnIds);
@@ -791,23 +793,41 @@ function ItemCustomizationModal({
                         combinedOptions = [...combinedOptions, ...addOnsData.map((a: any) => ({ ...a, type: 'add-on' as const }))];
                     }
                 }
-                // 2. Fetch relevant Upsells for the item or category
-                const { data: upsellAssignments } = await (supabase.from("upsell_assignments") as any)
-                    .select("upsell_id")
+
+                // 2. Fetch relevant Sides for the item or category (Dressings come later)
+                const { data: sideAssignments } = await (supabase.from("side_assignments") as any)
+                    .select("side_id")
                     .or(`menu_item_id.eq.${item.id},category_id.eq.${item.category_id}`);
 
-                const upsellIds = (upsellAssignments || []).map((a: any) => a.upsell_id);
-
-                if (upsellIds.length > 0) {
-                    const { data: upsellsData } = await (supabase.from("upsells") as any)
-                        .select("name, price")
+                const sideIds = (sideAssignments || []).map((a: any) => a.side_id);
+                if (sideIds.length > 0) {
+                    const { data: sidesData } = await (supabase.from("sides") as any)
+                        .select("id, name, price")
                         .eq("location_id", currentLocation.id)
                         .eq("is_active", true)
-                        .in("id", upsellIds);
-                    if (upsellsData) {
-                        combinedOptions = [...combinedOptions, ...upsellsData.map((u: any) => ({ ...u, type: 'upsell' as const }))];
+                        .in("id", sideIds);
+                    if (sidesData) {
+                        combinedOptions = [...combinedOptions, ...sidesData.map((s: any) => ({ ...s, type: 'side' as const }))];
                     }
                 }
+
+                // 3. Fetch relevant Dressings for the item or category
+                const { data: dressingAssignments } = await (supabase.from("dressing_assignments") as any)
+                    .select("dressing_id")
+                    .or(`menu_item_id.eq.${item.id},category_id.eq.${item.category_id}`);
+
+                const dressingIds = (dressingAssignments || []).map((a: any) => a.dressing_id);
+                if (dressingIds.length > 0) {
+                    const { data: dressingsData } = await (supabase.from("dressings") as any)
+                        .select("id, name, price")
+                        .eq("location_id", currentLocation.id)
+                        .eq("is_active", true)
+                        .in("id", dressingIds);
+                    if (dressingsData) {
+                        combinedOptions = [...combinedOptions, ...dressingsData.map((d: any) => ({ ...d, type: 'dressing' as const }))];
+                    }
+                }
+
                 setAvailableOptions(combinedOptions);
             } catch (error) {
                 console.error("Error fetching options:", error);
@@ -831,12 +851,18 @@ function ItemCustomizationModal({
         }
     };
 
-    const toggleModifier = (mod: { name: string; price: number; type: 'add-on' | 'upsell' }) => {
-        setSelectedModifiers(prev =>
-            prev.some(a => a.name === mod.name)
-                ? prev.filter(a => a.name !== mod.name)
-                : [...prev, mod]
-        );
+    const toggleModifier = (mod: any) => {
+        const existing = selectedModifiers.find(m => m.name === mod.name && m.type === mod.type);
+        if (existing) {
+            setSelectedModifiers(selectedModifiers.filter(m => !(m.name === mod.name && m.type === mod.type)));
+        } else {
+            setSelectedModifiers([...selectedModifiers, {
+                id: mod.id,
+                name: mod.name,
+                price: mod.price,
+                type: mod.type
+            }]);
+        }
     };
 
     return (
@@ -881,33 +907,89 @@ function ItemCustomizationModal({
                         </div>
                     </div>
 
-                    {/* Add Ons & Upsells Section */}
+                    {/* Sides Section */}
+                    <div>
+                        <label className="label text-[10px] uppercase tracking-widest text-blue-500 font-bold mb-2">Choice of Side</label>
+                        {!loading && availableOptions.filter(o => o.type === 'side').length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[150px] overflow-y-auto pr-1">
+                                {availableOptions.filter(o => o.type === 'side').map((mod, idx) => (
+                                    <button
+                                        key={`${mod.name}-${idx}`}
+                                        onClick={() => toggleModifier(mod)}
+                                        className={cn(
+                                            "flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-all",
+                                            selectedModifiers.some(a => a.name === mod.name && a.type === 'side')
+                                                ? "bg-blue-600 border-blue-400 text-white"
+                                                : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                                        )}
+                                    >
+                                        <div className="flex flex-col items-start text-left">
+                                            <span>{mod.name}</span>
+                                        </div>
+                                        <span className="font-bold">+{formatCurrency(mod.price)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            !loading && <p className="text-[10px] text-slate-600 italic py-1">No sides available</p>
+                        )}
+                    </div>
+
+                    {/* Dressings Section */}
+                    <div>
+                        <label className="label text-[10px] uppercase tracking-widest text-cyan-500 font-bold mb-2">Choice of Dressing</label>
+                        {!loading && availableOptions.filter(o => o.type === 'dressing').length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[150px] overflow-y-auto pr-1">
+                                {availableOptions.filter(o => o.type === 'dressing').map((mod, idx) => (
+                                    <button
+                                        key={`${mod.name}-${idx}`}
+                                        onClick={() => toggleModifier(mod)}
+                                        className={cn(
+                                            "flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-all",
+                                            selectedModifiers.some(a => a.name === mod.name && a.type === 'dressing')
+                                                ? "bg-cyan-600 border-cyan-400 text-white"
+                                                : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                                        )}
+                                    >
+                                        <div className="flex flex-col items-start text-left">
+                                            <span>{mod.name}</span>
+                                        </div>
+                                        <span className="font-bold">+{formatCurrency(mod.price)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            !loading && <p className="text-[10px] text-slate-600 italic py-1">No dressings available</p>
+                        )}
+                    </div>
+
+                    {/* Add Ons Section */}
                     <div>
                         <label className="label text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2">Add Ons & Extras</label>
                         {loading ? (
                             <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
                                 <Loader2 className="h-3 w-3 animate-spin" /> Fetching options...
                             </div>
-                        ) : availableOptions.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[250px] overflow-y-auto pr-1">
-                                {availableOptions.map((mod, idx) => (
+                        ) : availableOptions.filter(o => o.type === 'add-on' || o.type === 'upsell').length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[150px] overflow-y-auto pr-1">
+                                {availableOptions.filter(o => o.type === 'add-on' || o.type === 'upsell').map((mod, idx) => (
                                     <button
                                         key={`${mod.name}-${idx}`}
                                         onClick={() => toggleModifier(mod)}
                                         className={cn(
                                             "flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-all",
-                                            selectedModifiers.some(a => a.name === mod.name)
-                                                ? "bg-orange-500 border-orange-400 text-white"
+                                            selectedModifiers.some(a => a.name === mod.name && (a.type === 'add-on' || a.type === 'upsell'))
+                                                ? "bg-orange-600 border-orange-400 text-white"
                                                 : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
                                         )}
                                     >
-                                        <div className="flex flex-col items-start">
+                                        <div className="flex flex-col items-start text-left">
                                             <span>{mod.name}</span>
                                             <span className={cn(
                                                 "text-[8px] uppercase font-black",
-                                                selectedModifiers.some(a => a.name === mod.name) ? "text-orange-200" : (mod.type === 'upsell' ? "text-green-500" : "text-slate-500")
+                                                selectedModifiers.some(a => a.name === mod.name) ? "text-orange-200" : "text-orange-400"
                                             )}>
-                                                {mod.type}
+                                                {mod.type === 'upsell' ? 'Add-on' : mod.type}
                                             </span>
                                         </div>
                                         <span className="font-bold">+{formatCurrency(mod.price)}</span>
@@ -915,10 +997,9 @@ function ItemCustomizationModal({
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-xs text-slate-600 italic">No extras available for this item</p>
+                            !loading && <p className="text-[10px] text-slate-600 italic py-1">No add-ons available</p>
                         )}
                     </div>
-
                     <div className="flex gap-3 pt-4 border-t border-slate-800">
                         <button onClick={onClose} className="btn btn-secondary flex-1">
                             Cancel

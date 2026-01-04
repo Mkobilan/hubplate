@@ -144,11 +144,18 @@ export default function MenuPage() {
                                 Add Ons
                             </Link>
                             <Link
-                                href="/dashboard/menu/upsells"
+                                href="/dashboard/menu/sides"
                                 className="btn btn-secondary"
                             >
-                                <Sparkles className="h-4 w-4" />
-                                Upsells
+                                <Layers className="h-4 w-4" />
+                                Sides
+                            </Link>
+                            <Link
+                                href="/dashboard/menu/dressings"
+                                className="btn btn-secondary"
+                            >
+                                <Layers className="h-4 w-4" />
+                                Dressings
                             </Link>
                             <button
                                 onClick={() => setShowScanModal(true)}
@@ -479,7 +486,7 @@ function MenuItemCard({
                             {item.is_86d ? "Mark Available" : "Mark 86'd"}
                         </button>
                         <button className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800">
-                            Manage Upsells
+                            Manage Add Ons
                         </button>
                         <button className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800 text-red-400">
                             Delete Item

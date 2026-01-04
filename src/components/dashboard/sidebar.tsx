@@ -104,6 +104,7 @@ export function DashboardSidebar() {
             href: "/dashboard/menu",
             icon: <UtensilsCrossed className="h-5 w-5" />,
             label: t("nav.menu"),
+            requiresManager: true,
         },
         {
             href: "/dashboard/kitchen",

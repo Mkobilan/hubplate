@@ -17,7 +17,7 @@ interface KitchenOrderItem {
     isEdited?: boolean;
     menuItemId?: string;
     seatNumber?: number;
-    modifiers?: { name: string; price: number; type: 'add-on' | 'upsell' }[];
+    modifiers?: { id?: string; name: string; price: number; type: 'add-on' | 'upsell' | 'side' | 'dressing' }[];
     sentAt?: string;
     startedAt?: string;
     readyAt?: string;
@@ -58,6 +58,8 @@ export default function KitchenPage() {
     const [showAddKdsModal, setShowAddKdsModal] = useState(false);
     const [showManageKdsModal, setShowManageKdsModal] = useState(false);
     const [menuItemKdsMap, setMenuItemKdsMap] = useState<Map<string, string[]>>(new Map());
+    const [sideKdsMap, setSideKdsMap] = useState<Map<string, string[]>>(new Map());
+    const [dressingKdsMap, setDressingKdsMap] = useState<Map<string, string[]>>(new Map());
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
     const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
 
@@ -103,29 +105,53 @@ export default function KitchenPage() {
         }
     };
 
-    // Fetch menu item to KDS screen mappings
-    const fetchMenuItemKdsMappings = async () => {
+    // Fetch KDS mappings for items, sides, and dressings
+    const fetchKdsMappings = async () => {
         if (!currentLocation?.id) return;
 
         try {
-            const { data, error } = await (supabase
+            // Menu Items
+            const { data: itemData } = await (supabase
                 .from("menu_item_kds_assignments") as any)
-                .select(`
-                    menu_item_id,
-                    kds_screen_id,
-                    menu_items!inner(location_id)
-                `)
+                .select(`menu_item_id, kds_screen_id, menu_items!inner(location_id)`)
                 .eq("menu_items.location_id", currentLocation.id);
 
-            if (error) throw error;
-
-            const map = new Map<string, string[]>();
-            (data || []).forEach((item: any) => {
-                const existing = map.get(item.menu_item_id) || [];
+            const iMap = new Map<string, string[]>();
+            (itemData || []).forEach((item: any) => {
+                const existing = iMap.get(item.menu_item_id) || [];
                 existing.push(item.kds_screen_id);
-                map.set(item.menu_item_id, existing);
+                iMap.set(item.menu_item_id, existing);
             });
-            setMenuItemKdsMap(map);
+            setMenuItemKdsMap(iMap);
+
+            // Sides
+            const { data: sideData } = await (supabase
+                .from("side_kds_assignments") as any)
+                .select(`side_id, kds_screen_id, sides!inner(location_id)`)
+                .eq("sides.location_id", currentLocation.id);
+
+            const sMap = new Map<string, string[]>();
+            (sideData || []).forEach((item: any) => {
+                const existing = sMap.get(item.side_id) || [];
+                existing.push(item.kds_screen_id);
+                sMap.set(item.side_id, existing);
+            });
+            setSideKdsMap(sMap);
+
+            // Dressings
+            const { data: dressingData } = await (supabase
+                .from("dressing_kds_assignments") as any)
+                .select(`dressing_id, kds_screen_id, dressings!inner(location_id)`)
+                .eq("dressings.location_id", currentLocation.id);
+
+            const dMap = new Map<string, string[]>();
+            (dressingData || []).forEach((item: any) => {
+                const existing = dMap.get(item.dressing_id) || [];
+                existing.push(item.kds_screen_id);
+                dMap.set(item.dressing_id, existing);
+            });
+            setDressingKdsMap(dMap);
+
         } catch (error) {
             console.error("Error fetching KDS mappings:", error);
         }
@@ -258,7 +284,7 @@ export default function KitchenPage() {
 
         // Re-fetch everything on mount/location change to be safe
         fetchKdsScreens();
-        fetchMenuItemKdsMappings();
+        fetchKdsMappings();
 
         const channel = supabase
             .channel("kitchen-orders")
@@ -483,13 +509,29 @@ export default function KitchenPage() {
                     return activeScreen?.is_default === true;
                 }
 
-                const assignedScreens = menuItemKdsMap.get(item.menuItemId);
+                const assignedScreens = menuItemKdsMap.get(item.menuItemId) || [];
 
-                if (!assignedScreens || assignedScreens.length === 0) {
+                // Add screens assigned to modifiers (sides/dressings)
+                const modifierScreens: string[] = [];
+                (item.modifiers || []).forEach(mod => {
+                    if (mod.id) {
+                        if (mod.type === 'side') {
+                            const screens = sideKdsMap.get(mod.id);
+                            if (screens) modifierScreens.push(...screens);
+                        } else if (mod.type === 'dressing') {
+                            const screens = dressingKdsMap.get(mod.id);
+                            if (screens) modifierScreens.push(...screens);
+                        }
+                    }
+                });
+
+                const allAssignedScreens = [...new Set([...assignedScreens, ...modifierScreens])];
+
+                if (allAssignedScreens.length === 0) {
                     return activeScreen?.is_default === true;
                 }
 
-                return assignedScreens.includes(activeKdsScreenId);
+                return allAssignedScreens.includes(activeKdsScreenId);
             });
 
             // Derive status from only the filtered (visible) items for this screen

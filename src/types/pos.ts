@@ -16,7 +16,7 @@ export interface OrderItem {
     price: number;
     quantity: number;
     notes?: string;
-    modifiers?: { name: string; price: number; type: 'add-on' | 'upsell' }[];
+    modifiers?: { id?: string; name: string; price: number; type: 'add-on' | 'upsell' | 'side' | 'dressing' }[];
     seatNumber: number;
     status: 'pending' | 'preparing' | 'ready' | 'served' | 'sent';
     category_name?: string;
