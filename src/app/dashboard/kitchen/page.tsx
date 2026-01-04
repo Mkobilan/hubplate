@@ -221,13 +221,44 @@ export default function KitchenPage() {
         }
     };
 
-    // Initial fetch and subscription
+    // Use Ref to track current location without triggering effect re-runs
+    const locationIdRef = useRef<string | undefined>(currentLocation?.id);
+
+    useEffect(() => {
+        locationIdRef.current = currentLocation?.id;
+        if (currentLocation?.id) {
+            console.log('KitchenPage: Location ID updated:', currentLocation.id);
+            // Immediate fetch on location change
+            fetchOrders();
+        }
+    }, [currentLocation?.id]);
+
+    useEffect(() => {
+        const timeInterval = setInterval(() => setNow(new Date()), 60000);
+
+        // Robust Polling: Runs every 10s, checks Ref (doesn't depend on state stability)
+        const pollInterval = setInterval(() => {
+            if (locationIdRef.current) {
+                console.log('KitchenPage: Auto-polling orders for:', locationIdRef.current);
+                fetchOrders();
+            } else {
+                console.log('KitchenPage: Skipping poll (No Location ID)');
+            }
+        }, 10000);
+
+        return () => {
+            clearInterval(timeInterval);
+            clearInterval(pollInterval);
+        };
+    }, []); // Empty dependency array = Runs once on mount and never dies
+
+    // Realtime Subscription (Re-run when location changes)
     useEffect(() => {
         if (!currentLocation?.id) return;
 
+        // Re-fetch everything on mount/location change to be safe
         fetchKdsScreens();
         fetchMenuItemKdsMappings();
-        fetchOrders();
 
         const channel = supabase
             .channel("kitchen-orders")
@@ -276,23 +307,6 @@ export default function KitchenPage() {
         };
     }, [currentLocation?.id]);
 
-    // Update time every minute AND Poll for orders every 15s (Fallback for Realtime)
-    useEffect(() => {
-        const timeInterval = setInterval(() => setNow(new Date()), 60000);
-
-        // Fallback polling in case Realtime fails
-        const pollInterval = setInterval(() => {
-            if (currentLocation?.id) {
-                console.log('KitchenPage: Polling for updates...');
-                fetchOrders();
-            }
-        }, 15000);
-
-        return () => {
-            clearInterval(timeInterval);
-            clearInterval(pollInterval);
-        };
-    }, [currentLocation?.id]);
 
     const getTicketTime = (createdAt: Date) => {
         const diff = Math.floor((now.getTime() - createdAt.getTime()) / 60000);
