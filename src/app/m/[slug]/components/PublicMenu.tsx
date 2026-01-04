@@ -9,7 +9,9 @@ import {
     Minus,
     Sparkles,
     Search,
-    Loader2
+    Loader2,
+    Truck,
+    ShoppingBag
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { toast } from "react-hot-toast";
@@ -46,6 +48,8 @@ interface PublicMenuProps {
     locationName: string;
     tableNumber?: string;
     taxRate: number;
+    deliveryEnabled?: boolean;
+    locationAddress?: string | null;
     pricingRules?: PricingRule[];
 }
 
@@ -56,12 +60,17 @@ export default function PublicMenu({
     locationName,
     tableNumber,
     taxRate,
+    deliveryEnabled = false,
+    locationAddress = "",
     pricingRules = []
 }: PublicMenuProps) {
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [cartOpen, setCartOpen] = useState(false);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
+    const [orderPreference, setOrderPreference] = useState<"takeout" | "delivery">(
+        deliveryEnabled ? "takeout" : "takeout"
+    );
 
     // Modal states
     const [customizingItem, setCustomizingItem] = useState<PublicMenuItem | null>(null);
@@ -185,17 +194,46 @@ export default function PublicMenu({
         <div className="pb-24 animate-in fade-in duration-500">
             {/* Context Header */}
             <div className="flex items-center justify-between mb-6 px-4 pt-4">
-                <div>
-                    <h2 className="font-bold text-xl text-slate-100">Menu</h2>
-                    <p className="text-sm text-slate-400">
-                        {tableNumber ? `Ordering for Table ${tableNumber}` : "Pickup Order"}
-                    </p>
+                <div className="flex-1">
+                    <h2 className="font-bold text-xl text-slate-100 italic tracking-tight">
+                        {locationName}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-1">
+                        {deliveryEnabled && !tableNumber ? (
+                            <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+                                <button
+                                    onClick={() => setOrderPreference("delivery")}
+                                    className={cn(
+                                        "text-[10px] px-2 py-1 rounded-md transition-all font-bold flex items-center gap-1",
+                                        orderPreference === "delivery" ? "bg-orange-500 text-white shadow-sm" : "text-slate-500"
+                                    )}
+                                >
+                                    <Truck className="w-3 h-3" />
+                                    Delivery
+                                </button>
+                                <button
+                                    onClick={() => setOrderPreference("takeout")}
+                                    className={cn(
+                                        "text-[10px] px-2 py-1 rounded-md transition-all font-bold flex items-center gap-1",
+                                        orderPreference === "takeout" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500"
+                                    )}
+                                >
+                                    <ShoppingBag className="w-3 h-3" />
+                                    Pickup
+                                </button>
+                            </div>
+                        ) : (
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                {tableNumber ? `Table ${tableNumber}` : "Pickup Only"}
+                            </p>
+                        )}
+                    </div>
                 </div>
                 <button
                     onClick={() => setCartOpen(true)}
                     className="relative p-3 bg-slate-900 rounded-xl border border-slate-800 active:scale-95 transition-transform"
                 >
-                    <ShoppingCart className="w-5 h-5 text-slate-200" />
+                    <ShoppingBag className="w-5 h-5 text-slate-200" />
                     {cartCount > 0 && (
                         <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-950">
                             {cartCount}
@@ -415,6 +453,8 @@ export default function PublicMenu({
                     cart={cart}
                     locationId={locationId}
                     locationName={locationName}
+                    locationAddress={locationAddress}
+                    isDeliveryActive={deliveryEnabled}
                     tableNumber={tableNumber}
                     taxRate={taxRate}
                     onClose={() => setCheckoutOpen(false)}

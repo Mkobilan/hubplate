@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
             tax,
             total,
             orderNotes,
-            customer
+            customer,
+            deliveryAddress,
+            deliveryFee,
+            uberQuoteId
         } = body;
 
         // Validate required fields
@@ -80,7 +83,10 @@ export async function POST(request: NextRequest) {
                 status: 'pending',
                 sent_at: item.sent_at || new Date().toISOString()
             })),
-            notes: orderNotes || null
+            notes: orderNotes || null,
+            delivery_address: deliveryAddress || null,
+            delivery_fee: deliveryFee || 0,
+            uber_quote_id: uberQuoteId || null
         };
 
         console.log('Inserting order data:', JSON.stringify(orderData, null, 2));

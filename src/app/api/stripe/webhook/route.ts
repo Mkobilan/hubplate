@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
+import { uberClient } from '@/lib/delivery/uber';
 
 // Use service role for webhook processing
 const supabaseAdmin = createClient(
@@ -103,6 +104,55 @@ export async function POST(request: NextRequest) {
                         console.error('CRITICAL: Failed to update order in webhook:', updateError);
                     } else {
                         console.log(`Successfully updated order ${orderId} to COMPLETED/PAID. New Total: ${updatedOrder.total}`);
+
+                        // UBER DIRECT INTEGRATION: Trigger delivery if applicable
+                        if (order.order_type === 'delivery' && order.uber_quote_id) {
+                            try {
+                                console.log(`Triggering Uber Delivery for order ${orderId}...`);
+
+                                // Get Location details for pickup info
+                                const { data: location } = await supabaseAdmin
+                                    .from('locations')
+                                    .select('name, address, phone, uber_organization_id')
+                                    .eq('id', order.location_id)
+                                    .single() as any;
+
+                                if (location?.uber_organization_id) {
+                                    const delivery = await uberClient.createDelivery({
+                                        customerId: location.uber_organization_id,
+                                        quote_id: order.uber_quote_id,
+                                        order_value: Math.round(order.total * 100), // in cents
+                                        pickup_name: location.name,
+                                        pickup_address: location.address,
+                                        pickup_phone_number: location.phone || "+10000000000",
+                                        dropoff_name: order.customer_name || "Customer",
+                                        dropoff_address: order.delivery_address,
+                                        dropoff_phone_number: order.customer_phone || "+10000000000",
+                                        manifest_items: (order.items || []).map((item: any) => ({
+                                            name: item.name,
+                                            quantity: item.quantity
+                                        })),
+                                        // Auto-mode for sandbox testing as requested
+                                        test_specifications: {
+                                            robo_courier_spec: {
+                                                mode: "auto"
+                                            }
+                                        }
+                                    } as any);
+
+                                    // Store the delivery ID
+                                    await supabaseAdmin
+                                        .from('orders')
+                                        .update({ uber_delivery_id: delivery.delivery_id })
+                                        .eq('id', orderId);
+
+                                    console.log(`Uber Delivery created: ${delivery.delivery_id}`);
+                                }
+                            } catch (uberError) {
+                                console.error('FAILED to create Uber Delivery:', uberError);
+                                // Note: We don't fail the webhook because payment was still successful
+                            }
+                        }
                     }
 
                     // Loyalty Points Logic

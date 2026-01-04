@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
-import { Loader2, Globe, QrCode, Copy, ExternalLink, Save, Upload, Palette } from "lucide-react";
+import { Loader2, Globe, QrCode, Copy, ExternalLink, Save, Upload, Palette, Truck } from "lucide-react";
 import { ImageUpload } from "@/components/ui/image-upload";
 import QRCode from "react-qr-code";
 
@@ -24,6 +24,12 @@ export default function OnlineOrderingPage() {
     const [bannerUrl, setBannerUrl] = useState("");
     const [tableNumber, setTableNumber] = useState("");
 
+    // Delivery Settings
+    const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+    const [deliveryRadius, setDeliveryRadius] = useState(5.0);
+    const [uberOrgId, setUberOrgId] = useState("");
+    const [settingUpUber, setSettingUpUber] = useState(false);
+
     // Validation
     const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
     const [slugError, setSlugError] = useState("");
@@ -40,7 +46,7 @@ export default function OnlineOrderingPage() {
             const supabase = createClient();
             const { data, error } = await supabase
                 .from("locations")
-                .select("slug, brand_color, logo_url, banner_url, ordering_enabled")
+                .select("slug, brand_color, logo_url, banner_url, ordering_enabled, delivery_enabled, delivery_radius, uber_organization_id")
                 .eq("id", currentLocation.id)
                 .single() as any;
 
@@ -53,7 +59,10 @@ export default function OnlineOrderingPage() {
                 setBrandColor(data.brand_color || "#f97316");
                 setLogoUrl(data.logo_url || "");
                 setBannerUrl(data.banner_url || "");
-                setOrderingEnabled(data.ordering_enabled ?? false); // Use nullish coalescing
+                setOrderingEnabled(data.ordering_enabled ?? false);
+                setDeliveryEnabled(data.delivery_enabled ?? false);
+                setDeliveryRadius(data.delivery_radius || 5.0);
+                setUberOrgId(data.uber_organization_id || "");
             }
         } catch (error) {
             console.error("Error fetching settings:", error);
@@ -118,7 +127,9 @@ export default function OnlineOrderingPage() {
                     brand_color: brandColor,
                     logo_url: logoUrl,
                     banner_url: bannerUrl,
-                    ordering_enabled: orderingEnabled
+                    ordering_enabled: orderingEnabled,
+                    delivery_enabled: deliveryEnabled,
+                    delivery_radius: deliveryRadius
                 })
                 .eq("id", currentLocation.id);
 
@@ -131,6 +142,29 @@ export default function OnlineOrderingPage() {
             toast.error("Failed to save settings");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleSetupUber = async () => {
+        if (!currentLocation?.id) return;
+
+        setSettingUpUber(true);
+        try {
+            const response = await fetch("/api/delivery/setup-uber", {
+                method: "POST",
+                body: JSON.stringify({ locationId: currentLocation.id }),
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+
+            setUberOrgId(data.organization_id);
+            setDeliveryEnabled(true);
+            toast.success("Uber Direct connected successfully!");
+        } catch (error: any) {
+            console.error("Uber setup error:", error);
+            toast.error(error.message || "Failed to setup Uber");
+        } finally {
+            setSettingUpUber(false);
         }
     };
 
@@ -309,6 +343,81 @@ export default function OnlineOrderingPage() {
                                 label="Upload Banner"
                             />
                         </div>
+                    </div>
+
+                    {/* Delivery Settings Card */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-green-500/10 rounded-lg">
+                                    <Truck className="h-5 w-5 text-green-500" />
+                                </div>
+                                <h2 className="text-lg font-bold text-slate-100">Uber Direct Delivery</h2>
+                            </div>
+
+                            {!uberOrgId ? (
+                                <button
+                                    onClick={handleSetupUber}
+                                    disabled={settingUpUber}
+                                    className="btn bg-white text-black hover:bg-slate-200 text-xs py-1.5 px-3 flex items-center gap-2"
+                                >
+                                    {settingUpUber ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                                    Connect Uber Direct
+                                </button>
+                            ) : (
+                                <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded-full flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                                    Active
+                                </span>
+                            )}
+                        </div>
+
+                        {uberOrgId ? (
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between p-4 bg-slate-950 rounded-lg border border-slate-800">
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-200">Enable Delivery</p>
+                                        <p className="text-xs text-slate-500 mt-1">Offer local fulfillment via Uber</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setDeliveryEnabled(!deliveryEnabled)}
+                                        className={`w-12 h-6 rounded-full transition-colors relative ${deliveryEnabled ? 'bg-green-500' : 'bg-slate-700'}`}
+                                    >
+                                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${deliveryEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-400 mb-2"> Delivery Radius (miles) </label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="range"
+                                                min="1"
+                                                max="15"
+                                                step="0.5"
+                                                value={deliveryRadius}
+                                                onChange={(e) => setDeliveryRadius(parseFloat(e.target.value))}
+                                                className="flex-1 accent-green-500"
+                                            />
+                                            <span className="text-sm font-bold text-slate-100 w-12 text-right">{deliveryRadius}m</span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-400 mb-2"> Uber Organization ID </label>
+                                        <div className="text-xs font-mono text-slate-500 bg-slate-950 p-2 rounded border border-slate-800 break-all">
+                                            {uberOrgId}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 bg-slate-950 rounded-lg border border-dashed border-slate-800">
+                                <p className="text-sm text-slate-400">Connect to Uber Direct to start offering delivery.</p>
+                                <p className="text-xs text-slate-600 mt-1">No setup fees. Pay only per delivery.</p>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex justify-end pt-4">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Loader2, ChevronRight, ShoppingBag, MessageSquare } from "lucide-react";
+import { X, Loader2, ChevronRight, ShoppingBag, MessageSquare, Truck, MapPin } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -21,6 +21,8 @@ interface CheckoutModalProps {
     cart: CartItem[];
     locationId: string;
     locationName: string;
+    locationAddress?: string | null;
+    isDeliveryActive?: boolean;
     tableNumber?: string;
     taxRate: number;
     onClose: () => void;
@@ -31,6 +33,8 @@ export default function CheckoutModal({
     cart,
     locationId,
     locationName,
+    locationAddress,
+    isDeliveryActive,
     tableNumber,
     taxRate,
     onClose,
@@ -39,6 +43,15 @@ export default function CheckoutModal({
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [orderNotes, setOrderNotes] = useState("");
+
+    // Delivery States
+    const [orderType, setOrderType] = useState<"dine_in" | "takeout" | "delivery">(
+        tableNumber ? "dine_in" : "takeout"
+    );
+    const [deliveryAddress, setDeliveryAddress] = useState("");
+    const [isFetchingQuote, setIsFetchingQuote] = useState(false);
+    const [quoteId, setQuoteId] = useState<string | null>(null);
+    const [deliveryFee, setDeliveryFee] = useState(0);
 
     // Customer info (optional)
     const [name, setName] = useState("");
@@ -51,10 +64,41 @@ export default function CheckoutModal({
         return sum + (item.price + itemModifiersTotal) * item.quantity;
     }, 0);
     const tax = subtotal * (taxRate / 100);
-    const total = subtotal + tax;
+    const total = subtotal + tax + deliveryFee;
+
+    const handleGetQuote = async () => {
+        if (!deliveryAddress || deliveryAddress.length < 10) return;
+
+        setIsFetchingQuote(true);
+        try {
+            const response = await fetch("/api/delivery/quote", {
+                method: "POST",
+                body: JSON.stringify({
+                    locationId,
+                    address: deliveryAddress
+                })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+
+            setQuoteId(data.quote_id);
+            setDeliveryFee(data.total_fee / 100); // Convert cents to dollars
+            toast.success("Delivery quote received!");
+        } catch (error: any) {
+            console.error("Quote error:", error);
+            toast.error(error.message || "Failed to get delivery quote");
+            setDeliveryFee(0);
+        } finally {
+            setIsFetchingQuote(false);
+        }
+    };
 
     const handleSubmit = async () => {
         if (cart.length === 0) return;
+        if (orderType === "delivery" && !quoteId) {
+            toast.error("Please provide a valid delivery address first");
+            return;
+        }
 
         setLoading(true);
         try {
@@ -64,7 +108,10 @@ export default function CheckoutModal({
                 body: JSON.stringify({
                     locationId,
                     tableNumber: tableNumber || null,
-                    orderType: tableNumber ? "dine_in" : "takeout",
+                    orderType: orderType,
+                    deliveryAddress: orderType === "delivery" ? deliveryAddress : null,
+                    deliveryFee: orderType === "delivery" ? deliveryFee : 0,
+                    uberQuoteId: quoteId,
                     items: cart.map(item => ({
                         id: crypto.randomUUID(),
                         menu_item_id: item.id,
@@ -135,6 +182,73 @@ export default function CheckoutModal({
                 </div>
 
                 <div className="space-y-6">
+                    {/* Delivery / Pickup Toggle */}
+                    {isDeliveryActive && !tableNumber && (
+                        <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                            <button
+                                onClick={() => {
+                                    setOrderType("takeout");
+                                    setDeliveryFee(0);
+                                    setQuoteId(null);
+                                }}
+                                className={cn(
+                                    "flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2",
+                                    orderType === "takeout" ? "bg-slate-700 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                                )}
+                            >
+                                <ShoppingBag className="h-4 w-4" />
+                                Pickup
+                            </button>
+                            <button
+                                onClick={() => setOrderType("delivery")}
+                                className={cn(
+                                    "flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2",
+                                    orderType === "delivery" ? "bg-orange-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                                )}
+                            >
+                                <Truck className="h-4 w-4" />
+                                Delivery
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Delivery Address Input */}
+                    {orderType === "delivery" && (
+                        <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4 text-orange-400" />
+                                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">
+                                    Delivery Address
+                                </h3>
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Enter your full address..."
+                                    className="flex-1 bg-slate-950 border border-slate-700 text-slate-200 text-sm rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-all placeholder:text-slate-600"
+                                    value={deliveryAddress}
+                                    onChange={(e) => {
+                                        setDeliveryAddress(e.target.value);
+                                        setQuoteId(null);
+                                        setDeliveryFee(0);
+                                    }}
+                                />
+                                <button
+                                    onClick={handleGetQuote}
+                                    disabled={isFetchingQuote || !deliveryAddress}
+                                    className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 rounded-xl transition-colors disabled:opacity-50"
+                                >
+                                    {isFetchingQuote ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                                </button>
+                            </div>
+                            {locationAddress && (
+                                <p className="text-[10px] text-slate-500 italic">
+                                    Pickup from: {locationAddress}
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     {/* Order Summary */}
                     <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
                         <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3">
@@ -176,6 +290,15 @@ export default function CheckoutModal({
                                 <span>Tax ({taxRate}%)</span>
                                 <span>{formatCurrency(tax)}</span>
                             </div>
+                            {deliveryFee > 0 && (
+                                <div className="flex justify-between text-sm text-orange-400">
+                                    <span className="flex items-center gap-1">
+                                        <Truck className="h-3 w-3" />
+                                        Delivery Fee
+                                    </span>
+                                    <span>{formatCurrency(deliveryFee)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-700 text-slate-100">
                                 <span>Total</span>
                                 <span className="text-orange-400">{formatCurrency(total)}</span>

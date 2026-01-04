@@ -18,7 +18,7 @@ export default async function GuestMenuPage({
     // 1. Get Location by Slug (include tax_rate for checkout)
     const { data: location } = await supabase
         .from("locations")
-        .select("id, name, ordering_enabled, tax_rate")
+        .select("id, name, ordering_enabled, tax_rate, delivery_enabled, address")
         .eq("slug", slug)
         .single() as any;
 
@@ -78,6 +78,8 @@ export default async function GuestMenuPage({
             categories={categories || []}
             locationId={location.id}
             locationName={location.name}
+            locationAddress={location.address}
+            deliveryEnabled={location.delivery_enabled}
             tableNumber={tableNumber}
             taxRate={location.tax_rate ?? 8.75}
             pricingRules={pricingRules || []}

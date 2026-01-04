@@ -177,6 +177,9 @@ export type Database = {
                     logo_url: string | null;
                     banner_url: string | null;
                     ordering_enabled: boolean;
+                    uber_organization_id: string | null;
+                    delivery_enabled: boolean;
+                    delivery_radius: number;
                     created_at: string;
                     updated_at: string;
                 };
@@ -200,6 +203,9 @@ export type Database = {
                     logo_url?: string | null;
                     banner_url?: string | null;
                     ordering_enabled?: boolean;
+                    uber_organization_id?: string | null;
+                    delivery_enabled?: boolean;
+                    delivery_radius?: number;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -222,6 +228,9 @@ export type Database = {
                     logo_url?: string | null;
                     banner_url?: string | null;
                     ordering_enabled?: boolean;
+                    uber_organization_id?: string | null;
+                    delivery_enabled?: boolean;
+                    delivery_radius?: number;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -389,6 +398,10 @@ export type Database = {
                     comp_reason: string | null;
                     comp_meta: Json | null;
                     is_edited: boolean;
+                    uber_delivery_id: string | null;
+                    uber_quote_id: string | null;
+                    delivery_address: string | null;
+                    delivery_fee: number;
                     created_at: string;
                     updated_at: string;
                 };
@@ -412,6 +425,8 @@ export type Database = {
                     comp_reason?: string | null;
                     comp_meta?: Json | null;
                     is_edited?: boolean;
+                    uber_delivery_id?: string | null;
+                    delivery_fee?: number;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -435,6 +450,8 @@ export type Database = {
                     comp_reason?: string | null;
                     comp_meta?: Json | null;
                     is_edited?: boolean;
+                    uber_delivery_id?: string | null;
+                    delivery_fee?: number;
                     created_at?: string;
                     updated_at?: string;
                 };
