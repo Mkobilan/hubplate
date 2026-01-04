@@ -237,11 +237,22 @@ export default function KitchenPage() {
                     event: "*",
                     schema: "public",
                     table: "orders",
-                    filter: `location_id=eq.${currentLocation.id}`
+                    // Removing server-side filter to debug/ensure delivery
+                    // filter: `location_id=eq.${currentLocation.id}`
                 },
                 (payload) => {
                     console.log('KitchenPage: Realtime order update received:', payload);
-                    fetchOrders();
+
+                    // Client-side filter to be safe
+                    const newOrder = payload.new as any;
+                    if (newOrder && newOrder.location_id === currentLocation.id) {
+                        console.log('KitchenPage: Order matches location, refreshing...');
+                        fetchOrders();
+                    } else if (!newOrder && payload.eventType === 'DELETE') {
+                        // Ideally we check old record but standard realtime doesn't send it unless replica identity full.
+                        // For safety, just refresh.
+                        fetchOrders();
+                    }
                 }
             )
             .on(
