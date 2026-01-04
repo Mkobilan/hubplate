@@ -276,11 +276,23 @@ export default function KitchenPage() {
         };
     }, [currentLocation?.id]);
 
-    // Update time every minute
+    // Update time every minute AND Poll for orders every 15s (Fallback for Realtime)
     useEffect(() => {
-        const interval = setInterval(() => setNow(new Date()), 60000);
-        return () => clearInterval(interval);
-    }, []);
+        const timeInterval = setInterval(() => setNow(new Date()), 60000);
+
+        // Fallback polling in case Realtime fails
+        const pollInterval = setInterval(() => {
+            if (currentLocation?.id) {
+                console.log('KitchenPage: Polling for updates...');
+                fetchOrders();
+            }
+        }, 15000);
+
+        return () => {
+            clearInterval(timeInterval);
+            clearInterval(pollInterval);
+        };
+    }, [currentLocation?.id]);
 
     const getTicketTime = (createdAt: Date) => {
         const diff = Math.floor((now.getTime() - createdAt.getTime()) / 60000);
