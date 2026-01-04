@@ -147,6 +147,10 @@ export default function KitchenPage() {
         const anyReady = items.some(item => item.status === 'ready');
         if (anyReady) return 'ready';
 
+        // For delivery/takeout specifically
+        const anyCompleted = items.some(item => item.status === 'completed');
+        if (anyCompleted) return 'completed';
+
         return 'sent';
     };
 
@@ -379,6 +383,15 @@ export default function KitchenPage() {
         updateItemsStatus(orderId, itemIds, 'ready');
     };
 
+    // Handle Completed button - mark visible items as 'completed' (for delivery)
+    const handleCompletedItems = (orderId: string, visibleItems: KitchenOrderItem[]) => {
+        const readyItems = visibleItems.filter(item => item.status === 'ready' || item.status === 'preparing' || item.status === 'sent');
+        if (readyItems.length === 0) return;
+
+        const itemIds = readyItems.map(item => item.id);
+        updateItemsStatus(orderId, itemIds, 'completed');
+    };
+
     // Handle Served button - mark visible items as 'served'
     const handleServedItems = (orderId: string, visibleItems: KitchenOrderItem[]) => {
         const readyItems = visibleItems.filter(item => item.status === 'ready' || item.status === 'preparing' || item.status === 'sent');
@@ -479,6 +492,8 @@ export default function KitchenPage() {
                 return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-semibold uppercase tracking-wider">Ready</span>;
             case 'served':
                 return <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 font-semibold uppercase tracking-wider">Served</span>;
+            case 'completed':
+                return <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 font-semibold uppercase tracking-wider">Completed</span>;
             default:
                 return null;
         }
@@ -515,6 +530,20 @@ export default function KitchenPage() {
         }
 
         if (readyCount > 0) {
+            // For Delivery/Takeout, "Served" means "Picked Up" or "Completed"
+            if (order.orderType === 'delivery' || order.orderType === 'takeout') {
+                return (
+                    <button
+                        onClick={() => handleCompletedItems(order.id, order.items)}
+                        className="btn btn-primary flex-1 flex items-center justify-center gap-2"
+                        title="Mark as Picked Up / Completed"
+                    >
+                        <CheckCircle className="h-4 w-4" />
+                        Picked Up ({readyCount})
+                    </button>
+                );
+            }
+
             return (
                 <button
                     onClick={() => handleServedItems(order.id, order.items)}

@@ -28,7 +28,9 @@ export async function GET(
                 total,
                 payment_status,
                 server_id,
-                items
+                items,
+                tip,
+                delivery_fee
             `)
             .eq('id', orderId)
             .single();
@@ -48,7 +50,9 @@ export async function GET(
             total: order.total,
             payment_status: order.payment_status || 'unpaid',
             server_id: order.server_id,
-            items: order.items || []
+            items: order.items || [],
+            tip: order.tip,
+            delivery_fee: order.delivery_fee
         });
     } catch (error) {
         console.error('Error fetching order:', error);

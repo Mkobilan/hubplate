@@ -25,6 +25,7 @@ interface OrderDetails {
         quantity: number;
         price: number;
     }>;
+    delivery_fee?: number;
 }
 
 export default function PaymentPage() {
@@ -66,7 +67,7 @@ export default function PaymentPage() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         orderId,
-                        amount: (Number(orderData.subtotal) || 0) + (Number(orderData.tax) || 0),
+                        amount: (Number(orderData.subtotal) || 0) + (Number(orderData.tax) || 0) + (Number(orderData.delivery_fee) || 0),
                         tip: Number(orderData.tip) || 0
                     })
                 });
@@ -106,7 +107,7 @@ export default function PaymentPage() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         orderId,
-                        amount: (Number(order.subtotal) || 0) + (Number(order.tax) || 0),
+                        amount: (Number(order.subtotal) || 0) + (Number(order.tax) || 0) + (Number(order.delivery_fee) || 0),
                         tip,
                         discountAmount: currentDiscount,
                         pointsRedeemed: appliedReward?.points_required || 0
@@ -320,6 +321,12 @@ export default function PaymentPage() {
                                 <span>{formatCurrency(tip)}</span>
                             </div>
                         )}
+                        {(order?.delivery_fee || 0) > 0 && (
+                            <div className="flex justify-between text-slate-400">
+                                <span>Delivery Fee</span>
+                                <span>{formatCurrency(Number(order?.delivery_fee) || 0)}</span>
+                            </div>
+                        )}
                         {appliedReward && (
                             <div className="flex justify-between text-green-400">
                                 <span>Reward: {appliedReward.name}</span>
@@ -329,7 +336,7 @@ export default function PaymentPage() {
                         <div className="flex justify-between text-xl font-bold text-slate-100 pt-2 border-t border-slate-700">
                             <span>Total</span>
                             <span className="text-orange-400">
-                                {formatCurrency(Math.max(0, (order?.total || 0) + tip - currentDiscount))}
+                                {formatCurrency(Math.max(0, (order?.total || 0) + (Number(order?.delivery_fee) || 0) + tip - currentDiscount))}
                             </span>
                         </div>
                     </div>

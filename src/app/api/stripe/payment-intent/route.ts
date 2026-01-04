@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
         // Determine status update - don't downgrade from ready/served
         const subtotal = Number(order.subtotal) || 0;
         const tax = Number(order.tax) || 0;
-        const baseAmount = amount || (subtotal + tax);
+        const deliveryFee = Number(order.delivery_fee) || 0;
+        const baseAmount = amount || (subtotal + tax + deliveryFee);
         const finalAmount = Math.max(0, baseAmount + (tip || 0) - (discountAmount || 0));
         const totalCents = Math.round(finalAmount * 100);
 
