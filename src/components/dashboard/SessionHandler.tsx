@@ -26,8 +26,11 @@ export function SessionHandler() {
 
             // --- CRITICAL: User Mismatch Check ---
             // If we have a persisted session but it belongs to a DIFFERENT user, purge it now.
+            // UNLESS we are in Terminal Mode, where the "Session User" (Owner) differs from "Current Employee" (PIN User)
             const store = useAppStore.getState();
-            if (store.currentEmployee && store.currentEmployee.user_id && store.currentEmployee.user_id !== session.user.id) {
+            const isTerminalMode = store.isTerminalMode;
+
+            if (!isTerminalMode && store.currentEmployee && store.currentEmployee.user_id && store.currentEmployee.user_id !== session.user.id) {
                 console.warn("User mismatch: Persisted employee belongs to different user. Resetting store.");
                 store.reset();
             }
@@ -152,7 +155,8 @@ export function SessionHandler() {
             }
 
             // If not found valid in store or revoked, try fetching from session user_id
-            if (!validatedEmployee && session.user) {
+            // SKIP this if in Terminal Mode (Owner session shouldn't auto-login as Employee)
+            if (!validatedEmployee && session.user && !useAppStore.getState().isTerminalMode) {
                 const { data: emp } = await supabase
                     .from("employees")
                     .select("*")
