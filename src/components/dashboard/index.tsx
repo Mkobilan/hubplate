@@ -24,7 +24,8 @@ const RESTRICTED_PATHS = [
     "/dashboard/settings/payments",
     "/dashboard/recipes",
     "/dashboard/online-ordering",
-    "/dashboard/customers"
+    "/dashboard/customers",
+    "/dashboard/menu/happy-hour"
 ];
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {

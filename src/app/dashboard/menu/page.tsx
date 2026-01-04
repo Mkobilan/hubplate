@@ -125,13 +125,15 @@ export default function MenuPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Link
-                        href="/dashboard/menu/happy-hour"
-                        className="btn btn-secondary"
-                    >
-                        <Clock className="h-4 w-4" />
-                        {t("menu.happyHour")}
-                    </Link>
+                    {canEdit && (
+                        <Link
+                            href="/dashboard/menu/happy-hour"
+                            className="btn btn-secondary"
+                        >
+                            <Clock className="h-4 w-4" />
+                            {t("menu.happyHour")}
+                        </Link>
+                    )}
                     {canEdit && (
                         <>
                             <Link
