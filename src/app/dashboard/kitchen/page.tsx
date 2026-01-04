@@ -239,7 +239,8 @@ export default function KitchenPage() {
                     table: "orders",
                     filter: `location_id=eq.${currentLocation.id}`
                 },
-                () => {
+                (payload) => {
+                    console.log('KitchenPage: Realtime order update received:', payload);
                     fetchOrders();
                 }
             )
@@ -255,7 +256,9 @@ export default function KitchenPage() {
                     fetchKdsScreens();
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log(`KitchenPage: Subscription status for location ${currentLocation.id}:`, status);
+            });
 
         return () => {
             supabase.removeChannel(channel);
