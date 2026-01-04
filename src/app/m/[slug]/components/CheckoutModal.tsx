@@ -113,7 +113,7 @@ export default function CheckoutModal({
                     deliveryFee: orderType === "delivery" ? deliveryFee : 0,
                     uberQuoteId: quoteId,
                     items: cart.map(item => ({
-                        id: crypto.randomUUID(),
+                        id: `item_${Math.random().toString(36).substr(2, 9)}`,
                         menu_item_id: item.id,
                         name: item.name,
                         price: item.price,

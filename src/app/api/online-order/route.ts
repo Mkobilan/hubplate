@@ -157,9 +157,8 @@ export async function POST(request: NextRequest) {
                 const updatePayload: any = { notes: updatedNotes };
                 if (finalCustomerId) {
                     updatePayload.customer_id = finalCustomerId;
-                    updatePayload.customer_email = customer.email || null;
-                    updatePayload.customer_phone = customer.phone || null;
-                    updatePayload.customer_name = customer.name || null;
+                    // Note: Removed direct customer_name/email/phone column updates 
+                    // as they might not exist in the orders table yet.
                 }
 
                 await supabaseAdmin

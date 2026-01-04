@@ -15,7 +15,12 @@ ALTER TABLE public.locations
 -- delivery_fee: Stores the delivery cost returned by the Uber Quote API.
 ALTER TABLE public.orders 
     ADD COLUMN IF NOT EXISTS uber_delivery_id TEXT,
-    ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC DEFAULT 0;
+    ADD COLUMN IF NOT EXISTS uber_quote_id TEXT,
+    ADD COLUMN IF NOT EXISTS delivery_address TEXT,
+    ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS customer_name TEXT,
+    ADD COLUMN IF NOT EXISTS customer_email TEXT,
+    ADD COLUMN IF NOT EXISTS customer_phone TEXT;
 
 -- Optional: Add comments to help documentation in the Supabase UI
 COMMENT ON COLUMN public.locations.uber_organization_id IS 'The unique organization ID from Uber Direct for this location';
