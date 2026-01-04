@@ -119,6 +119,7 @@ export function DashboardSidebar() {
             href: "/dashboard/customers",
             icon: <Heart className="h-5 w-5" />,
             label: t("nav.customers"),
+            requiresManager: true,
         },
         {
             href: "/dashboard/schedule",
@@ -140,6 +141,7 @@ export function DashboardSidebar() {
             href: "/dashboard/recipes",
             icon: <ChefHat className="h-5 w-5" />,
             label: "Recipes",
+            requiresManager: true,
         },
         // Manager items
         {
@@ -170,6 +172,7 @@ export function DashboardSidebar() {
             href: "/dashboard/online-ordering",
             icon: <Globe className="h-5 w-5" />,
             label: "Online Ordering",
+            requiresManager: true,
         },
         {
             href: "/dashboard/locations",
