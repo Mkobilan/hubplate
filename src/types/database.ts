@@ -1479,11 +1479,64 @@ export type Database = {
                     updated_at?: string;
                 };
             };
+            pricing_rules: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    name: string;
+                    rule_type: 'discount' | 'surge';
+                    days_of_week: number[];
+                    start_time: string;
+                    end_time: string;
+                    discount_type: 'percentage' | 'fixed';
+                    value: number;
+                    category_ids: string[];
+                    is_active: boolean;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    name: string;
+                    rule_type: 'discount' | 'surge';
+                    days_of_week: number[];
+                    start_time: string;
+                    end_time: string;
+                    discount_type?: 'percentage' | 'fixed';
+                    value: number;
+                    category_ids?: string[];
+                    is_active?: boolean;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    name?: string;
+                    rule_type?: 'discount' | 'surge';
+                    days_of_week?: number[];
+                    start_time?: string;
+                    end_time?: string;
+                    discount_type?: 'percentage' | 'fixed';
+                    value?: number;
+                    category_ids?: string[];
+                    is_active?: boolean;
+                    updated_at?: string;
+                };
+            };
         };
 
 
         Views: {};
-        Functions: {};
+        Functions: {
+            get_active_pricing_rules: {
+                Args: {
+                    p_location_id: string;
+                };
+                Returns: Database["public"]["Tables"]["pricing_rules"]["Row"][];
+            };
+        };
         Enums: {};
     };
 };
@@ -1514,5 +1567,6 @@ export type TipPool = Database["public"]["Tables"]["tip_pools"]["Row"];
 export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
 export type RecipeIngredient = Database["public"]["Tables"]["recipe_ingredients"]["Row"];
 export type Pour = Database["public"]["Tables"]["pours"]["Row"];
+export type PricingRule = Database["public"]["Tables"]["pricing_rules"]["Row"];
 
 

@@ -27,3 +27,17 @@ export interface OrderItem {
     ready_at?: string;
     served_at?: string;
 }
+
+export interface PricingRule {
+    id: string;
+    location_id: string;
+    name: string;
+    rule_type: 'discount' | 'surge';
+    days_of_week: number[];
+    start_time: string;
+    end_time: string;
+    discount_type: 'percentage' | 'fixed';
+    value: number;
+    category_ids: string[];
+    is_active: boolean;
+}

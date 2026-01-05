@@ -21,7 +21,7 @@ import {
     TrendingUp,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import { MenuItemType, OrderItem } from "@/types/pos";
+import { MenuItemType, OrderItem, PricingRule } from "@/types/pos";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
@@ -56,7 +56,7 @@ function OrdersPageContent() {
 
     const [categories, setCategories] = useState<string[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
-    const [pricingRules, setPricingRules] = useState<any[]>([]);
+    const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
     const [loading, setLoading] = useState(true);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
@@ -109,7 +109,7 @@ function OrdersPageContent() {
                 const { data: rules } = await supabase.rpc('get_active_pricing_rules', {
                     p_location_id: currentLocation.id
                 });
-                setPricingRules(rules || []);
+                setPricingRules((rules as any) || []);
             } catch (error) {
                 console.error("Error fetching menu data:", error);
                 toast.error("Failed to load menu");
@@ -154,7 +154,7 @@ function OrdersPageContent() {
     // Dynamic Pricing Logic
     const getAdjustedPrice = (item: MenuItemType) => {
         let adjustedPrice = item.price;
-        let appliedRule: any = null;
+        let appliedRule: PricingRule | null = null;
 
         for (const rule of pricingRules) {
             const appliesToCategory = (rule.category_ids || []).length === 0 || rule.category_ids.includes(item.category_id);
