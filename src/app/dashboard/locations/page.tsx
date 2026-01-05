@@ -20,6 +20,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { AddLocationModal } from "@/components/dashboard/locations/add-location-modal";
 import { ManageLocationModal } from "@/components/dashboard/locations/manage-location-modal";
 import { LocationBillingModal } from "@/components/dashboard/locations/location-billing-modal";
+import { DeleteLocationModal } from "@/components/dashboard/locations/delete-location-modal";
 
 // TODO: Locations are now fetched dynamically from Supabase
 
@@ -38,6 +39,9 @@ export default function LocationsPage() {
     const [selectedLocationForManage, setSelectedLocationForManage] = useState<any>(null);
     const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
     const [locationToActivate, setLocationToActivate] = useState<any>(null);
+    const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [locationToDelete, setLocationToDelete] = useState<any>(null);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
     const setCurrentLocation = useAppStore((state) => state.setCurrentLocation);
@@ -154,6 +158,14 @@ export default function LocationsPage() {
                 </button>
             </div>
 
+            {/* Overlay to close dropdown if open */}
+            {activeDropdownId && (
+                <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setActiveDropdownId(null)}
+                />
+            )}
+
             {error && (
                 <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400">
                     {error}
@@ -248,9 +260,43 @@ export default function LocationsPage() {
                                         <Settings className="h-4 w-4" />
                                         Manage
                                     </button>
-                                    <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-500">
-                                        <MoreVertical className="h-5 w-5" />
-                                    </button>
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setActiveDropdownId(activeDropdownId === location.id ? null : location.id)}
+                                            className="p-2 hover:bg-slate-800 rounded-lg text-slate-500"
+                                        >
+                                            <MoreVertical className="h-5 w-5" />
+                                        </button>
+
+                                        {activeDropdownId === location.id && (
+                                            <div className="absolute right-0 top-12 z-20 w-48 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedLocationForManage(location);
+                                                        setIsManageModalOpen(true);
+                                                        setActiveDropdownId(null);
+                                                    }}
+                                                    className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800 flex items-center gap-2"
+                                                >
+                                                    <Settings className="h-4 w-4 text-slate-400" />
+                                                    Manage
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setLocationToDelete(location);
+                                                        setDeleteModalOpen(true);
+                                                        setActiveDropdownId(null);
+                                                    }}
+                                                    className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800 text-red-400 flex items-center gap-2"
+                                                >
+                                                    <div className="h-4 w-4 flex items-center justify-center">
+                                                        <span className="text-lg leading-none">×</span>
+                                                    </div>
+                                                    Delete Location
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -312,6 +358,18 @@ export default function LocationsPage() {
                     locationName={locationToActivate.name}
                     locationId={locationToActivate.id}
                     orgId={locationToActivate.organization_id}
+                />
+            )}
+
+            {locationToDelete && (
+                <DeleteLocationModal
+                    isOpen={deleteModalOpen}
+                    onClose={() => {
+                        setDeleteModalOpen(false);
+                        setLocationToDelete(null);
+                    }}
+                    onSuccess={fetchLocations}
+                    location={locationToDelete}
                 />
             )}
         </div>
