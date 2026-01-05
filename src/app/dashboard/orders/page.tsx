@@ -106,7 +106,7 @@ function OrdersPageContent() {
                 }
 
                 // Fetch active pricing rules
-                const { data: rules } = await supabase.rpc('get_active_pricing_rules', {
+                const { data: rules } = await (supabase as any).rpc('get_active_pricing_rules', {
                     p_location_id: currentLocation.id
                 });
                 setPricingRules((rules as any) || []);
