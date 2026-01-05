@@ -297,27 +297,24 @@ export default function SeatMapViewer() {
         }
     };
 
-    const handleSitTable = async () => {
+    const handleSitTable = async (partySize: number) => {
         if (!selectedTable || !currentLocation || !currentEmployee) return;
 
         setActionLoading(true);
         try {
             const seatedEntry = seatedWaitlist.find(w => w.table_id === selectedTable.id);
 
-            // We no longer insert an order here. 
-            // The order will be created in the POS (OrdersPage) when items are actually sent to the kitchen.
-
             // Just update the waitlist entry to reflect the table choice if it came from the waitlist
             if (seatedEntry) {
-                // If it's already 'seated', we just ensure the table_id is correct
                 await (supabaseRef.current
                     .from("waitlist") as any)
-                    .update({ table_id: selectedTable.id })
+                    .update({
+                        table_id: selectedTable.id,
+                        party_size: partySize,
+                        status: 'seated'
+                    })
                     .eq('id', seatedEntry.id);
             } else {
-                // If not from waitlist, we might want to create a 'seated' entry in waitlist 
-                // OR just rely on the fact that the POS will handle the order creation.
-                // For now, let's assume seating is tracked via the waitlist status='seated'.
                 await (supabaseRef.current
                     .from("waitlist") as any)
                     .insert({
@@ -325,21 +322,17 @@ export default function SeatMapViewer() {
                         customer_name: "Walk-in Guest",
                         status: 'seated',
                         table_id: selectedTable.id,
-                        party_size: selectedTable.capacity,
+                        party_size: partySize,
                         seated_at: new Date().toISOString()
                     });
             }
 
-            toast.success(`Table ${selectedTable.label} seated`);
-            const tableLabel = selectedTable.label;
+            toast.success(`Table ${selectedTable.label} seated with ${partySize} guests`);
             setSelectedTable(null);
 
             // Refresh states
             fetchSeatedWaitlist();
             fetchActiveOrders();
-
-            // Redirect to orders page
-            router.push(`/dashboard/orders?table=${tableLabel}`);
         } catch (err) {
             console.error("Error sitting table:", err);
             toast.error("Failed to sit table");
@@ -851,7 +844,7 @@ export default function SeatMapViewer() {
                         servers={servers}
                         canEdit={canEdit}
                         onAssignServer={handleAssignServer}
-                        onSitTable={handleSitTable}
+                        onSitTable={(size) => handleSitTable(size)}
                         onPay={(order) => {
                             setPayingOrder(order);
                             setSelectedTable(null);
@@ -942,7 +935,7 @@ interface TableStatusModalProps {
     servers: Server[];
     canEdit: boolean;
     onAssignServer: (id: string | null) => void;
-    onSitTable: () => void;
+    onSitTable: (partySize: number) => void;
     onPay: (order: any) => void;
     onGoToOrder: (label: string) => void;
     actionLoading: boolean;
@@ -999,6 +992,10 @@ function TableStatusModal({
         acc[seat].push(item);
         return acc;
     }, {} as Record<number, any[]>);
+
+    // Flow Step State
+    const [seatingStep, setSeatingStep] = useState<'info' | 'party-size'>('info');
+    const [partySize, setPartySize] = useState(table.capacity);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
@@ -1178,6 +1175,51 @@ function TableStatusModal({
                         </div>
                     )}
 
+                    {seatingStep === 'party-size' && (
+                        <div className="p-6 bg-orange-500/5 rounded-2xl border border-orange-500/20 animate-in zoom-in-95 duration-200">
+                            <div className="text-center mb-6">
+                                <h4 className="text-lg font-bold text-white mb-1">Set Party Size</h4>
+                                <p className="text-slate-400 text-sm">How many guests for Table {table.label}?</p>
+                            </div>
+
+                            <div className="flex flex-col items-center gap-6">
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setPartySize(Math.max(1, partySize - 1))}
+                                        className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-white hover:bg-slate-700 transition-colors"
+                                    >
+                                        -
+                                    </button>
+                                    <div className="w-24 h-20 bg-slate-900 border-2 border-orange-500 rounded-3xl flex items-center justify-center text-4xl font-black text-white shadow-lg shadow-orange-500/10">
+                                        {partySize}
+                                    </div>
+                                    <button
+                                        onClick={() => setPartySize(partySize + 1)}
+                                        className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl font-black text-white hover:bg-slate-700 transition-colors"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 w-full">
+                                    <button
+                                        onClick={() => setSeatingStep('info')}
+                                        className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={() => onSitTable(partySize)}
+                                        disabled={actionLoading}
+                                        className="py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-600/20 disabled:opacity-50"
+                                    >
+                                        {actionLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "Confirm Seat"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Management Section */}
                     <div className="pt-6 border-t border-slate-800 space-y-4">
                         {canEdit && (
@@ -1206,14 +1248,16 @@ function TableStatusModal({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                             {!isOccupied ? (
-                                <button
-                                    onClick={onSitTable}
-                                    disabled={actionLoading}
-                                    className="sm:col-span-2 w-full flex items-center justify-center gap-2 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black uppercase tracking-widest transition-all transform active:scale-95 disabled:opacity-50 shadow-lg shadow-orange-600/20"
-                                >
-                                    {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (isSeated ? <Utensils className="h-5 w-5" /> : <UserCheck className="h-5 w-5" />)}
-                                    {isSeated ? "Start Order" : "Sit Guest"}
-                                </button>
+                                seatingStep === 'info' && (
+                                    <button
+                                        onClick={isSeated ? () => onGoToOrder(table.label) : () => setSeatingStep('party-size')}
+                                        disabled={actionLoading}
+                                        className="sm:col-span-2 w-full flex items-center justify-center gap-2 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black uppercase tracking-widest transition-all transform active:scale-95 disabled:opacity-50 shadow-lg shadow-orange-600/20"
+                                    >
+                                        {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (isSeated ? <Utensils className="h-5 w-5" /> : <UserCheck className="h-5 w-5" />)}
+                                        {isSeated ? "Start Order" : "Sit Guest"}
+                                    </button>
+                                )
                             ) : (
                                 <>
                                     <button

@@ -38,7 +38,7 @@ function OrdersPageContent() {
     const { t } = useTranslation();
     const [selectedCategory, setSelectedCategory] = useState("");
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-    const [tableNumber, setTableNumber] = useState(tableFromUrl || "5");
+    const [tableNumber, setTableNumber] = useState(tableFromUrl || "");
     const [orderType, setOrderType] = useState<"dine_in" | "takeout" | "delivery">("dine_in");
     const [upsellSuggestions, setUpsellSuggestions] = useState<any[]>([]);
     const [showUpsells, setShowUpsells] = useState(false);
