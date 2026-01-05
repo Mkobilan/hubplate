@@ -14,6 +14,7 @@ import {
     Loader2,
     TrendingUp,
     Zap,
+    Edit2,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -45,6 +46,7 @@ export default function HappyHourPage() {
     const [rules, setRules] = useState<PricingRule[]>([]);
     const [loading, setLoading] = useState(true);
     const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+    const [editingRule, setEditingRule] = useState<PricingRule | null>(null);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
     const supabase = createClient();
@@ -157,6 +159,15 @@ export default function HappyHourPage() {
                                 </div>
                                 <div className="flex gap-2">
                                     <button
+                                        onClick={() => {
+                                            setEditingRule(rule);
+                                            setShowAddModal(true);
+                                        }}
+                                        className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-orange-400 transition-colors"
+                                    >
+                                        <Edit2 className="h-4 w-4" />
+                                    </button>
+                                    <button
                                         onClick={() => handleDelete(rule.id)}
                                         className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
                                     >
@@ -218,12 +229,17 @@ export default function HappyHourPage() {
                 </div>
             )}
 
-            {/* Add Modal */}
+            {/* Modal */}
             {showAddModal && (
-                <AddRuleModal
-                    onClose={() => setShowAddModal(false)}
+                <RuleModal
+                    rule={editingRule}
+                    onClose={() => {
+                        setShowAddModal(false);
+                        setEditingRule(null);
+                    }}
                     onSuccess={() => {
                         setShowAddModal(false);
+                        setEditingRule(null);
                         fetchRules();
                     }}
                     categories={categories}
@@ -234,16 +250,17 @@ export default function HappyHourPage() {
     );
 }
 
-function AddRuleModal({ onClose, onSuccess, categories, locationId }: {
+function RuleModal({ onClose, onSuccess, categories, locationId, rule }: {
     onClose: () => void;
     onSuccess: () => void;
     categories: { id: string; name: string }[];
     locationId: string;
+    rule: PricingRule | null;
 }) {
     const [loading, setLoading] = useState(false);
-    const [selectedDays, setSelectedDays] = useState<number[]>([]);
-    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-    const [ruleType, setRuleType] = useState<'discount' | 'surge'>('discount');
+    const [selectedDays, setSelectedDays] = useState<number[]>(rule?.days_of_week || []);
+    const [selectedCategories, setSelectedCategories] = useState<string[]>(rule?.category_ids || []);
+    const [ruleType, setRuleType] = useState<'discount' | 'surge'>(rule?.rule_type || 'discount');
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -256,7 +273,7 @@ function AddRuleModal({ onClose, onSuccess, categories, locationId }: {
         setLoading(true);
 
         try {
-            await createPricingRule({
+            const ruleData = {
                 location_id: locationId,
                 name: formData.get("name") as string,
                 rule_type: ruleType,
@@ -266,11 +283,18 @@ function AddRuleModal({ onClose, onSuccess, categories, locationId }: {
                 discount_type: formData.get("discount_type") as 'percentage' | 'fixed',
                 value: parseFloat(formData.get("value") as string),
                 category_ids: selectedCategories,
-            });
-            toast.success("Rule created successfully");
+            };
+
+            if (rule) {
+                await updatePricingRule(rule.id, ruleData);
+                toast.success("Rule updated successfully");
+            } else {
+                await createPricingRule(ruleData);
+                toast.success("Rule created successfully");
+            }
             onSuccess();
         } catch (error) {
-            toast.error("Failed to create rule");
+            toast.error(rule ? "Failed to update rule" : "Failed to create rule");
         } finally {
             setLoading(false);
         }
@@ -295,11 +319,11 @@ function AddRuleModal({ onClose, onSuccess, categories, locationId }: {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60">
             <div className="absolute inset-0" onClick={onClose} />
-            <div className="relative card w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="relative card w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200 text-slate-100">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold">New Pricing Rule</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
-                        <Plus className="h-5 w-5 rotate-45 text-slate-400" />
+                    <h2 className="text-2xl font-bold">{rule ? "Edit Pricing Rule" : "New Pricing Rule"}</h2>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400">
+                        <Plus className="h-5 w-5 rotate-45" />
                     </button>
                 </div>
 
@@ -308,7 +332,7 @@ function AddRuleModal({ onClose, onSuccess, categories, locationId }: {
                         <div className="space-y-4">
                             <div>
                                 <label className="label text-slate-300">Rule Name</label>
-                                <input name="name" type="text" className="input" placeholder="e.g. Weekend Rush" required />
+                                <input name="name" type="text" className="input" placeholder="e.g. Weekend Rush" defaultValue={rule?.name} required />
                             </div>
 
                             <div>
@@ -340,7 +364,7 @@ function AddRuleModal({ onClose, onSuccess, categories, locationId }: {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="label text-slate-300">Adjustment Type</label>
-                                    <select name="discount_type" className="input">
+                                    <select name="discount_type" className="input" defaultValue={rule?.discount_type}>
                                         <option value="percentage">Percentage (%)</option>
                                         <option value="fixed">Fixed ($)</option>
                                     </select>
@@ -348,8 +372,8 @@ function AddRuleModal({ onClose, onSuccess, categories, locationId }: {
                                 <div>
                                     <label className="label text-slate-300">Value</label>
                                     <div className="relative">
-                                        <input name="value" type="number" step="0.01" className="input pr-8" placeholder="0" required />
-                                        <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                                        <input name="value" type="number" step="0.01" className="input pr-8" placeholder="0" defaultValue={rule?.value} required />
+                                        {rule?.discount_type === 'percentage' && <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />}
                                     </div>
                                 </div>
                             </div>
@@ -359,11 +383,11 @@ function AddRuleModal({ onClose, onSuccess, categories, locationId }: {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="label text-slate-300">Start Time</label>
-                                    <input name="start_time" type="time" className="input" required />
+                                    <input name="start_time" type="time" className="input" defaultValue={rule?.start_time} required />
                                 </div>
                                 <div>
                                     <label className="label text-slate-300">End Time</label>
-                                    <input name="end_time" type="time" className="input" required />
+                                    <input name="end_time" type="time" className="input" defaultValue={rule?.end_time} required />
                                 </div>
                             </div>
 
@@ -440,7 +464,7 @@ function AddRuleModal({ onClose, onSuccess, categories, locationId }: {
                             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                                 <>
                                     <Save className="h-4 w-4" />
-                                    Save Rule
+                                    {rule ? "Update Rule" : "Save Rule"}
                                 </>
                             )}
                         </button>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, Building2, MapPin, Phone, Mail, Percent } from "lucide-react";
+import { Loader2, Building2, MapPin, Phone, Mail, Percent, Clock } from "lucide-react";
 import { useAppStore } from "@/stores";
 
 interface ManageLocationModalProps {
@@ -24,6 +24,7 @@ export function ManageLocationModal({ isOpen, onClose, onSuccess, location }: Ma
         phone: "",
         email: "",
         tax_rate: 0,
+        timezone: "America/New_York",
     });
 
     useEffect(() => {
@@ -34,6 +35,7 @@ export function ManageLocationModal({ isOpen, onClose, onSuccess, location }: Ma
                 phone: location.phone || "",
                 email: location.email || "",
                 tax_rate: location.tax_rate || 0,
+                timezone: location.timezone || "America/New_York",
             });
         }
     }, [location]);
@@ -54,6 +56,7 @@ export function ManageLocationModal({ isOpen, onClose, onSuccess, location }: Ma
                     phone: formData.phone,
                     email: formData.email,
                     tax_rate: formData.tax_rate,
+                    timezone: formData.timezone,
                     updated_at: new Date().toISOString(),
                 })
                 .eq("id", location.id);
@@ -182,6 +185,36 @@ export function ManageLocationModal({ isOpen, onClose, onSuccess, location }: Ma
                     <p className="text-[10px] text-slate-500">
                         This rate will be used for all orders at this location.
                     </p>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="label" htmlFor="timezone">
+                        Location Timezone
+                    </label>
+                    <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
+                        <select
+                            id="timezone"
+                            className="input pl-11"
+                            value={formData.timezone}
+                            onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                        >
+                            <option value="America/New_York">Eastern Time (ET)</option>
+                            <option value="America/Chicago">Central Time (CT)</option>
+                            <option value="America/Denver">Mountain Time (MT)</option>
+                            <option value="America/Phoenix">Mountain Time - no DST (AZ)</option>
+                            <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                            <option value="America/Anchorage">Alaska Time (AKT)</option>
+                            <option value="America/Honolulu">Hawaii Time (HT)</option>
+                            <option value="UTC">Coordinated Universal Time (UTC)</option>
+                            <option value="Europe/London">London (GMT/BST)</option>
+                            <option value="Africa/Nairobi">Nairobi (EAT)</option>
+                            <option value="Asia/Dubai">Dubai (GST)</option>
+                            <option value="Asia/Kolkata">India (IST)</option>
+                            <option value="Asia/Singapore">Singapore (SGT)</option>
+                            <option value="Australia/Sydney">Sydney (AET)</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div className="pt-4 flex gap-3">

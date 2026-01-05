@@ -17,6 +17,8 @@ import {
     Receipt,
     Split,
     Loader2,
+    Zap,
+    TrendingUp,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { MenuItemType, OrderItem } from "@/types/pos";
@@ -54,6 +56,7 @@ function OrdersPageContent() {
 
     const [categories, setCategories] = useState<string[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
+    const [pricingRules, setPricingRules] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
@@ -101,6 +104,12 @@ function OrdersPageContent() {
                 if (finalCategories.length > 0) {
                     setSelectedCategory(finalCategories[0]);
                 }
+
+                // Fetch active pricing rules
+                const { data: rules } = await supabase.rpc('get_active_pricing_rules', {
+                    p_location_id: currentLocation.id
+                });
+                setPricingRules(rules || []);
             } catch (error) {
                 console.error("Error fetching menu data:", error);
                 toast.error("Failed to load menu");
@@ -141,6 +150,39 @@ function OrdersPageContent() {
     const availableItems = menuItems.filter(
         (item) => (item.category?.name || "Uncategorized") === selectedCategory
     );
+
+    // Dynamic Pricing Logic
+    const getAdjustedPrice = (item: MenuItemType) => {
+        let adjustedPrice = item.price;
+        let appliedRule: any = null;
+
+        for (const rule of pricingRules) {
+            const appliesToCategory = (rule.category_ids || []).length === 0 || rule.category_ids.includes(item.category_id);
+            if (appliesToCategory) {
+                appliedRule = rule;
+                if (rule.rule_type === 'surge') {
+                    if (rule.discount_type === 'percentage') {
+                        adjustedPrice += (item.price * rule.value) / 100;
+                    } else {
+                        adjustedPrice += rule.value;
+                    }
+                } else {
+                    if (rule.discount_type === 'percentage') {
+                        adjustedPrice -= (item.price * rule.value) / 100;
+                    } else {
+                        adjustedPrice -= rule.value;
+                    }
+                }
+                break;
+            }
+        }
+
+        return {
+            price: Math.max(0, adjustedPrice),
+            isAdjusted: appliedRule !== null,
+            ruleType: appliedRule?.rule_type
+        };
+    };
 
     const handleAddToOrder = (item: MenuItemType, notesList: string[], selectedModifiers: { name: string; price: number; type: 'add-on' | 'upsell' | 'side' }[]) => {
         const notes = notesList.length > 0 ? notesList.join(", ") : undefined;
@@ -438,23 +480,51 @@ function OrdersPageContent() {
                             {availableItems.map((item) => (
                                 <button
                                     key={item.id}
-                                    onClick={() => !item.is_86d && setCustomizingItem(item)}
+                                    onClick={() => !item.is_86d && setCustomizingItem({
+                                        ...item,
+                                        price: getAdjustedPrice(item).price
+                                    })}
                                     disabled={item.is_86d}
                                     className={cn(
-                                        "card-interactive flex flex-col items-center justify-center p-4 text-center min-h-[100px] transition-all",
+                                        "card-interactive flex flex-col items-center justify-center p-4 text-center min-h-[100px] transition-all relative overflow-hidden",
                                         !item.is_86d && "active:scale-95",
-                                        item.is_86d && "opacity-50 cursor-not-allowed grayscale"
+                                        item.is_86d && "opacity-50 cursor-not-allowed grayscale",
+                                        getAdjustedPrice(item).isAdjusted && (
+                                            getAdjustedPrice(item).ruleType === 'surge'
+                                                ? "border-orange-500/50 bg-orange-500/5"
+                                                : "border-green-500/50 bg-green-500/5"
+                                        )
                                     )}
                                 >
+                                    {getAdjustedPrice(item).isAdjusted && (
+                                        <div className={cn(
+                                            "absolute top-0 right-0 p-1 rounded-bl-lg",
+                                            getAdjustedPrice(item).ruleType === 'surge' ? "bg-orange-500" : "bg-green-500"
+                                        )}>
+                                            {getAdjustedPrice(item).ruleType === 'surge' ? <TrendingUp className="h-3 w-3 text-white" /> : <Zap className="h-3 w-3 text-white" />}
+                                        </div>
+                                    )}
                                     <span className="font-medium text-sm md:text-base leading-tight">{item.name}</span>
                                     {item.is_86d ? (
                                         <span className="text-red-500 font-bold mt-2 uppercase text-xs tracking-wider">
                                             86&apos;d
                                         </span>
                                     ) : (
-                                        <span className="text-orange-400 font-bold mt-2">
-                                            {formatCurrency(item.price)}
-                                        </span>
+                                        <div className="mt-2 flex flex-col items-center">
+                                            <span className={cn(
+                                                "font-bold",
+                                                getAdjustedPrice(item).isAdjusted
+                                                    ? (getAdjustedPrice(item).ruleType === 'surge' ? "text-orange-400" : "text-green-400")
+                                                    : "text-orange-400"
+                                            )}>
+                                                {formatCurrency(getAdjustedPrice(item).price)}
+                                            </span>
+                                            {getAdjustedPrice(item).isAdjusted && (
+                                                <span className="text-[10px] text-slate-500 line-through">
+                                                    {formatCurrency(item.price)}
+                                                </span>
+                                            )}
+                                        </div>
                                     )}
                                 </button>
                             ))}
