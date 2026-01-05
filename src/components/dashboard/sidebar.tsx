@@ -254,7 +254,7 @@ export function DashboardSidebar() {
             </div>
 
             {/* Logout */}
-            <div className="p-4 border-t border-slate-800 space-y-4">
+            <div className={cn("p-4 border-t border-slate-800 space-y-4", !sidebarOpen && "px-2")}>
                 <ClockInOut />
                 <button
                     onClick={handleLogout}

@@ -35,6 +35,7 @@ export function ClockInOut() {
     const isOnBreak = useAppStore((state) => state.isOnBreak);
     const breakType = useAppStore((state) => state.breakType);
     const refreshClockStatus = useAppStore((state) => state.refreshClockStatus);
+    const sidebarOpen = useAppStore((state) => state.sidebarOpen);
 
     const supabase = createClient();
 
@@ -296,13 +297,16 @@ export function ClockInOut() {
                     "flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-300",
                     isClockedIn
                         ? "bg-green-500/10 border-green-500/50 text-green-400"
-                        : "bg-orange-500/10 border-orange-500/50 text-orange-400"
+                        : "bg-orange-500/10 border-orange-500/50 text-orange-400",
+                    !sidebarOpen && "px-3 py-3 rounded-xl border-none"
                 )}
             >
                 <Clock className={cn("h-4 w-4", isClockedIn && !isOnBreak && "animate-pulse")} />
-                <span className="text-sm font-bold">
-                    {isClockedIn ? (isOnBreak ? `On ${breakType}` : "In") : "Clock In"}
-                </span>
+                {sidebarOpen && (
+                    <span className="text-sm font-bold">
+                        {isClockedIn ? (isOnBreak ? `On ${breakType}` : "In") : "Clock In"}
+                    </span>
+                )}
             </button>
 
             {/* Modal */}

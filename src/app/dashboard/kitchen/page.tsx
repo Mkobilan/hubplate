@@ -260,7 +260,7 @@ export default function KitchenPage() {
     }, [currentLocation?.id]);
 
     useEffect(() => {
-        const timeInterval = setInterval(() => setNow(new Date()), 60000);
+        const timeInterval = setInterval(() => setNow(new Date()), 1000);
 
         // Robust Polling: Runs every 10s, checks Ref (doesn't depend on state stability)
         const pollInterval = setInterval(() => {
