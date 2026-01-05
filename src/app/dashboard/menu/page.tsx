@@ -302,6 +302,20 @@ export default function MenuPage() {
                                         key={item.id}
                                         item={item}
                                         onEdit={() => setEditingItem(item)}
+                                        onToggle86d={async () => {
+                                            try {
+                                                const { error } = await supabase
+                                                    .from("menu_items")
+                                                    .update({ is_86d: !item.is_86d })
+                                                    .eq("id", item.id);
+                                                if (error) throw error;
+                                                toast.success(item.is_86d ? "Item marked available" : "Item marked 86'd");
+                                                fetchMenuData();
+                                            } catch (error) {
+                                                console.error("Error toggling 86d:", error);
+                                                toast.error("Failed to update item status");
+                                            }
+                                        }}
                                         isEditing={isEditingMenu}
                                         isSelected={selectedItems.has(item.id)}
                                         onSelect={(id) => {
@@ -400,12 +414,14 @@ export default function MenuPage() {
 function MenuItemCard({
     item,
     onEdit,
+    onToggle86d,
     isEditing,
     isSelected,
     onSelect
 }: {
     item: MenuItemType;
     onEdit?: () => void;
+    onToggle86d?: () => void;
     isEditing?: boolean;
     isSelected?: boolean;
     onSelect?: (id: string) => void;
@@ -482,13 +498,43 @@ function MenuItemCard({
                         >
                             Edit Item
                         </button>
-                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800">
+                        <button
+                            onClick={() => {
+                                onToggle86d?.();
+                                setMenuOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800"
+                        >
                             {item.is_86d ? "Mark Available" : "Mark 86'd"}
                         </button>
-                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800">
+                        <Link
+                            href={`/dashboard/menu/add-ons?itemId=${item.id}`}
+                            className="block w-full px-4 py-2 text-left text-sm hover:bg-slate-800"
+                        >
                             Manage Add Ons
-                        </button>
-                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800 text-red-400">
+                        </Link>
+                        <button
+                            onClick={async () => {
+                                if (!confirm("Are you sure you want to delete this item?")) return;
+                                try {
+                                    const { error } = await supabase
+                                        .from("menu_items")
+                                        .delete()
+                                        .eq("id", item.id);
+                                    if (error) throw error;
+                                    toast.success("Item deleted");
+                                    // We need a way to refresh the parent. Since we don't have it here directly, 
+                                    // we should probably pass a onDelete prop or just use window.location.reload()
+                                    // but handleToggle86d is already using fetchMenuData in the parent.
+                                    // Actually, I should probably pass onDelete too.
+                                    window.location.reload();
+                                } catch (error) {
+                                    console.error("Error deleting item:", error);
+                                    toast.error("Failed to delete item");
+                                }
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800 text-red-400"
+                        >
                             Delete Item
                         </button>
                     </div>

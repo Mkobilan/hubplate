@@ -139,7 +139,7 @@ function OrdersPageContent() {
     }, [currentLocation?.id, currentLocation?.tax_rate]);
 
     const availableItems = menuItems.filter(
-        (item) => (item.category?.name || "Uncategorized") === selectedCategory && !item.is_86d
+        (item) => (item.category?.name || "Uncategorized") === selectedCategory
     );
 
     const handleAddToOrder = (item: MenuItemType, notesList: string[], selectedModifiers: { name: string; price: number; type: 'add-on' | 'upsell' | 'side' }[]) => {
@@ -438,13 +438,24 @@ function OrdersPageContent() {
                             {availableItems.map((item) => (
                                 <button
                                     key={item.id}
-                                    onClick={() => setCustomizingItem(item)}
-                                    className="card-interactive flex flex-col items-center justify-center p-4 text-center min-h-[100px] active:scale-95 transition-transform"
+                                    onClick={() => !item.is_86d && setCustomizingItem(item)}
+                                    disabled={item.is_86d}
+                                    className={cn(
+                                        "card-interactive flex flex-col items-center justify-center p-4 text-center min-h-[100px] transition-all",
+                                        !item.is_86d && "active:scale-95",
+                                        item.is_86d && "opacity-50 cursor-not-allowed grayscale"
+                                    )}
                                 >
                                     <span className="font-medium text-sm md:text-base leading-tight">{item.name}</span>
-                                    <span className="text-orange-400 font-bold mt-2">
-                                        {formatCurrency(item.price)}
-                                    </span>
+                                    {item.is_86d ? (
+                                        <span className="text-red-500 font-bold mt-2 uppercase text-xs tracking-wider">
+                                            86&apos;d
+                                        </span>
+                                    ) : (
+                                        <span className="text-orange-400 font-bold mt-2">
+                                            {formatCurrency(item.price)}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                         </div>
