@@ -179,8 +179,9 @@ export default function LocationsPage() {
                         <div
                             key={location.id}
                             className={cn(
-                                "card transition-all",
-                                currentLocation?.id === location.id && "border-orange-500 shadow-lg shadow-orange-500/10"
+                                "card transition-all relative",
+                                currentLocation?.id === location.id && "border-orange-500 shadow-lg shadow-orange-500/10",
+                                activeDropdownId === location.id && "z-20"
                             )}
                         >
                             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
