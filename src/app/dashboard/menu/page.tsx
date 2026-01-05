@@ -304,8 +304,8 @@ export default function MenuPage() {
                                         onEdit={() => setEditingItem(item)}
                                         onToggle86d={async () => {
                                             try {
-                                                const { error } = await supabase
-                                                    .from("menu_items")
+                                                const { error } = await (supabase
+                                                    .from("menu_items") as any)
                                                     .update({ is_86d: !item.is_86d })
                                                     .eq("id", item.id);
                                                 if (error) throw error;
@@ -427,6 +427,7 @@ function MenuItemCard({
     onSelect?: (id: string) => void;
 }) {
     const [menuOpen, setMenuOpen] = useState(false);
+    const supabase = createClient();
 
     return (
         <div
@@ -517,8 +518,8 @@ function MenuItemCard({
                             onClick={async () => {
                                 if (!confirm("Are you sure you want to delete this item?")) return;
                                 try {
-                                    const { error } = await supabase
-                                        .from("menu_items")
+                                    const { error } = await (supabase
+                                        .from("menu_items") as any)
                                         .delete()
                                         .eq("id", item.id);
                                     if (error) throw error;
