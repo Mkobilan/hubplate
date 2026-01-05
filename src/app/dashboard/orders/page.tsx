@@ -50,6 +50,7 @@ function OrdersPageContent() {
     const [showSplitCheck, setShowSplitCheck] = useState(false);
     const [selectedSeat, setSelectedSeat] = useState(1);
     const [tableCapacity, setTableCapacity] = useState(4); // Default to 4
+    const [deliveryFee, setDeliveryFee] = useState(0);
 
     const [categories, setCategories] = useState<string[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
@@ -274,7 +275,7 @@ function OrdersPageContent() {
     );
     const taxRate = currentLocation?.tax_rate ?? 8.75;
     const tax = subtotal * (taxRate / 100);
-    const total = subtotal + tax;
+    const total = subtotal + tax + deliveryFee;
 
     const sendToKitchen = async () => {
         if (!currentLocation?.id || orderItems.length === 0) return;
@@ -316,6 +317,7 @@ function OrdersPageContent() {
                         order_type: orderType,
                         subtotal: subtotal,
                         tax: tax,
+                        delivery_fee: deliveryFee,
                         total: total,
                         items: itemsToSave
                     })
@@ -351,6 +353,7 @@ function OrdersPageContent() {
                         seat_number: orderType === "dine_in" ? selectedSeat : null,
                         subtotal,
                         tax,
+                        delivery_fee: deliveryFee,
                         total,
                         items: itemsToSave,
                         is_edited: true,
@@ -378,6 +381,7 @@ function OrdersPageContent() {
         setOrderType(order.order_type);
         setTableNumber(order.table_number || "");
         if (order.seat_number) setSelectedSeat(order.seat_number);
+        setDeliveryFee(order.delivery_fee || 0);
 
         if (order.items && Array.isArray(order.items)) {
             setOrderItems(order.items.map((i: any) => ({
@@ -645,6 +649,12 @@ function OrdersPageContent() {
                         <span>{t("pos.tax")} ({taxRate}%)</span>
                         <span>{formatCurrency(tax)}</span>
                     </div>
+                    {deliveryFee > 0 && (
+                        <div className="flex justify-between text-slate-400">
+                            <span>Delivery Fee</span>
+                            <span>{formatCurrency(deliveryFee)}</span>
+                        </div>
+                    )}
                     <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-700">
                         <span>{t("pos.total")}</span>
                         <span className="text-orange-400">{formatCurrency(total)}</span>

@@ -35,6 +35,8 @@ export default function CloseTicketModal({
     const [processingCash, setProcessingCash] = useState(false);
     const [tip, setTip] = useState<number>(0);
     const [showTipSelector, setShowTipSelector] = useState(false);
+    const [isCustomTip, setIsCustomTip] = useState(false);
+    const [customTipValue, setCustomTipValue] = useState("");
 
     // Loyalty
     const [showLoyalty, setShowLoyalty] = useState(false);
@@ -382,6 +384,8 @@ export default function CloseTicketModal({
                 .update({
                     payment_status: "paid",
                     payment_method: "cash",
+                    tip: tip,
+                    total: total + tip,
                     status: "completed",
                     completed_at: new Date().toISOString()
                 })
@@ -709,14 +713,18 @@ export default function CloseTicketModal({
                         {!paymentStatus && (
                             <div className="mb-6 animate-in fade-in slide-in-from-bottom-2">
                                 <p className="text-sm text-slate-400 mb-3 text-center">Add a tip?</p>
-                                <div className="grid grid-cols-4 gap-2 mb-4">
+                                <div className="grid grid-cols-5 gap-2 mb-4">
                                     {[0, 15, 18, 20].map(percent => {
                                         const tipAmount = percent === 0 ? 0 : Math.round(total * percent) / 100;
-                                        const isSelected = tip === tipAmount;
+                                        const isSelected = !isCustomTip && tip === tipAmount;
                                         return (
                                             <button
                                                 key={percent}
-                                                onClick={() => setTip(tipAmount)}
+                                                onClick={() => {
+                                                    setTip(tipAmount);
+                                                    setIsCustomTip(false);
+                                                    setCustomTipValue("");
+                                                }}
                                                 className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${isSelected
                                                     ? "bg-orange-500 border-orange-500 text-white"
                                                     : "bg-slate-800 border-slate-700 text-slate-300"
@@ -726,7 +734,34 @@ export default function CloseTicketModal({
                                             </button>
                                         );
                                     })}
+                                    <button
+                                        onClick={() => setIsCustomTip(true)}
+                                        className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${isCustomTip
+                                            ? "bg-orange-500 border-orange-500 text-white"
+                                            : "bg-slate-800 border-slate-700 text-slate-300"
+                                            }`}
+                                    >
+                                        Custom
+                                    </button>
                                 </div>
+                                {isCustomTip && (
+                                    <div className="relative animate-in fade-in slide-in-from-top-2 mb-4">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</div>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            className="w-full bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded-xl pl-7 pr-4 py-2 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                            value={customTipValue}
+                                            onChange={(e) => {
+                                                setCustomTipValue(e.target.value);
+                                                const val = parseFloat(e.target.value) || 0;
+                                                setTip(val);
+                                            }}
+                                            autoFocus
+                                        />
+                                    </div>
+                                )}
                                 <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 mb-6">
                                     <div className="flex justify-between text-sm text-slate-400 mb-1">
                                         <span>Order Total</span>

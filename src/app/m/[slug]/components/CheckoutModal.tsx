@@ -58,13 +58,25 @@ export default function CheckoutModal({
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
 
+    // Tip States
+    const [tipType, setTipType] = useState<"preset" | "custom" | "none">("none");
+    const [tipPercent, setTipPercent] = useState<number>(0);
+    const [customTip, setCustomTip] = useState<string>("");
+
     // Calculate totals
     const subtotal = cart.reduce((sum, item) => {
         const itemModifiersTotal = item.modifiers.reduce((m, mod) => m + mod.price, 0);
         return sum + (item.price + itemModifiersTotal) * item.quantity;
     }, 0);
     const tax = subtotal * (taxRate / 100);
-    const total = subtotal + tax + deliveryFee;
+
+    const tipAmount = tipType === "preset"
+        ? (subtotal * tipPercent) / 100
+        : tipType === "custom"
+            ? parseFloat(customTip) || 0
+            : 0;
+
+    const total = subtotal + tax + deliveryFee + tipAmount;
 
     const handleGetQuote = async () => {
         if (!deliveryAddress || deliveryAddress.length < 10) return;
@@ -125,6 +137,7 @@ export default function CheckoutModal({
                     })),
                     subtotal,
                     tax,
+                    tip: tipAmount,
                     total,
                     orderNotes: orderNotes.trim() || null,
                     customer: (name || phone || email) ? {
@@ -299,11 +312,87 @@ export default function CheckoutModal({
                                     <span>{formatCurrency(deliveryFee)}</span>
                                 </div>
                             )}
+                            {tipAmount > 0 && (
+                                <div className="flex justify-between text-sm text-orange-400">
+                                    <span>Tip</span>
+                                    <span>{formatCurrency(tipAmount)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-700 text-slate-100">
                                 <span>Total</span>
                                 <span className="text-orange-400">{formatCurrency(total)}</span>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Tip Selection */}
+                    <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+                        <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3">
+                            Add a Tip
+                        </h3>
+                        <div className="grid grid-cols-4 gap-2 mb-3">
+                            {[15, 18, 20].map((percent) => (
+                                <button
+                                    key={percent}
+                                    onClick={() => {
+                                        setTipType("preset");
+                                        setTipPercent(percent);
+                                        setCustomTip("");
+                                    }}
+                                    className={cn(
+                                        "py-2 px-1 rounded-lg border text-sm font-medium transition-all",
+                                        tipType === "preset" && tipPercent === percent
+                                            ? "bg-orange-500 border-orange-500 text-white shadow-lg"
+                                            : "bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500"
+                                    )}
+                                >
+                                    {percent}%
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => {
+                                    setTipType("custom");
+                                    setTipPercent(0);
+                                }}
+                                className={cn(
+                                    "py-2 px-1 rounded-lg border text-sm font-medium transition-all group",
+                                    tipType === "custom"
+                                        ? "bg-orange-500 border-orange-500 text-white shadow-lg"
+                                        : "bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500"
+                                )}
+                            >
+                                Custom
+                            </button>
+                        </div>
+
+                        {tipType === "custom" && (
+                            <div className="relative animate-in fade-in slide-in-from-top-2">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-xl pl-8 pr-4 py-2 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                    value={customTip}
+                                    onChange={(e) => setCustomTip(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                        )}
+
+                        <button
+                            onClick={() => {
+                                setTipType("none");
+                                setTipPercent(0);
+                                setCustomTip("");
+                            }}
+                            className={cn(
+                                "w-full mt-3 text-xs font-bold uppercase tracking-widest transition-colors",
+                                tipType === "none" ? "text-orange-500" : "text-slate-500 hover:text-slate-400"
+                            )}
+                        >
+                            No Tip
+                        </button>
                     </div>
 
                     {/* Order Notes */}

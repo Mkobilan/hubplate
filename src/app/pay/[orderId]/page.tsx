@@ -43,6 +43,8 @@ export default function PaymentPage() {
     const [availableRewards, setAvailableRewards] = useState<any[]>([]);
     const [appliedReward, setAppliedReward] = useState<any>(null);
     const [showLoyaltyField, setShowLoyaltyField] = useState(true);
+    const [isCustomTip, setIsCustomTip] = useState(false);
+    const [customTipValue, setCustomTipValue] = useState("");
 
     useEffect(() => {
         const fetchOrderAndCreatePayment = async () => {
@@ -336,24 +338,27 @@ export default function PaymentPage() {
                         <div className="flex justify-between text-xl font-bold text-slate-100 pt-2 border-t border-slate-700">
                             <span>Total</span>
                             <span className="text-orange-400">
-                                {formatCurrency(Math.max(0, (order?.total || 0) + (Number(order?.delivery_fee) || 0) + tip - currentDiscount))}
+                                {formatCurrency(Math.max(0, (Number(order?.subtotal) || 0) + (Number(order?.tax) || 0) + (Number(order?.delivery_fee) || 0) + tip - currentDiscount))}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Tip Selection */}
                 <div className="mb-6">
                     <p className="text-sm text-slate-400 mb-3">Add a tip?</p>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-5 gap-2 mb-3">
                         {[0, 15, 18, 20].map(percent => {
                             const tipAmount = percent === 0 ? 0 : Math.round((order?.subtotal || 0) * percent) / 100;
-                            const isSelected = tip === tipAmount;
+                            const isSelected = !isCustomTip && tip === tipAmount;
                             return (
                                 <button
                                     key={percent}
-                                    onClick={() => setTip(tipAmount)}
-                                    className={`py-2 px-3 rounded-lg border text-sm font-medium transition-all ${isSelected
+                                    onClick={() => {
+                                        setTip(tipAmount);
+                                        setIsCustomTip(false);
+                                        setCustomTipValue("");
+                                    }}
+                                    className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${isSelected
                                         ? "bg-orange-500 border-orange-500 text-white"
                                         : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
                                         }`}
@@ -362,7 +367,35 @@ export default function PaymentPage() {
                                 </button>
                             );
                         })}
+                        <button
+                            onClick={() => setIsCustomTip(true)}
+                            className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${isCustomTip
+                                ? "bg-orange-500 border-orange-500 text-white"
+                                : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
+                                }`}
+                        >
+                            Custom
+                        </button>
                     </div>
+
+                    {isCustomTip && (
+                        <div className="relative animate-in fade-in slide-in-from-top-2">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</div>
+                            <input
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                className="w-full bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded-xl pl-7 pr-4 py-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                value={customTipValue}
+                                onChange={(e) => {
+                                    setCustomTipValue(e.target.value);
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setTip(val);
+                                }}
+                                autoFocus
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Payment Form */}

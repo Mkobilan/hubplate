@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
             items,
             subtotal,
             tax,
+            tip,
             total,
             orderNotes,
             customer,
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
             status: 'pending',
             subtotal: subtotal,
             tax: tax,
+            tip: tip || 0,
             total: total,
             items: items.map((item: any) => ({
                 id: item.id || `item_${Math.random().toString(36).substr(2, 9)}`,

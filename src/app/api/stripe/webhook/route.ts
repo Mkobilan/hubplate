@@ -59,8 +59,9 @@ export async function POST(request: NextRequest) {
                     const subtotal = Number(order.subtotal) || 0;
                     const tax = Number(order.tax) || 0;
                     const discount = Number(order.discount) || 0;
+                    const deliveryFee = Number(order.delivery_fee) || 0;
 
-                    const baseTotalBeforeTip = subtotal + tax - discount;
+                    const baseTotalBeforeTip = subtotal + tax + deliveryFee - discount;
                     const derivedTip = Math.max(0, Number((stripeTotal - baseTotalBeforeTip).toFixed(2)));
 
                     console.log(`Stripe Total: ${stripeTotal}, Base Total: ${baseTotalBeforeTip}, Derived Tip: ${derivedTip}`);
