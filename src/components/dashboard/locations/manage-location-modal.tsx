@@ -208,6 +208,12 @@ export function ManageLocationModal({ isOpen, onClose, onSuccess, location }: Ma
                             <option value="America/Honolulu">Hawaii Time (HT)</option>
                             <option value="UTC">Coordinated Universal Time (UTC)</option>
                             <option value="Europe/London">London (GMT/BST)</option>
+                            <option value="Europe/Paris">Paris (CET/CEST)</option>
+                            <option value="Asia/Dubai">Dubai (GST)</option>
+                            <option value="Asia/Dhaka">Dhaka (BST - UTC+6)</option>
+                            <option value="Asia/Singapore">Singapore (SGT)</option>
+                            <option value="Asia/Tokyo">Tokyo (JST)</option>
+                            <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
                             <option value="Africa/Nairobi">Nairobi (EAT)</option>
                             <option value="Asia/Dubai">Dubai (GST)</option>
                             <option value="Asia/Kolkata">India (IST)</option>
