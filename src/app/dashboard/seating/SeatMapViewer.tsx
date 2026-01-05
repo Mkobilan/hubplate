@@ -298,15 +298,20 @@ export default function SeatMapViewer() {
     };
 
     const handleSitTable = async (partySize: number) => {
-        if (!selectedTable || !currentLocation || !currentEmployee) return;
+        console.log("SeatMapViewer: handleSitTable called", { partySize, selectedTableId: selectedTable?.id });
+        if (!selectedTable || !currentLocation) {
+            console.error("SeatMapViewer: Missing selectedTable or currentLocation", { selectedTable, currentLocation });
+            return;
+        }
 
         setActionLoading(true);
         try {
             const seatedEntry = seatedWaitlist.find(w => w.table_id === selectedTable.id);
+            console.log("SeatMapViewer: Existing seated entry?", seatedEntry);
 
             // Just update the waitlist entry to reflect the table choice if it came from the waitlist
             if (seatedEntry) {
-                await (supabaseRef.current
+                const { error } = await (supabaseRef.current
                     .from("waitlist") as any)
                     .update({
                         table_id: selectedTable.id,
@@ -314,8 +319,9 @@ export default function SeatMapViewer() {
                         status: 'seated'
                     })
                     .eq('id', seatedEntry.id);
+                if (error) throw error;
             } else {
-                await (supabaseRef.current
+                const { error } = await (supabaseRef.current
                     .from("waitlist") as any)
                     .insert({
                         location_id: currentLocation.id,
@@ -325,6 +331,7 @@ export default function SeatMapViewer() {
                         party_size: partySize,
                         seated_at: new Date().toISOString()
                     });
+                if (error) throw error;
             }
 
             toast.success(`Table ${selectedTable.label} seated with ${partySize} guests`);
