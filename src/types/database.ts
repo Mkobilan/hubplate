@@ -12,6 +12,61 @@ export type Json =
 export type Database = {
     public: {
         Tables: {
+            kds_screens: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    name: string;
+                    description: string | null;
+                    is_active: boolean;
+                    is_default: boolean;
+                    display_order: number;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    name: string;
+                    description?: string | null;
+                    is_active?: boolean;
+                    is_default?: boolean;
+                    display_order?: number;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    name?: string;
+                    description?: string | null;
+                    is_active?: boolean;
+                    is_default?: boolean;
+                    display_order?: number;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+            };
+            menu_item_kds_assignments: {
+                Row: {
+                    id: string;
+                    menu_item_id: string;
+                    kds_screen_id: string;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    menu_item_id: string;
+                    kds_screen_id: string;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    menu_item_id?: string;
+                    kds_screen_id?: string;
+                    created_at?: string;
+                };
+            };
             organizations: {
                 Row: {
                     id: string;

@@ -17,8 +17,10 @@ import {
     X,
     Layers,
     Sparkles,
-    FileUp
+    FileUp,
+    Monitor
 } from "lucide-react";
+import AssignToKdsModal from "./AssignToKdsModal";
 import { cn, formatCurrency } from "@/lib/utils";
 
 import { createClient } from "@/lib/supabase/client";
@@ -55,6 +57,7 @@ export default function MenuPage() {
     const [isEditingMenu, setIsEditingMenu] = useState(false);
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+    const [showKdsAssignModal, setShowKdsAssignModal] = useState(false);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
@@ -389,6 +392,7 @@ export default function MenuPage() {
                     selectedCount={selectedItems.size}
                     categories={categories}
                     onClear={() => setSelectedItems(new Set())}
+                    onAssignKds={() => setShowKdsAssignModal(true)}
                     onMove={async (categoryId) => {
                         try {
                             const { error } = await (supabase
@@ -404,6 +408,18 @@ export default function MenuPage() {
                             console.error("Error moving items:", error);
                             toast.error("Failed to move items");
                         }
+                    }}
+                />
+            )}
+
+            {/* KDS Assign Modal */}
+            {showKdsAssignModal && (
+                <AssignToKdsModal
+                    itemIds={Array.from(selectedItems)}
+                    onClose={() => setShowKdsAssignModal(false)}
+                    onSuccess={() => {
+                        fetchMenuData();
+                        setSelectedItems(new Set());
                     }}
                 />
             )}
@@ -1143,12 +1159,14 @@ function BulkActionBar({
     selectedCount,
     categories,
     onClear,
-    onMove
+    onMove,
+    onAssignKds
 }: {
     selectedCount: number;
     categories: Category[];
     onClear: () => void;
     onMove: (categoryId: string) => Promise<void>;
+    onAssignKds: () => void;
 }) {
     const [isMoving, setIsMoving] = useState(false);
     const [showCategoryList, setShowCategoryList] = useState(false);
@@ -1201,6 +1219,14 @@ function BulkActionBar({
                     </div>
 
                     <button
+                        onClick={onAssignKds}
+                        className="btn btn-secondary btn-sm rounded-full"
+                    >
+                        <Monitor className="h-4 w-4" />
+                        Map to KDS
+                    </button>
+
+                    <button
                         onClick={onClear}
                         className="p-2 text-slate-400 hover:text-slate-100 transition-colors"
                         title="Clear selection"
@@ -1208,8 +1234,8 @@ function BulkActionBar({
                         <X className="h-5 w-5" />
                     </button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
 
