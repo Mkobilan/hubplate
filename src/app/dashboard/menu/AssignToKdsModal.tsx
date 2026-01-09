@@ -60,8 +60,8 @@ export default function AssignToKdsModal({
 
         try {
             // First delete existing assignments for these items
-            const { error: deleteError } = await supabase
-                .from("menu_item_kds_assignments")
+            const { error: deleteError } = await (supabase
+                .from("menu_item_kds_assignments") as any)
                 .delete()
                 .in("menu_item_id", itemIds);
 
@@ -76,8 +76,8 @@ export default function AssignToKdsModal({
                     }))
                 );
 
-                const { error: insertError } = await supabase
-                    .from("menu_item_kds_assignments")
+                const { error: insertError } = await (supabase
+                    .from("menu_item_kds_assignments") as any)
                     .insert(assignments);
 
                 if (insertError) throw insertError;
