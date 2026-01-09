@@ -540,14 +540,24 @@ function OrdersPageContent() {
             {/* Order Section */}
             <div className="lg:w-96 flex flex-col bg-slate-900/50 rounded-xl border border-slate-800">
                 {/* Order Header */}
-                <div className="p-4 border-b border-slate-800">
-                    <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                            <h2 className="font-bold flex items-center gap-2">
-                                <LayoutList className="h-5 w-5 text-orange-500" />
-                                {activeOrderId ? `Order #${activeOrderId.slice(0, 4)}` : "New Order"}
+                <div className="p-3 border-b border-slate-800">
+                    <div className="flex flex-col gap-2">
+                        {/* Row 1: Order title, Order Type, and action buttons */}
+                        <div className="flex items-center justify-between gap-2">
+                            <h2 className="font-bold flex items-center gap-2 text-sm">
+                                <LayoutList className="h-4 w-4 text-orange-500" />
+                                {activeOrderId ? `#${activeOrderId.slice(0, 4)}` : "New Order"}
                             </h2>
-                            <div className="flex gap-2">
+                            <select
+                                value={orderType}
+                                onChange={(e) => setOrderType(e.target.value as any)}
+                                className="bg-slate-800 text-slate-100 text-xs font-bold px-2 py-1 rounded-lg border border-slate-700 outline-none focus:ring-1 focus:ring-orange-500"
+                            >
+                                <option value="dine_in">Dine In</option>
+                                <option value="takeout">Takeout</option>
+                                <option value="delivery">Delivery</option>
+                            </select>
+                            <div className="flex gap-1.5 ml-auto">
                                 {activeOrderId && (
                                     <button
                                         onClick={() => {
@@ -555,7 +565,7 @@ function OrdersPageContent() {
                                             setOrderItems([]);
                                             setTableNumber("5");
                                         }}
-                                        className="btn btn-secondary text-xs py-1"
+                                        className="btn btn-secondary text-xs py-0.5 px-2"
                                         title="Exit current ticket and start new"
                                     >
                                         New Order
@@ -563,58 +573,45 @@ function OrdersPageContent() {
                                 )}
                                 <button
                                     onClick={() => setShowMyTickets(true)}
-                                    className="btn btn-secondary text-xs py-1"
+                                    className="btn btn-secondary text-xs py-0.5 px-2"
                                 >
                                     My Tickets
                                 </button>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <select
-                                value={orderType}
-                                onChange={(e) => setOrderType(e.target.value as any)}
-                                className="bg-slate-800 text-slate-100 font-bold px-3 py-1 rounded-lg border border-slate-700 outline-none focus:ring-1 focus:ring-orange-500"
-                            >
-                                <option value="dine_in">Dine In</option>
-                                <option value="takeout">Takeout</option>
-                                <option value="delivery">Delivery</option>
-                            </select>
-                            <div className="flex items-center gap-2 text-sm text-slate-400">
-                                <Clock className="h-4 w-4" />
-                                <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <div className="flex items-center gap-1 text-xs text-slate-400">
+                                    <Clock className="h-3 w-3" />
+                                    <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
                             </div>
                         </div>
 
+                        {/* Row 2: Table + Active Seats (for dine-in) */}
                         {orderType === "dine_in" && (
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <span className="text-sm font-semibold text-slate-400 uppercase tracking-wider">{t("pos.table")}</span>
-                                    <input
-                                        type="text"
-                                        value={tableNumber}
-                                        onChange={(e) => setTableNumber(e.target.value)}
-                                        className="w-16 bg-slate-900 rounded-md border border-slate-700 px-2 py-1 text-center font-bold text-orange-400 focus:border-orange-500 outline-none transition-all"
-                                        placeholder="?"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold px-1">Active Seat</label>
-                                    <div className="flex gap-1 overflow-x-auto pb-1">
-                                        {[...Array(tableCapacity)].map((_, i) => (
-                                            <button
-                                                key={i + 1}
-                                                onClick={() => setSelectedSeat(i + 1)}
-                                                className={cn(
-                                                    "min-w-[40px] h-10 rounded-lg border font-bold transition-all",
-                                                    selectedSeat === i + 1
-                                                        ? "bg-orange-500 border-orange-400 text-white shadow-lg shadow-orange-500/20"
-                                                        : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
-                                                )}
-                                            >
-                                                {i + 1}
-                                            </button>
-                                        ))}
-                                    </div>
+                            <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t("pos.table")}</span>
+                                <input
+                                    type="text"
+                                    value={tableNumber}
+                                    onChange={(e) => setTableNumber(e.target.value)}
+                                    className="w-12 bg-slate-900 rounded-md border border-slate-700 px-2 py-0.5 text-center text-sm font-bold text-orange-400 focus:border-orange-500 outline-none transition-all"
+                                    placeholder="?"
+                                />
+                                <div className="h-4 w-px bg-slate-700" />
+                                <span className="text-[10px] text-slate-500 uppercase font-bold">Seat</span>
+                                <div className="flex gap-1 overflow-x-auto">
+                                    {[...Array(tableCapacity)].map((_, i) => (
+                                        <button
+                                            key={i + 1}
+                                            onClick={() => setSelectedSeat(i + 1)}
+                                            className={cn(
+                                                "min-w-[28px] h-7 rounded-md border text-sm font-bold transition-all",
+                                                selectedSeat === i + 1
+                                                    ? "bg-orange-500 border-orange-400 text-white shadow-lg shadow-orange-500/20"
+                                                    : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                                            )}
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         )}
@@ -721,51 +718,51 @@ function OrdersPageContent() {
                 </div>
 
                 {/* Totals */}
-                <div className="p-4 border-t border-slate-800 space-y-2">
-                    <div className="flex justify-between text-slate-400">
+                <div className="px-3 py-2 border-t border-slate-800 space-y-0.5">
+                    <div className="flex justify-between text-xs text-slate-400">
                         <span>{t("pos.subtotal")}</span>
                         <span>{formatCurrency(subtotal)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-xs text-slate-400">
                         <span>{t("pos.tax")} ({taxRate}%)</span>
                         <span>{formatCurrency(tax)}</span>
                     </div>
                     {deliveryFee > 0 && (
-                        <div className="flex justify-between text-slate-400">
+                        <div className="flex justify-between text-xs text-slate-400">
                             <span>Delivery Fee</span>
                             <span>{formatCurrency(deliveryFee)}</span>
                         </div>
                     )}
-                    <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-700">
+                    <div className="flex justify-between text-base font-bold pt-1 border-t border-slate-700">
                         <span>{t("pos.total")}</span>
                         <span className="text-orange-400">{formatCurrency(total)}</span>
                     </div>
                 </div>
 
                 {/* Actions */}
-                <div className="p-4 border-t border-slate-800 space-y-2">
+                <div className="px-3 py-2 border-t border-slate-800 space-y-1.5">
                     <button
                         onClick={sendToKitchen}
                         disabled={orderItems.length === 0}
-                        className="btn btn-primary w-full py-3 text-lg"
+                        className="btn btn-primary w-full py-2 text-sm"
                     >
-                        <Send className="h-5 w-5" />
+                        <Send className="h-4 w-4" />
                         {t("pos.sendToKitchen")}
                     </button>
                     <button
                         onClick={() => setShowCloseTicket(true)}
                         disabled={!activeOrderId}
-                        className="btn btn-secondary w-full py-3 text-lg"
+                        className="btn btn-secondary w-full py-2 text-sm"
                     >
-                        <Receipt className="h-5 w-5" />
+                        <Receipt className="h-4 w-4" />
                         Close Ticket
                     </button>
                     {activeOrderId && orderItems.length > 0 && (
                         <button
                             onClick={() => setShowSplitCheck(true)}
-                            className="btn btn-secondary w-full py-3 text-lg border-2 border-dashed border-orange-500/30 hover:border-orange-500/60"
+                            className="btn btn-secondary w-full py-2 text-sm border-2 border-dashed border-orange-500/30 hover:border-orange-500/60"
                         >
-                            <Split className="h-5 w-5 text-orange-500" />
+                            <Split className="h-4 w-4 text-orange-500" />
                             Split Check
                         </button>
                     )}
