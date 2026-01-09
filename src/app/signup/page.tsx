@@ -169,7 +169,7 @@ export default function SignupPage() {
                 {/* Logo */}
                 <div className="flex items-center justify-center gap-3 mb-8">
                     <div className="p-3 bg-orange-500/20 rounded-2xl">
-                        <ChefHat className="h-10 w-10 text-orange-500" />
+                        <img src="/logo.png" alt="HubPlate" className="h-10 w-10 object-contain" />
                     </div>
                     <span className="text-3xl font-bold gradient-text">HubPlate</span>
                 </div>
