@@ -49,7 +49,9 @@ export default function HomePage() {
               <span className="text-5xl font-black tracking-tighter gradient-text mb-6 drop-shadow-2xl">HubPlate</span>
               <div className="relative group">
                 <div className="absolute -inset-4 bg-orange-500/20 rounded-3xl blur-xl group-hover:bg-orange-500/30 transition-all duration-700" />
-                <img src="/logo.png" alt="HubPlate Logo" className="relative h-48 w-48 object-contain" />
+                <div className="relative h-48 w-48 bg-orange-500/20 rounded-3xl overflow-hidden shadow-2xl">
+                  <img src="/logo.png" alt="HubPlate Logo" className="h-full w-full object-cover" />
+                </div>
               </div>
             </div>
 
@@ -364,8 +366,8 @@ export default function HomePage() {
       <footer className="mt-auto py-12 px-4 border-t border-slate-900 bg-slate-950">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3">
-            <div className="p-1 px-2 border border-orange-500/20 rounded">
-              <img src="/logo.png" alt="HubPlate" className="h-8 shadow-lg" />
+            <div className="h-10 w-10 bg-orange-500/20 rounded-xl overflow-hidden flex-shrink-0">
+              <img src="/logo.png" alt="HubPlate" className="h-full w-full object-cover" />
             </div>
             <span className="text-2xl font-black tracking-tighter">HubPlate</span>
           </div>

@@ -168,8 +168,8 @@ export default function SignupPage() {
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="flex items-center justify-center gap-3 mb-8">
-                    <div className="p-3 bg-orange-500/20 rounded-2xl">
-                        <img src="/logo.png" alt="HubPlate" className="h-10 w-10 object-contain" />
+                    <div className="h-16 w-16 bg-orange-500/20 rounded-2xl overflow-hidden">
+                        <img src="/logo.png" alt="HubPlate" className="h-full w-full object-cover" />
                     </div>
                     <span className="text-3xl font-bold gradient-text">HubPlate</span>
                 </div>

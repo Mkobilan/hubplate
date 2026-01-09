@@ -204,7 +204,9 @@ export function DashboardSidebar() {
             {/* Logo */}
             <div className="flex items-center justify-between px-4 py-5 border-b border-slate-800">
                 <div className="flex items-center gap-2">
-                    <img src="/logo.png" alt="HubPlate" className="h-8 w-8 object-contain" />
+                    <div className="h-10 w-10 bg-orange-500/20 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src="/logo.png" alt="HubPlate" className="h-full w-full object-cover" />
+                    </div>
                     {sidebarOpen && (
                         <span className="text-xl font-bold gradient-text">HubPlate</span>
                     )}
