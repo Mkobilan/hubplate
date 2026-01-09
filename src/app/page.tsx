@@ -289,7 +289,7 @@ export default function HomePage() {
                   <div>
                     <h3 className="text-4xl font-black mb-4">Professional Plan</h3>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-8xl font-black text-white">$49</span>
+                      <span className="text-8xl font-black text-white">$99</span>
                       <span className="text-2xl text-slate-500 font-medium">/mo per location</span>
                     </div>
                     <p className="mt-6 text-orange-400 font-bold uppercase tracking-widest text-lg">Every Single Feature Included</p>
