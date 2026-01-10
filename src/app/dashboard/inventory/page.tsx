@@ -680,16 +680,6 @@ export default function InventoryPage() {
                                 <ChevronRight className="h-4 w-4 text-slate-600" />
                             </Link>
                             <Link
-                                href="/dashboard/inventory/linker"
-                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Link2 className="h-4 w-4 text-blue-400" />
-                                    <span>Ingredient Linker</span>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-slate-600" />
-                            </Link>
-                            <Link
                                 href="/dashboard/inventory/waste"
                                 className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
                             >
