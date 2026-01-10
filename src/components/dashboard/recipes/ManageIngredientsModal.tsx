@@ -87,8 +87,8 @@ export default function ManageIngredientsModal({
         setLoading(true);
         const supabase = createClient();
         try {
-            const { error } = await supabase
-                .from("recipe_ingredients")
+            const { error } = await (supabase
+                .from("recipe_ingredients") as any)
                 .update({
                     inventory_item_id: inventoryItem.id,
                     unit: inventoryItem.unit // Auto-update unit to match inventory
@@ -126,8 +126,8 @@ export default function ManageIngredientsModal({
         setLoading(true);
         const supabase = createClient();
         try {
-            const { error } = await supabase
-                .from("recipe_ingredients")
+            const { error } = await (supabase
+                .from("recipe_ingredients") as any)
                 .update({
                     inventory_item_id: null
                 })

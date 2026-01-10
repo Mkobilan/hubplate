@@ -152,14 +152,14 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
             };
 
             if (isEditing && recipeId) {
-                const { error: updateError } = await supabase
-                    .from("recipes")
+                const { error: updateError } = await (supabase
+                    .from("recipes") as any)
                     .update(recipeData)
                     .eq("id", recipeId);
                 if (updateError) throw updateError;
             } else {
-                const { data: newRecipe, error: createError } = await supabase
-                    .from("recipes")
+                const { data: newRecipe, error: createError } = await (supabase
+                    .from("recipes") as any)
                     .insert(recipeData)
                     .select()
                     .single();
