@@ -6,27 +6,35 @@ import {
     ChefHat,
     Plus,
     Search,
-    Link2,
     BookOpen,
-    Upload,
-    MoreVertical,
-    Edit2,
     Trash2,
+    CheckCircle,
+    XCircle,
+    Eye,
+    ChevronRight,
+    Edit2,
+    Link2,
+    Upload,
     Activity,
     AlertCircle,
     Loader2,
     CheckSquare,
     Square,
     X,
+    MoreVertical,
+    Check
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+import { cleanIngredientName, isInstructionalNoise } from "@/lib/csv/csvUtils";
 import CreateRecipeModal from "@/components/dashboard/recipes/CreateRecipeModal";
 import RecipeCSVUploadModal from "@/components/dashboard/recipes/RecipeCSVUploadModal";
 import PourTracker from "@/components/dashboard/recipes/PourTracker";
+import LinkMenuItemModal from "@/components/dashboard/recipes/LinkMenuItemModal";
+import DeleteRecipeModal from "@/components/dashboard/recipes/DeleteRecipeModal";
 import type { Database } from "@/types/database";
 
 type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
@@ -62,6 +70,10 @@ export default function RecipesPage() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [recipeToDelete, setRecipeToDelete] = useState<RecipeWithDetails | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Link Menu Item Modal
+    const [showLinkModal, setShowLinkModal] = useState(false);
+    const [recipeToLink, setRecipeToLink] = useState<RecipeWithDetails | null>(null);
 
     // Sync ingredients state
     const [isSyncing, setIsSyncing] = useState(false);
@@ -99,12 +111,13 @@ export default function RecipesPage() {
             if (error) throw error;
             setRecipes(data || []);
         } catch (err: any) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             console.error("Error fetching recipes:", err);
             toast.error("Failed to load recipes");
         } finally {
             setLoading(false);
         }
-    }, [currentLocation?.id]);
+    }, [currentLocation]);
 
     useEffect(() => {
         fetchRecipes();
@@ -163,16 +176,19 @@ export default function RecipesPage() {
                 : Array.from(selectedRecipes);
 
             // Delete recipe ingredients first (cascade should handle this but let's be explicit)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (supabase.from("recipe_ingredients") as any)
                 .delete()
                 .in("recipe_id", idsToDelete);
 
             // Delete recipe menu item links
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (supabase.from("recipe_menu_items") as any)
                 .delete()
                 .in("recipe_id", idsToDelete);
 
             // Delete the recipes
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { error } = await (supabase.from("recipes") as any)
                 .delete()
                 .in("id", idsToDelete);
@@ -251,16 +267,16 @@ export default function RecipesPage() {
             let matchedCount = 0;
             let failedUpdates = 0;
 
-            const cleanRegex = (str: string) => {
-                return str.toLowerCase()
-                    .replace(/^[\d\s./-]+\s*(oz|ml|cl|tsp|tbsp|dash|dashes|drop|drops|splash|barspoon|part|parts|cup|g|kg|lb)?\s+/i, '')
-                    .replace(/\s+\d+\s*(ml|l|oz|cl|g|kg|lb|units|unit|pk|pack|btl|bottle|btls)?$/i, '')
-                    .trim();
-            };
+            console.log(`Syncing ${unmatchedIngredients.length} unmatched ingredients against ${inventoryItems.length} inventory items.`);
+            if (inventoryItems.length < 10) {
+                console.log("Inventory items sample:", (inventoryItems as InventoryItem[]).map((i: InventoryItem) => i.name));
+            }
 
             for (const ing of unmatchedIngredients as RecipeIngredient[]) {
                 const rawName = ing.ingredient_name?.trim() || "";
-                const cleanedName = cleanRegex(rawName);
+                const cleanedName = cleanIngredientName(rawName) || rawName.toLowerCase();
+
+                console.log(`Checking ingredient: "${rawName}" -> Cleaned: "${cleanedName}"`);
 
                 // Strategy 1: Exact Match (Case-insensitive)
                 let match = (inventoryItems as InventoryItem[]).find(item =>
@@ -283,6 +299,7 @@ export default function RecipesPage() {
                 }
 
                 if (match) {
+                    console.log(`✅ MATCH FOUND for "${rawName}": ${match.name}`);
                     // Update the ingredient with the inventory item link
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const { error: updateError } = await (supabase
@@ -308,6 +325,7 @@ export default function RecipesPage() {
             } else {
                 toast.error("No matches found. Check that ingredient names exist in inventory.");
             }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             console.error("Error syncing ingredients:", err);
             toast.error("Failed to sync ingredients");
@@ -507,6 +525,18 @@ export default function RecipesPage() {
                                                                 Edit Recipe
                                                             </Link>
                                                             <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setRecipeToLink(recipe);
+                                                                    setShowLinkModal(true);
+                                                                    setOpenDropdownId(null);
+                                                                }}
+                                                                className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-blue-400 hover:bg-slate-800 transition-colors"
+                                                            >
+                                                                <Link2 className="h-4 w-4" />
+                                                                Link Menu Item
+                                                            </button>
+                                                            <button
                                                                 onClick={() => handleDeleteRecipe(recipe)}
                                                                 className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-red-400 hover:bg-red-500/10 transition-colors"
                                                             >
@@ -543,16 +573,29 @@ export default function RecipesPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Link2 className="h-3.5 w-3.5 text-blue-400" />
-                                                    <span className="text-xs text-slate-400">
-                                                        {recipe.recipe_menu_items?.length || 0} Linked Items
-                                                    </span>
+                                            <div className="pt-4 border-t border-slate-800 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Activity className={cn(
+                                                            "h-3.5 w-3.5",
+                                                            recipe.recipe_ingredients?.every(ri => ri.inventory_item_id || isInstructionalNoise(ri.ingredient_name || ""))
+                                                                ? "text-green-400"
+                                                                : "text-orange-400"
+                                                        )} />
+                                                        <span className="text-xs text-slate-400">
+                                                            {recipe.recipe_ingredients?.filter(ri => ri.inventory_item_id).length || 0} / {recipe.recipe_ingredients?.filter(ri => !isInstructionalNoise(ri.ingredient_name || "")).length || 0} Matched
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Link2 className="h-3.5 w-3.5 text-blue-400" />
+                                                        <span className="text-xs text-slate-400">
+                                                            {recipe.recipe_menu_items?.length || 0} Linked Menu Items
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <Link href={`/dashboard/recipes/${recipe.id}`} className="btn btn-secondary !py-1 !px-3 text-xs">
-                                                        Details
+                                                    <Link href={`/dashboard/recipes/${recipe.id}`} className="btn btn-secondary w-full !py-2 text-xs">
+                                                        View Details
                                                     </Link>
                                                 </div>
                                             </div>
@@ -581,49 +624,29 @@ export default function RecipesPage() {
             )}
 
             {/* Delete Confirmation Modal */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="card w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl">
-                        <div className="p-6 text-center">
-                            <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-                                <Trash2 className="h-8 w-8 text-red-500" />
-                            </div>
-                            <h3 className="text-xl font-bold mb-2">
-                                {recipeToDelete
-                                    ? `Delete &quot;${recipeToDelete.name}&quot;?`
-                                    : `Delete ${selectedRecipes.size} Recipes?`
-                                }
-                            </h3>
-                            <p className="text-slate-400 text-sm mb-6">
-                                This action cannot be undone. All associated ingredients and menu links will also be removed.
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => {
-                                        setShowDeleteModal(false);
-                                        setRecipeToDelete(null);
-                                    }}
-                                    className="btn btn-secondary flex-1"
-                                    disabled={isDeleting}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={confirmDelete}
-                                    disabled={isDeleting}
-                                    className="btn bg-red-600 hover:bg-red-700 text-white border-none flex-1"
-                                >
-                                    {isDeleting ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        "Delete"
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DeleteRecipeModal
+                isOpen={showDeleteModal}
+                onClose={() => {
+                    setShowDeleteModal(false);
+                    setRecipeToDelete(null);
+                }}
+                onConfirm={confirmDelete}
+                recipeName={recipeToDelete?.name || ""}
+                isDeleting={isDeleting}
+            />
+
+            {/* Link Menu Item Modal */}
+            <LinkMenuItemModal
+                isOpen={showLinkModal}
+                onClose={() => {
+                    setShowLinkModal(false);
+                    setRecipeToLink(null);
+                }}
+                recipeId={recipeToLink?.id || null}
+                recipeName={recipeToLink?.name}
+                locationId={currentLocation.id}
+                onLinkComplete={fetchRecipes}
+            />
 
             <CreateRecipeModal
                 isOpen={showCreateModal}
@@ -638,6 +661,7 @@ export default function RecipesPage() {
                 locationId={currentLocation.id}
                 onComplete={fetchRecipes}
             />
+
         </div>
     );
 }

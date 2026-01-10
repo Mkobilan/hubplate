@@ -8,6 +8,7 @@ interface AppState {
     currentLocation: Location | null;
     currentEmployee: Employee | null;
     isOrgOwner: boolean;
+    isSessionChecked: boolean;
     isOnline: boolean;
 
     // Cached data
@@ -20,6 +21,7 @@ interface AppState {
 
     // Clock-in state
     isClockedIn: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     activeEntry: any | null;
     isOnBreak: boolean;
     breakType: string | null;
@@ -39,19 +41,23 @@ interface AppState {
     setLanguage: (lang: string) => void;
     toggleSidebar: () => void;
     setIsOrgOwner: (isOwner: boolean) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setClockStatus: (status: { isClockedIn: boolean; activeEntry: any | null; isOnBreak: boolean; breakType: string | null }) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     refreshClockStatus: (supabase: any, employeeId: string) => Promise<void>;
     reset: () => void;
 
     // Terminal actions
     setTerminalMode: (enabled: boolean) => void;
     setTerminalLocked: (locked: boolean) => void;
+    setSessionChecked: (checked: boolean) => void;
 }
 
 const initialState = {
     currentLocation: null,
     currentEmployee: null,
     isOrgOwner: false,
+    isSessionChecked: false,
     isOnline: true,
     menuItems: [],
     activeOrders: [],
@@ -100,6 +106,7 @@ export const useAppStore = create<AppState>()(
 
             refreshClockStatus: async (supabase, employeeId) => {
                 if (!employeeId) return;
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { data, error } = await supabase
                     .from("time_entries")
                     .select("*")
@@ -112,7 +119,9 @@ export const useAppStore = create<AppState>()(
                     set({
                         isClockedIn: true,
                         activeEntry: data[0],
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         isOnBreak: !!(data[0] as any).current_break_start,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         breakType: (data[0] as any).current_break_type,
                     });
                 } else {
@@ -129,6 +138,8 @@ export const useAppStore = create<AppState>()(
 
             setTerminalLocked: (locked) => set({ isTerminalLocked: locked }),
 
+            setSessionChecked: (checked: boolean) => set({ isSessionChecked: checked }),
+
             reset: () => set(initialState),
         }),
         {
@@ -139,6 +150,7 @@ export const useAppStore = create<AppState>()(
                 sidebarOpen: state.sidebarOpen,
                 currentLocation: state.currentLocation,
                 currentEmployee: state.currentEmployee,
+                isOrgOwner: state.isOrgOwner,
                 isTerminalMode: state.isTerminalMode,
             }),
         }

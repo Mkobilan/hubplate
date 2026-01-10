@@ -12,6 +12,7 @@ export function SessionHandler() {
     const currentLocation = useAppStore((state) => state.currentLocation);
     const setCurrentLocation = useAppStore((state) => state.setCurrentLocation);
     const setIsOrgOwner = useAppStore((state) => state.setIsOrgOwner);
+    const setSessionChecked = useAppStore((state) => state.setSessionChecked);
     const router = useRouter();
 
     useEffect(() => {
@@ -37,7 +38,7 @@ export function SessionHandler() {
             // ------------------------------------
 
             // 1. Check if user is an organization owner
-            setIsOrgOwner(false);
+            // setIsOrgOwner(false); // REMOVED: Don't flip state to false while re-validating if we have persisted state
             const { data: orgData } = await supabase
                 .from("organizations")
                 .select("*")
@@ -193,6 +194,9 @@ export function SessionHandler() {
                     .maybeSingle();
                 if (loc) setCurrentLocation(loc);
             }
+
+            // --- SESSION CHECK COMPLETE ---
+            setSessionChecked(true);
         };
 
         // Initial fetch

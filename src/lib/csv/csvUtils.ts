@@ -762,11 +762,67 @@ function parseDate(dateStr: string): string | null {
 }
 
 /**
+ * Force-cleans an ingredient name for matching purposes.
+ * Strips quantities, units, fractions, and parenthetical notes.
+ * Handles both prefix (1 oz Vodka) and suffix (Vodka 1oz) formats.
+ */
+export function cleanIngredientName(name: string): string {
+    if (!name) return "";
+
+    return name.toLowerCase()
+        // 1. Remove parenthetical notes: "Vodka (Premium)" -> "Vodka"
+        .replace(/\s*\([^)]*\)\s*/g, ' ')
+        // 2. Remove common qty+unit from START: "1.5 oz Tequila" -> "Tequila"
+        // Handles fractions like "1/2" or "1 1/2"
+        .replace(/^[\d\s./-]+\s*(oz|ml|cl|tsp|tbsp|dash|dashes|drop|drops|splash|barspoon|part|parts|cup|g|kg|lb)?\s+/i, ' ')
+        // 3. Remove common qty+unit from END: "Tequila 1.5oz" -> "Tequila"
+        .replace(/\s+[\d\s./-]+\s*(ml|l|oz|cl|g|kg|lb|units|unit|pk|pack|btl|bottle|btls)?$/i, ' ')
+        // 4. Remove standalone units at the end if they survived: "Tequila oz" -> "Tequila"
+        .replace(/\s+(oz|ml|cl|tsp|tbsp|dash|dashes|drop|drops|splash|barspoon|part|parts|cup|g|kg|lb)$/i, '')
+        // 5. Clean up any leftover symbols or multiple spaces
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        // 6. Final safety: remove stray trailing punctuation that might have survived
+        .replace(/[):,.-]+$/g, '')
+        .trim();
+}
+
+/**
+ * Checks if a string is likely instructional noise rather than an actual ingredient.
+ */
+export function isInstructionalNoise(name: string): boolean {
+    if (!name) return false;
+    const lower = name.toLowerCase().trim();
+    const blacklist = [
+        "top up",
+        "muddle",
+        "optional",
+        "express oils",
+        "combine",
+        "shake",
+        "stir",
+        "strain",
+        "garnish",
+        "pour",
+        "express",
+        "variation"
+    ];
+
+    // Check if the string perfectly matches or heavily features these words with little else
+    return blacklist.some(word => {
+        if (lower === word) return true;
+        if (lower === word + ")") return true;
+        if (lower.length < word.length + 5 && lower.includes(word)) return true;
+        return false;
+    });
+}
+
+/**
  * Parse ingredients string into structured data
  * Supports multiple formats:
  * - Pipe-separated: "Tequila|2|oz;Lime Juice|1|oz"
  * - Colon-separated: "Grenadine Syrup: 0.33 oz, Angostura Bitters: 1 dash"
- * - Natural language: "2oz Tequila, 1oz Lime Juice"
+ * - Natural language: "2oz Tequila, 1oz Lime Juice, Vodka 1.5oz"
  * - Simple list: "Tequila, Lime Juice, Agave"
  */
 export function parseIngredients(ingredientsStr: string): ParsedIngredient[] {
@@ -792,28 +848,33 @@ export function parseIngredients(ingredientsStr: string): ParsedIngredient[] {
     }
 
     // Try colon-separated format: "Grenadine Syrup: 0.33 oz" or "Item: qty unit"
-    // Check if the format looks like "Name: quantity unit"
-    const colonPattern = /^([^:]+):\s*([\d.]+)\s*(.*)$/;
+    const colonPattern = /^([^:]+):\s*([\d./]+)\s*(.*)$/;
     const parts = ingredientsStr.split(/[,;]/).map(s => s.trim()).filter(Boolean);
 
-    // Check if most parts have colons - if so, use colon format
     const colonCount = parts.filter(p => colonPattern.test(p)).length;
     if (colonCount > 0 && colonCount >= parts.length / 2) {
         for (const part of parts) {
             const match = part.match(colonPattern);
             if (match) {
                 const [, name, qtyStr, unitRest] = match;
-                // Clean up unit - remove parenthetical notes like "(Garnish)"
+                // Handle fractions in quantity
+                let qty = 1;
+                if (qtyStr.includes("/")) {
+                    const [num, den] = qtyStr.split("/").map(Number);
+                    qty = num / den;
+                } else {
+                    qty = parseFloat(qtyStr) || 1;
+                }
+
                 const unit = unitRest.replace(/\s*\([^)]*\)\s*/g, '').trim() || "unit";
                 ingredients.push({
                     name: name.trim(),
-                    quantity: parseFloat(qtyStr) || 1,
+                    quantity: qty,
                     unit
                 });
             } else {
-                // Just a name with no quantity
                 ingredients.push({
-                    name: part.replace(/:\s*$/, '').trim(), // Remove trailing colon if any
+                    name: part.replace(/:\s*$/, '').trim(),
                     quantity: 1,
                     unit: "unit"
                 });
@@ -822,21 +883,30 @@ export function parseIngredients(ingredientsStr: string): ParsedIngredient[] {
         return ingredients;
     }
 
-    // Try natural language format: "2oz Tequila, 1.5oz Lime Juice"
-    // Pattern: optional quantity + optional unit + name
-    const qtyUnitPattern = /^([\d.]+)\s*([a-zA-Z]+)?\s+(.+)$/;
+    // Natural language format: "2oz Tequila", "Vodka 1.5oz", etc.
+    // Try both directions
+    const prefixPattern = /^([\d.\s/]+)\s*([a-zA-Z]+)?\s+(.+)$/;
+    const suffixPattern = /^(.+?)\s+([\d.\s/]+)\s*([a-zA-Z]+)?$/;
 
     for (const part of parts) {
-        const match = part.match(qtyUnitPattern);
-        if (match) {
-            const [, qtyStr, unit, name] = match;
+        const prefixMatch = part.match(prefixPattern);
+        const suffixMatch = part.match(suffixPattern);
+
+        if (prefixMatch) {
+            const [, qtyStr, unit, name] = prefixMatch;
             ingredients.push({
                 name: name.trim(),
-                quantity: parseFloat(qtyStr) || 1,
+                quantity: evalFraction(qtyStr),
+                unit: unit || "unit"
+            });
+        } else if (suffixMatch) {
+            const [, name, qtyStr, unit] = suffixMatch;
+            ingredients.push({
+                name: name.trim(),
+                quantity: evalFraction(qtyStr),
                 unit: unit || "unit"
             });
         } else {
-            // Just a name with no quantity
             ingredients.push({
                 name: part.trim(),
                 quantity: 1,
@@ -846,6 +916,28 @@ export function parseIngredients(ingredientsStr: string): ParsedIngredient[] {
     }
 
     return ingredients;
+}
+
+/**
+ * Safely evaluates a fraction string (e.g. "1 1/2" or "0.5")
+ */
+function evalFraction(str: string): number {
+    if (!str) return 1;
+    const s = str.trim();
+    if (s.includes("/")) {
+        const parts = s.split(/\s+/);
+        if (parts.length === 2) {
+            // "1 1/2"
+            const whole = parseFloat(parts[0]);
+            const [num, den] = parts[1].split("/").map(Number);
+            return whole + (num / den);
+        } else {
+            // "1/2"
+            const [num, den] = s.split("/").map(Number);
+            return num / den;
+        }
+    }
+    return parseFloat(s) || 1;
 }
 
 /**

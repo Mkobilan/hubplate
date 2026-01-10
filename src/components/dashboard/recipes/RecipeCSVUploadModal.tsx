@@ -25,7 +25,8 @@ import {
     type AIFieldMappingSuggestion,
     type RecipeFieldKey,
     type ParsedRecipe,
-    transformCSVToRecipes
+    transformCSVToRecipes,
+    cleanIngredientName
 } from "@/lib/csv/csvUtils";
 import type { Database } from "@/types/database";
 
@@ -221,13 +222,6 @@ export default function RecipeCSVUploadModal({
                 .select("id, name")
                 .eq("location_id", locationId);
 
-            const cleanRegex = (str: string) => {
-                return str.toLowerCase()
-                    .replace(/^[\d\s./-]+\s*(oz|ml|cl|tsp|tbsp|dash|dashes|drop|drops|splash|barspoon|part|parts|cup|g|kg|lb)?\s+/i, '')
-                    .replace(/\s+\d+\s*(ml|l|oz|cl|g|kg|lb|units|unit|pk|pack|btl|bottle|btls)?$/i, '')
-                    .trim();
-            };
-
             for (const recipe of parsedRecipes) {
                 // Skip recipes with critical validation errors
                 if (!recipe.name || recipe.validation_errors.some(e => e.column === "name")) {
@@ -268,7 +262,9 @@ export default function RecipeCSVUploadModal({
 
                             if (inventoryItems && inventoryItems.length > 0) {
                                 const rawName = ing.name.trim();
-                                const cleanedName = cleanRegex(rawName);
+                                const cleanedName = cleanIngredientName(rawName) || rawName.toLowerCase();
+
+                                console.log(`[Import] Matching: "${rawName}" -> Cleaned: "${cleanedName}"`);
 
                                 // Strategy 1: Exact Match
                                 let match = inventoryItems.find((item: InventoryItem) =>
@@ -291,7 +287,10 @@ export default function RecipeCSVUploadModal({
                                 }
 
                                 if (match) {
+                                    console.log(`[Import] ✅ MATCH FOUND for "${rawName}": ${match.name}`);
                                     inventoryItemId = match.id;
+                                } else {
+                                    console.log(`[Import] ❌ NO MATCH for "${rawName}" (Cleaned: "${cleanedName}")`);
                                 }
                             }
 

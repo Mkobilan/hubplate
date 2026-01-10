@@ -23,6 +23,9 @@ import { toast } from "react-hot-toast";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import LinkMenuItemModal from "@/components/dashboard/recipes/LinkMenuItemModal";
+import { useAppStore } from "@/stores";
+import { isInstructionalNoise } from "@/lib/csv/csvUtils";
 
 export default function RecipeDetailsPage() {
     const params = useParams();
@@ -30,6 +33,8 @@ export default function RecipeDetailsPage() {
     const { t } = useTranslation();
     const [recipe, setRecipe] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const currentLocation = useAppStore((state) => state.currentLocation);
+    const [showLinkModal, setShowLinkModal] = useState(false);
 
     const fetchRecipe = useCallback(async () => {
         if (!id) return;
@@ -168,7 +173,7 @@ export default function RecipeDetailsPage() {
                                             <td className="py-4">
                                                 <div className="font-medium">{ri.inventory_items?.name || ri.ingredient_name}</div>
                                                 <div className="text-[10px] text-slate-600 uppercase tracking-tighter">
-                                                    {ri.inventory_item_id ? "Inventory Item" : "Manual Entry"}
+                                                    {ri.inventory_item_id ? "Inventory Item" : (isInstructionalNoise(ri.ingredient_name) ? "Instructional Step" : "Manual Entry")}
                                                 </div>
                                             </td>
                                             <td className="py-4 font-mono text-sm text-slate-300">
@@ -183,7 +188,11 @@ export default function RecipeDetailsPage() {
                                             </td>
                                             <td className="py-4 text-right">
                                                 {!ri.inventory_item_id ? (
-                                                    <span className="badge bg-slate-800 text-slate-400 text-[10px]">Unlinked</span>
+                                                    isInstructionalNoise(ri.ingredient_name) ? (
+                                                        <span className="badge bg-slate-800/50 text-slate-500 text-[10px]">Instruction</span>
+                                                    ) : (
+                                                        <span className="badge bg-orange-500/10 text-orange-400 text-[10px]">Unlinked</span>
+                                                    )
                                                 ) : ri.inventory_items?.stock_quantity <= 0 ? (
                                                     <span className="badge badge-danger text-[10px]">86'd</span>
                                                 ) : ri.inventory_items?.stock_quantity < 10 ? (
@@ -206,9 +215,13 @@ export default function RecipeDetailsPage() {
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-lg font-bold flex items-center gap-2">
                                 <Link2 className="h-5 w-5 text-blue-500" />
-                                Linked Items
+                                Linked Menu Items
                             </h3>
-                            <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-500" title="Link more items">
+                            <button
+                                onClick={() => setShowLinkModal(true)}
+                                className="p-2 hover:bg-slate-800 rounded-lg text-slate-500"
+                                title="Link more items"
+                            >
                                 <Plus className="h-4 w-4" />
                             </button>
                         </div>
@@ -257,6 +270,15 @@ export default function RecipeDetailsPage() {
                     </div>
                 </div>
             </div>
+            {/* Link Menu Item Modal */}
+            <LinkMenuItemModal
+                isOpen={showLinkModal}
+                onClose={() => setShowLinkModal(false)}
+                recipeId={id}
+                recipeName={recipe?.name}
+                locationId={currentLocation?.id || ""}
+                onLinkComplete={fetchRecipe}
+            />
         </div>
     );
 }

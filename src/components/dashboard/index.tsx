@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "@/stores";
 import { cn } from "@/lib/utils";
 import { DashboardSidebar } from "./sidebar";
@@ -35,13 +35,28 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const isOrgOwner = useAppStore((state) => state.isOrgOwner);
     const isTerminalMode = useAppStore((state) => state.isTerminalMode);
+    const isSessionChecked = useAppStore((state) => state.isSessionChecked);
 
     const isManager = isTerminalMode
         ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
         : (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
 
     const isRestrictedPath = RESTRICTED_PATHS.some(path => pathname.startsWith(path));
-    const isUnauthorized = isRestrictedPath && !isManager;
+
+    const [isHydrated, setIsHydrated] = useState(false);
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setIsHydrated(true);
+    }, []);
+
+    // Wait for hydration AND session check before showing Access Denied.
+    // This gives SessionHandler time to re-validate the session with Supabase.
+    // We trust persisted isManager state during the check to prevent flickers.
+    const isUnauthorized = isRestrictedPath && !isManager && isHydrated && isSessionChecked;
+
+    // Optional: Add a small delay or check for 'isHydrated' if using zustand persist
+    // For now, if we have NO employee and NOT an owner, but we ARE logged into Supabase (checked by SessionHandler),
+    // we just let it render everything first.
 
     if (isUnauthorized) {
         return (
@@ -60,7 +75,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                         <div className="space-y-2">
                             <h1 className="text-2xl font-bold text-slate-100">Access Denied</h1>
                             <p className="text-slate-400">
-                                You don't have permission to access this page. Please contact your manager if you believe this is an error.
+                                You don&apos;t have permission to access this page. Please contact your manager if you believe this is an error.
                             </p>
                         </div>
                         <button
