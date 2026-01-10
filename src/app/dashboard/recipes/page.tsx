@@ -77,6 +77,8 @@ export default function RecipesPage() {
 
     // Sync ingredients state
     const [isSyncing, setIsSyncing] = useState(false);
+    // Sync menu state
+    const [isSyncingMenu, setIsSyncingMenu] = useState(false);
 
     const fetchRecipes = useCallback(async () => {
         if (!currentLocation) return;
@@ -334,6 +336,94 @@ export default function RecipesPage() {
         }
     };
 
+    const handleSyncMenu = async () => {
+        if (!currentLocation) return;
+        setIsSyncingMenu(true);
+        const supabase = createClient();
+
+        try {
+            // 1. Get all recipes for this location
+            // We want to find recipes that DO NOT have any recipe_menu_items
+            // But Supabase doesn't support complex "does not exist" in one query easily with the typed client
+            // So we fetch all recipes and filter in memory or check the `recipe_menu_items` count from the join we already have
+            // To ensure we have fresh data, let's fetch strictly ID and name and existing links
+
+            const { data: recipesData, error: recipesError } = await supabase
+                .from("recipes")
+                .select(`
+                    id,
+                    name,
+                    recipe_menu_items (
+                        menu_item_id
+                    )
+                `)
+                .eq("location_id", currentLocation.id);
+
+            if (recipesError) throw recipesError;
+
+            // Filter for unlinked recipes
+            const unlinkedRecipes = recipesData?.filter(r => r.recipe_menu_items.length === 0) || [];
+
+            if (unlinkedRecipes.length === 0) {
+                toast.success("All recipes are already linked to menu items!");
+                setIsSyncingMenu(false);
+                return;
+            }
+
+            // 2. Fetch all menu items for matching
+            const { data: menuItems, error: menuError } = await supabase
+                .from("menu_items")
+                .select("id, name")
+                .eq("location_id", currentLocation.id);
+
+            if (menuError) throw menuError;
+
+            if (!menuItems || menuItems.length === 0) {
+                toast.error("No menu items found to match against.");
+                setIsSyncingMenu(false);
+                return;
+            }
+
+            let matchCount = 0;
+            const newLinks: Database["public"]["Tables"]["recipe_menu_items"]["Insert"][] = [];
+
+            // 3. Match logic
+            for (const recipe of unlinkedRecipes) {
+                const recipeName = recipe.name.trim().toLowerCase();
+
+                // Try Exact Match (Case insensitive)
+                let match = menuItems.find(item => item.name.trim().toLowerCase() === recipeName);
+
+                if (match) {
+                    newLinks.push({
+                        recipe_id: recipe.id,
+                        menu_item_id: match.id
+                    });
+                    matchCount++;
+                }
+            }
+
+            if (matchCount > 0) {
+                const { error: insertError } = await supabase
+                    .from("recipe_menu_items")
+                    .insert(newLinks);
+
+                if (insertError) throw insertError;
+
+                toast.success(`Successfully linked ${matchCount} recipes to menu items!`);
+                fetchRecipes(); // Refresh
+            } else {
+                toast.success("No matching menu items found for unlinked recipes.");
+            }
+
+        } catch (error) {
+            console.error("Error syncing menu items:", error);
+            toast.error("Failed to sync menu items");
+        } finally {
+            setIsSyncingMenu(false);
+        }
+    };
+
     if (!currentLocation) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -389,6 +479,15 @@ export default function RecipesPage() {
                             >
                                 <Link2 className="h-4 w-4" />
                                 {isSyncing ? "Syncing..." : "Sync Ingredients"}
+                            </button>
+                            <button
+                                onClick={handleSyncMenu}
+                                disabled={isSyncingMenu}
+                                className="btn btn-secondary"
+                                title="Link recipes to matching menu items"
+                            >
+                                <Link2 className="h-4 w-4" />
+                                {isSyncingMenu ? "Syncing..." : "Sync Menu"}
                             </button>
                             <button
                                 onClick={() => setShowCreateModal(true)}

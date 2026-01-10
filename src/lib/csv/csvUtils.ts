@@ -830,21 +830,68 @@ export function parseIngredients(ingredientsStr: string): ParsedIngredient[] {
 
     const ingredients: ParsedIngredient[] = [];
 
-    // Try pipe-separated format first: "Item|Qty|Unit;Item|Qty|Unit"
+    // Try pipe-separated list of items: "Item:Qty|Item:Qty" (User's format)
+    // Example: "Ground Beef:0.5 lb|Hamburger Buns:1|Cheddar Cheese:2 oz"
     if (ingredientsStr.includes("|")) {
-        const parts = ingredientsStr.split(";").map(s => s.trim()).filter(Boolean);
-        for (const part of parts) {
-            const [name, qtyStr, unit] = part.split("|").map(s => s.trim());
-            if (name) {
-                const qty = parseFloat(qtyStr) || 1;
-                ingredients.push({
-                    name,
-                    quantity: qty,
-                    unit: unit || "unit"
-                });
+        // Check if it's the specific format "Name:Qty|Name:Qty"
+        // If splitting by | gives us parts that look like "Name:Value", treat | as proper separator
+        const pipeParts = ingredientsStr.split("|").map(s => s.trim()).filter(Boolean);
+        const hasColons = pipeParts.every(p => p.includes(":") || /^\d/.test(p) === false); // Heuristic: mostly strings with colons
+
+        if (hasColons && pipeParts.length > 1) {
+            const ingredients: ParsedIngredient[] = [];
+            for (const part of pipeParts) {
+                // Parse "Name:Qty Unit" or "Name:Qty"
+                const colonMatch = part.match(/^([^:]+):\s*(.+)$/);
+                if (colonMatch) {
+                    const [, name, qtyPart] = colonMatch;
+                    // qtyPart might be "0.5 lb" or "1"
+                    const qtyMatch = qtyPart.trim().match(/^([\d./]+)\s*(.*)$/);
+                    if (qtyMatch) {
+                        const [, qtyStr, unit] = qtyMatch;
+                        ingredients.push({
+                            name: name.trim(),
+                            quantity: evalFraction(qtyStr),
+                            unit: unit?.trim() || "unit"
+                        });
+                    } else {
+                        // Just name and maybe funky matching
+                        ingredients.push({
+                            name: name.trim(),
+                            quantity: 1,
+                            unit: "unit"
+                        });
+                    }
+                } else {
+                    // Fallback for "Item Name" without colon in a pipe list
+                    ingredients.push({
+                        name: part.trim(),
+                        quantity: 1,
+                        unit: "unit"
+                    });
+                }
             }
+            if (ingredients.length > 0) return ingredients;
         }
-        return ingredients;
+
+        // Fallback to original logic: "Item|Qty|Unit;Item|Qty|Unit"
+        // Only if we see semicolons, OR if the split parts look like fields
+        if (ingredientsStr.includes(";")) {
+            const parts = ingredientsStr.split(";").map(s => s.trim()).filter(Boolean);
+            const ingredients: ParsedIngredient[] = [];
+            for (const part of parts) {
+                const [name, qtyStr, unit] = part.split("|").map(s => s.trim());
+                if (name) {
+                    const qty = parseFloat(qtyStr) || 1;
+                    ingredients.push({
+                        name,
+                        quantity: qty,
+                        unit: unit || "unit"
+                    });
+                }
+            }
+            return ingredients;
+        }
     }
 
     // Try colon-separated format: "Grenadine Syrup: 0.33 oz" or "Item: qty unit"

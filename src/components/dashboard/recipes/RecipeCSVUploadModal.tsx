@@ -88,86 +88,119 @@ export default function RecipeCSVUploadModal({
         onClose();
     };
 
-    const handleFileSelect = (file: File) => {
-        if (!file.name.endsWith(".csv")) {
-            setError("Please upload a CSV file");
+    const handleFileSelect = async (file: File) => {
+        const isCSV = file.name.toLowerCase().endsWith(".csv");
+        const isPDF = file.name.toLowerCase().endsWith(".pdf");
+
+        if (!isCSV && !isPDF) {
+            setError("Please upload a CSV or PDF file");
             return;
         }
 
         setLoading(true);
         setError(null);
 
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: async (results) => {
-                if (results.meta.fields && results.meta.fields.length > 0) {
-                    const headers = results.meta.fields;
-                    setCsvData(results.data as Record<string, string>[]);
-                    setStep("mapping");
+        if (isPDF) {
+            // Handle PDF Upload
+            try {
+                setStep("importing"); // Temporary loading state or custom "parsing" state
+                const formData = new FormData();
+                formData.append("file", file);
 
-                    // Initialize with basic auto-mapping
-                    const initialMappings: FieldMapping[] = headers.map(header => {
-                        const h = header.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        let target: RecipeFieldKey | "skip" = "skip";
+                const response = await fetch("/api/ai/parse-pdf-recipe", {
+                    method: "POST",
+                    body: formData
+                });
 
-                        if (h === 'name' || h === 'recipe' || h === 'cocktail' || h === 'drink' || h === 'title') target = 'name';
-                        else if (h === 'description' || h === 'desc' || h === 'about') target = 'description';
-                        else if (h === 'instructions' || h === 'steps' || h === 'method' || h === 'directions') target = 'instructions';
-                        else if (h === 'ingredients' || h === 'items' || h === 'components') target = 'ingredients';
-
-                        return {
-                            csvColumn: header,
-                            targetField: target
-                        };
-                    });
-                    setMappings(initialMappings);
-
-                    // Get AI suggestions
-                    setIsLoadingAI(true);
-                    try {
-                        const response = await fetch("/api/ai/csv-mapping", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                headers,
-                                sampleData: results.data.slice(0, 5),
-                                type: "recipe"
-                            })
-                        });
-
-                        if (response.ok) {
-                            const { suggestions } = await response.json();
-                            setAiSuggestions(suggestions);
-
-                            setMappings(prev => prev.map(m => {
-                                const s = suggestions.find((suggest: AIFieldMappingSuggestion) => suggest.csvColumn === m.csvColumn);
-                                if (s && s.confidence > 0.7 && s.suggestedField !== "skip") {
-                                    return {
-                                        ...m,
-                                        targetField: s.suggestedField as RecipeFieldKey,
-                                        customFieldName: s.customFieldName,
-                                        customFieldLabel: s.customFieldLabel
-                                    };
-                                }
-                                return m;
-                            }));
-                        }
-                    } catch (err) {
-                        console.error("AI Mapping failed", err);
-                    } finally {
-                        setIsLoadingAI(false);
-                    }
-                } else {
-                    setError("Could not find headers in CSV");
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || "Failed to parse PDF");
                 }
-                setLoading(false);
-            },
-            error: (err) => {
-                setError("Error parsing CSV: " + err.message);
+
+                const { recipes } = await response.json();
+                setParsedRecipes(recipes);
+                setStep("preview");
+            } catch (err: unknown) {
+                const error = err as Error;
+                setError("Error parsing PDF: " + error.message);
+                setStep("upload");
+            } finally {
                 setLoading(false);
             }
-        });
+        } else {
+            // Handle CSV Upload (Existing Logic)
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async (results) => {
+                    if (results.meta.fields && results.meta.fields.length > 0) {
+                        const headers = results.meta.fields;
+                        setCsvData(results.data as Record<string, string>[]);
+                        setStep("mapping");
+
+                        // Initialize with basic auto-mapping
+                        const initialMappings: FieldMapping[] = headers.map(header => {
+                            const h = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            let target: RecipeFieldKey | "skip" = "skip";
+
+                            if (h === 'name' || h === 'recipe' || h === 'cocktail' || h === 'drink' || h === 'title') target = 'name';
+                            else if (h === 'description' || h === 'desc' || h === 'about') target = 'description';
+                            else if (h === 'instructions' || h === 'steps' || h === 'method' || h === 'directions') target = 'instructions';
+                            else if (h === 'ingredients' || h === 'items' || h === 'components') target = 'ingredients';
+
+                            return {
+                                csvColumn: header,
+                                targetField: target
+                            };
+                        });
+                        setMappings(initialMappings);
+
+                        // Get AI suggestions
+                        setIsLoadingAI(true);
+                        try {
+                            const response = await fetch("/api/ai/csv-mapping", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    headers,
+                                    sampleData: results.data.slice(0, 5),
+                                    type: "recipe"
+                                })
+                            });
+
+                            if (response.ok) {
+                                const { suggestions } = await response.json();
+                                setAiSuggestions(suggestions);
+
+                                setMappings(prev => prev.map(m => {
+                                    const s = suggestions.find((suggest: AIFieldMappingSuggestion) => suggest.csvColumn === m.csvColumn);
+                                    if (s && s.confidence > 0.7 && s.suggestedField !== "skip") {
+                                        return {
+                                            ...m,
+                                            targetField: s.suggestedField as RecipeFieldKey,
+                                            customFieldName: s.customFieldName,
+                                            customFieldLabel: s.customFieldLabel
+                                        };
+                                    }
+                                    return m;
+                                }));
+                            }
+                        } catch (err) {
+                            console.error("AI Mapping failed", err);
+                        } finally {
+                            setIsLoadingAI(false);
+                        }
+                    } else {
+                        setError("Could not find headers in CSV");
+                    }
+                    setLoading(false);
+                },
+                error: (err) => {
+                    setError("Error parsing CSV: " + err.message);
+                    setLoading(false);
+                }
+            });
+        }
     };
 
     const handleDrop = useCallback((e: React.DragEvent) => {
@@ -219,6 +252,12 @@ export default function RecipeCSVUploadModal({
             // 0. Fetch all inventory items once for efficient matching
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data: inventoryItems } = await (supabase.from("inventory_items") as any)
+                .select("id, name")
+                .eq("location_id", locationId);
+
+            // 0b. Fetch all menu items for auto-linking
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: menuItems } = await (supabase.from("menu_items") as any)
                 .select("id, name")
                 .eq("location_id", locationId);
 
@@ -305,6 +344,24 @@ export default function RecipeCSVUploadModal({
                             };
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             await (supabase.from("recipe_ingredients") as any).insert(ingredientData);
+                        }
+                    }
+
+                    // 3. Auto-link Menu Items (New Feature)
+                    if (createdRecipe && menuItems && menuItems.length > 0) {
+                        const recipeName = finalRecipeName.trim().toLowerCase();
+                        // Try Exact Match (Case insensitive)
+                        const match = menuItems.find((item: { id: string; name: string }) =>
+                            item.name.trim().toLowerCase() === recipeName
+                        );
+
+                        if (match) {
+                            console.log(`[Import] ✅ MENU MATCH FOUND for "${finalRecipeName}": ${match.name}`);
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            await (supabase.from("recipe_menu_items") as any).insert({
+                                recipe_id: createdRecipe.id,
+                                menu_item_id: match.id
+                            });
                         }
                     }
 
@@ -442,7 +499,7 @@ export default function RecipeCSVUploadModal({
                                 <input
                                     type="file"
                                     ref={fileInputRef}
-                                    accept=".csv"
+                                    accept=".csv,.pdf"
                                     className="hidden"
                                     onChange={(e) => {
                                         const file = e.target.files?.[0];
@@ -454,12 +511,12 @@ export default function RecipeCSVUploadModal({
                                     isDragging ? "text-orange-500" : "text-slate-500"
                                 )} />
                                 <p className="text-lg font-medium mb-2">
-                                    {isDragging ? "Drop your CSV file here" : "Drag & drop your CSV file"}
+                                    {isDragging ? "Drop your recipe file here" : "Drag & drop your CSV or PDF"}
                                 </p>
                                 <p className="text-sm text-slate-500 mb-4">or click to browse</p>
                                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-lg text-sm text-slate-400">
                                     <Upload className="w-4 h-4" />
-                                    Select CSV File
+                                    Select File
                                 </div>
                             </div>
 

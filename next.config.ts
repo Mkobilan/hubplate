@@ -11,6 +11,17 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  serverExternalPackages: ["pdf-parse"],
+  /* eslint-disable @typescript-eslint/ban-ts-comment */
+  // @ts-ignore
+  /* eslint-disable @typescript-eslint/ban-ts-comment */
+  // @ts-ignore
+  webpack: (config) => {
+    config.externals = [...(config.externals || []), { canvas: "canvas" }];
+    return config;
+  },
+  experimental: {
+  }
 };
 
 export default nextConfig;
