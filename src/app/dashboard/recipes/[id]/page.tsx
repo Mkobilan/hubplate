@@ -24,8 +24,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import LinkMenuItemModal from "@/components/dashboard/recipes/LinkMenuItemModal";
+import CreateRecipeModal from "@/components/dashboard/recipes/CreateRecipeModal";
+import ManageIngredientsModal from "@/components/dashboard/recipes/ManageIngredientsModal";
+import DeleteRecipeModal from "@/components/dashboard/recipes/DeleteRecipeModal";
 import { useAppStore } from "@/stores";
 import { isInstructionalNoise } from "@/lib/csv/csvUtils";
+import { useRouter } from "next/navigation";
 
 export default function RecipeDetailsPage() {
     const params = useParams();
@@ -35,6 +39,10 @@ export default function RecipeDetailsPage() {
     const [loading, setLoading] = useState(true);
     const currentLocation = useAppStore((state) => state.currentLocation);
     const [showLinkModal, setShowLinkModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showManageIngredientsModal, setShowManageIngredientsModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const router = useRouter();
 
     const fetchRecipe = useCallback(async () => {
         if (!id) return;
@@ -155,7 +163,12 @@ export default function RecipeDetailsPage() {
                                 <Package className="h-5 w-5 text-pink-500" />
                                 Ingredients & Inventory
                             </h3>
-                            <button className="btn btn-secondary !py-1 !px-3 text-xs">Manage Ingredients</button>
+                            <button
+                                onClick={() => setShowManageIngredientsModal(true)}
+                                className="btn btn-secondary !py-1 !px-3 text-xs"
+                            >
+                                Manage Ingredients
+                            </button>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
@@ -252,14 +265,20 @@ export default function RecipeDetailsPage() {
                     <div className="card">
                         <h3 className="text-lg font-bold mb-6">Actions</h3>
                         <div className="space-y-2">
-                            <button className="btn btn-secondary w-full justify-between">
+                            <button
+                                onClick={() => setShowEditModal(true)}
+                                className="btn btn-secondary w-full justify-between"
+                            >
                                 <div className="flex items-center gap-2">
                                     <Edit2 className="h-4 w-4" />
                                     Edit Recipe
                                 </div>
                                 <ChevronRight className="h-4 w-4" />
                             </button>
-                            <button className="btn btn-secondary w-full justify-between text-red-400 hover:text-red-300">
+                            <button
+                                onClick={() => setShowDeleteModal(true)}
+                                className="btn btn-secondary w-full justify-between text-red-400 hover:text-red-300"
+                            >
                                 <div className="flex items-center gap-2">
                                     <Trash2 className="h-4 w-4" />
                                     Delete Recipe
@@ -278,6 +297,52 @@ export default function RecipeDetailsPage() {
                 recipeName={recipe?.name}
                 locationId={currentLocation?.id || ""}
                 onLinkComplete={fetchRecipe}
+            />
+
+            {/* Edit Recipe Modal */}
+            {recipe && (
+                <CreateRecipeModal
+                    isOpen={showEditModal}
+                    onClose={() => setShowEditModal(false)}
+                    locationId={currentLocation?.id || ""}
+                    onComplete={fetchRecipe}
+                    recipe={recipe}
+                />
+            )}
+
+            {/* Manage Ingredients Modal */}
+            {recipe && (
+                <ManageIngredientsModal
+                    isOpen={showManageIngredientsModal}
+                    onClose={() => setShowManageIngredientsModal(false)}
+                    locationId={currentLocation?.id || ""}
+                    recipeId={recipe.id}
+                    recipeName={recipe.name}
+                    onComplete={fetchRecipe}
+                />
+            )}
+
+            {/* Delete Recipe Modal */}
+            <DeleteRecipeModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                recipeName={recipe?.name || ""}
+                onConfirm={async () => {
+                    // Delete logic here or use the modal's internal logic if it has one?
+                    // Checking DeleteRecipeModal usage in recipes/page.tsx: it takes isDeleting and onConfirm props.
+                    // I need to implement the delete call here.
+                    const supabase = createClient();
+                    try {
+                        await supabase.from("recipes").delete().eq("id", recipe.id);
+                        toast.success("Recipe deleted");
+                        router.push("/dashboard/recipes");
+                    } catch (err) {
+                        console.error("Error deleting recipe:", err);
+                        toast.error("Failed to delete recipe");
+                    }
+                }}
+                isDeleting={false} // We handle loading inside onConfirm usually, but DeleteRecipeModal might expect prop?
+            // Wait, typically onConfirm handles the async op.
             />
         </div>
     );

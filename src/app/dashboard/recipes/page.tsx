@@ -32,7 +32,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { cleanIngredientName, isInstructionalNoise } from "@/lib/csv/csvUtils";
 import CreateRecipeModal from "@/components/dashboard/recipes/CreateRecipeModal";
 import RecipeCSVUploadModal from "@/components/dashboard/recipes/RecipeCSVUploadModal";
-import PourTracker from "@/components/dashboard/recipes/PourTracker";
+// PourTracker removed - moved to independent page
 import LinkMenuItemModal from "@/components/dashboard/recipes/LinkMenuItemModal";
 import DeleteRecipeModal from "@/components/dashboard/recipes/DeleteRecipeModal";
 import type { Database } from "@/types/database";
@@ -348,12 +348,9 @@ export default function RecipesPage() {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold flex items-center gap-3">
-                        <ChefHat className="h-8 w-8 text-orange-500" />
-                        Recipes & Pour Tracking
-                    </h1>
+                    <h1 className="text-3xl font-bold">Recipes</h1>
                     <p className="text-slate-400 mt-1">
-                        Manage beverage recipes, link them to the menu, and track accurate inventory pours
+                        Manage recipes, link them to the menu and track inventory more accurately.
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -426,202 +423,197 @@ export default function RecipesPage() {
                             Select
                         </button>
                     )}
-                    <button className="btn btn-secondary whitespace-nowrap">
-                        <Activity className="h-4 w-4" />
-                        Recent Pours
-                    </button>
                 </div>
             </div>
 
             {/* Bulk selection bar */}
-            {isSelectMode && (
-                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={toggleSelectAll}
-                            className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
-                        >
-                            {selectedRecipes.size === filteredRecipes.length ? (
-                                <CheckSquare className="h-4 w-4 text-orange-500" />
-                            ) : (
-                                <Square className="h-4 w-4" />
-                            )}
-                            Select All ({filteredRecipes.length})
-                        </button>
+            {
+                isSelectMode && (
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={toggleSelectAll}
+                                className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+                            >
+                                {selectedRecipes.size === filteredRecipes.length ? (
+                                    <CheckSquare className="h-4 w-4 text-orange-500" />
+                                ) : (
+                                    <Square className="h-4 w-4" />
+                                )}
+                                Select All ({filteredRecipes.length})
+                            </button>
+                        </div>
+                        <p className="text-sm text-slate-500">
+                            {selectedRecipes.size} selected
+                        </p>
                     </div>
-                    <p className="text-sm text-slate-500">
-                        {selectedRecipes.size} selected
-                    </p>
-                </div>
-            )}
+                )
+            }
 
-            {loading ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                    <Loader2 className="h-10 w-10 text-orange-500 animate-spin mb-4" />
-                    <p className="text-slate-400">Loading recipes...</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    {/* Recipes List */}
-                    <div className="lg:col-span-3">
-                        {filteredRecipes.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {filteredRecipes.map((recipe) => (
-                                    <div
-                                        key={recipe.id}
-                                        className={cn(
-                                            "card group hover:border-orange-500/50 transition-all overflow-hidden relative",
-                                            isSelectMode && selectedRecipes.has(recipe.id) && "border-orange-500 bg-orange-500/5"
-                                        )}
-                                    >
-                                        {/* Selection checkbox */}
-                                        {isSelectMode && (
-                                            <button
-                                                onClick={() => toggleSelectRecipe(recipe.id)}
-                                                className="absolute top-4 left-4 z-10"
-                                            >
-                                                {selectedRecipes.has(recipe.id) ? (
-                                                    <CheckSquare className="h-5 w-5 text-orange-500" />
-                                                ) : (
-                                                    <Square className="h-5 w-5 text-slate-600 hover:text-slate-400" />
-                                                )}
-                                            </button>
-                                        )}
-
-                                        <div className={cn("flex justify-between items-start mb-4", isSelectMode && "pl-8")}>
-                                            <div>
-                                                <h3
-                                                    className="text-lg font-bold group-hover:text-orange-400 transition-colors cursor-pointer"
-                                                    onClick={() => !isSelectMode && (window.location.href = `/dashboard/recipes/${recipe.id}`)}
-                                                >
-                                                    {recipe.name}
-                                                </h3>
-                                                <p className="text-xs text-slate-500 line-clamp-1">{recipe.description || "No description"}</p>
-                                            </div>
-
-                                            {/* Three-dot dropdown menu */}
-                                            {!isSelectMode && (
-                                                <div className="relative">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setOpenDropdownId(openDropdownId === recipe.id ? null : recipe.id);
-                                                        }}
-                                                        className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 transition-colors"
-                                                    >
-                                                        <MoreVertical className="h-4 w-4" />
-                                                    </button>
-
-                                                    {openDropdownId === recipe.id && (
-                                                        <div
-                                                            className="absolute right-0 top-8 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <Link
-                                                                href={`/dashboard/recipes/${recipe.id}`}
-                                                                className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-slate-800 transition-colors"
-                                                            >
-                                                                <Edit2 className="h-4 w-4" />
-                                                                Edit Recipe
-                                                            </Link>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setRecipeToLink(recipe);
-                                                                    setShowLinkModal(true);
-                                                                    setOpenDropdownId(null);
-                                                                }}
-                                                                className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-blue-400 hover:bg-slate-800 transition-colors"
-                                                            >
-                                                                <Link2 className="h-4 w-4" />
-                                                                Link Menu Item
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteRecipe(recipe)}
-                                                                className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-red-400 hover:bg-red-500/10 transition-colors"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                Delete
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
+            {
+                loading ? (
+                    <div className="flex flex-col items-center justify-center py-20">
+                        <Loader2 className="h-10 w-10 text-orange-500 animate-spin mb-4" />
+                        <p className="text-slate-400">Loading recipes...</p>
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-6">
+                        {/* Recipes List */}
+                        <div className="w-full">
+                            {filteredRecipes.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                    {filteredRecipes.map((recipe) => (
+                                        <div
+                                            key={recipe.id}
+                                            className={cn(
+                                                "card group hover:border-orange-500/50 transition-all overflow-hidden relative",
+                                                isSelectMode && selectedRecipes.has(recipe.id) && "border-orange-500 bg-orange-500/5"
                                             )}
-                                        </div>
+                                        >
+                                            {/* Selection checkbox */}
+                                            {isSelectMode && (
+                                                <button
+                                                    onClick={() => toggleSelectRecipe(recipe.id)}
+                                                    className="absolute top-4 left-4 z-10"
+                                                >
+                                                    {selectedRecipes.has(recipe.id) ? (
+                                                        <CheckSquare className="h-5 w-5 text-orange-500" />
+                                                    ) : (
+                                                        <Square className="h-5 w-5 text-slate-600 hover:text-slate-400" />
+                                                    )}
+                                                </button>
+                                            )}
 
-                                        <div className="space-y-4">
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Key Ingredients</p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {recipe.recipe_ingredients?.slice(0, 3).map((ri: RecipeIngredient) => (
-                                                        <span
-                                                            key={ri.id}
-                                                            className={cn(
-                                                                "badge border-none text-[10px]",
-                                                                ri.inventory_item_id ? "bg-slate-800 text-slate-300" : "bg-orange-500/10 text-orange-400"
-                                                            )}
+                                            <div className={cn("flex justify-between items-start mb-4", isSelectMode && "pl-8")}>
+                                                <div>
+                                                    <h3
+                                                        className="text-lg font-bold group-hover:text-orange-400 transition-colors cursor-pointer"
+                                                        onClick={() => !isSelectMode && (window.location.href = `/dashboard/recipes/${recipe.id}`)}
+                                                    >
+                                                        {recipe.name}
+                                                    </h3>
+                                                    <p className="text-xs text-slate-500 line-clamp-1">{recipe.description || "No description"}</p>
+                                                </div>
+
+                                                {/* Three-dot dropdown menu */}
+                                                {!isSelectMode && (
+                                                    <div className="relative">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setOpenDropdownId(openDropdownId === recipe.id ? null : recipe.id);
+                                                            }}
+                                                            className="p-1 hover:bg-slate-800 rounded-lg text-slate-500 transition-colors"
                                                         >
-                                                            {ri.inventory_items?.name || ri.ingredient_name}
-                                                        </span>
-                                                    ))}
-                                                    {(recipe.recipe_ingredients?.length || 0) > 3 && (
-                                                        <span className="text-[10px] text-slate-500">+{(recipe.recipe_ingredients?.length || 0) - 3} more</span>
-                                                    )}
-                                                    {(!recipe.recipe_ingredients || recipe.recipe_ingredients.length === 0) && (
-                                                        <span className="text-[10px] text-slate-600 italic">No ingredients linked</span>
-                                                    )}
-                                                </div>
+                                                            <MoreVertical className="h-4 w-4" />
+                                                        </button>
+
+                                                        {openDropdownId === recipe.id && (
+                                                            <div
+                                                                className="absolute right-0 top-8 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <Link
+                                                                    href={`/dashboard/recipes/${recipe.id}`}
+                                                                    className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-slate-800 transition-colors"
+                                                                >
+                                                                    <Edit2 className="h-4 w-4" />
+                                                                    Edit Recipe
+                                                                </Link>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setRecipeToLink(recipe);
+                                                                        setShowLinkModal(true);
+                                                                        setOpenDropdownId(null);
+                                                                    }}
+                                                                    className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-blue-400 hover:bg-slate-800 transition-colors"
+                                                                >
+                                                                    <Link2 className="h-4 w-4" />
+                                                                    Link Menu Item
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteRecipe(recipe)}
+                                                                    className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-red-400 hover:bg-red-500/10 transition-colors"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
 
-                                            <div className="pt-4 border-t border-slate-800 space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <Activity className={cn(
-                                                            "h-3.5 w-3.5",
-                                                            recipe.recipe_ingredients?.every(ri => ri.inventory_item_id || isInstructionalNoise(ri.ingredient_name || ""))
-                                                                ? "text-green-400"
-                                                                : "text-orange-400"
-                                                        )} />
-                                                        <span className="text-xs text-slate-400">
-                                                            {recipe.recipe_ingredients?.filter(ri => ri.inventory_item_id).length || 0} / {recipe.recipe_ingredients?.filter(ri => !isInstructionalNoise(ri.ingredient_name || "")).length || 0} Matched
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Link2 className="h-3.5 w-3.5 text-blue-400" />
-                                                        <span className="text-xs text-slate-400">
-                                                            {recipe.recipe_menu_items?.length || 0} Linked Menu Items
-                                                        </span>
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Key Ingredients</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {recipe.recipe_ingredients?.slice(0, 3).map((ri: RecipeIngredient) => (
+                                                            <span
+                                                                key={ri.id}
+                                                                className={cn(
+                                                                    "badge border-none text-[10px]",
+                                                                    ri.inventory_item_id ? "bg-slate-800 text-slate-300" : "bg-orange-500/10 text-orange-400"
+                                                                )}
+                                                            >
+                                                                {ri.inventory_items?.name || ri.ingredient_name}
+                                                            </span>
+                                                        ))}
+                                                        {(recipe.recipe_ingredients?.length || 0) > 3 && (
+                                                            <span className="text-[10px] text-slate-500">+{(recipe.recipe_ingredients?.length || 0) - 3} more</span>
+                                                        )}
+                                                        {(!recipe.recipe_ingredients || recipe.recipe_ingredients.length === 0) && (
+                                                            <span className="text-[10px] text-slate-600 italic">No ingredients linked</span>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    <Link href={`/dashboard/recipes/${recipe.id}`} className="btn btn-secondary w-full !py-2 text-xs">
-                                                        View Details
-                                                    </Link>
+
+                                                <div className="pt-4 border-t border-slate-800 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <Activity className={cn(
+                                                                "h-3.5 w-3.5",
+                                                                recipe.recipe_ingredients?.every(ri => ri.inventory_item_id || isInstructionalNoise(ri.ingredient_name || ""))
+                                                                    ? "text-green-400"
+                                                                    : "text-orange-400"
+                                                            )} />
+                                                            <span className="text-xs text-slate-400">
+                                                                {recipe.recipe_ingredients?.filter(ri => ri.inventory_item_id).length || 0} / {recipe.recipe_ingredients?.filter(ri => !isInstructionalNoise(ri.ingredient_name || "")).length || 0} Matched
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Link2 className="h-3.5 w-3.5 text-blue-400" />
+                                                            <span className="text-xs text-slate-400">
+                                                                {recipe.recipe_menu_items?.length || 0} Linked Menu Items
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <Link href={`/dashboard/recipes/${recipe.id}`} className="btn btn-secondary w-full !py-2 text-xs">
+                                                            View Details
+                                                        </Link>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="card text-center py-20 border-dashed">
-                                <div className="bg-slate-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-800">
-                                    <BookOpen className="h-8 w-8 text-slate-600" />
+                                    ))}
                                 </div>
-                                <h3 className="text-xl font-bold mb-2">No Recipes Found</h3>
-                                <p className="text-slate-400 mb-8 max-w-sm mx-auto">
-                                    Start by creating your first cocktail recipe or upload a recipe book to begin tracking pours.
-                                </p>
-                            </div>
-                        )}
-                    </div>
+                            ) : (
+                                <div className="card text-center py-20 border-dashed">
+                                    <div className="bg-slate-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-800">
+                                        <BookOpen className="h-8 w-8 text-slate-600" />
+                                    </div>
+                                    <h3 className="text-xl font-bold mb-2">No Recipes Found</h3>
+                                    <p className="text-slate-400 mb-8 max-w-sm mx-auto">
+                                        Start by creating your first cocktail recipe or upload a recipe book to begin tracking pours.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
 
-                    {/* Pour Tracker Sidebar */}
-                    <div className="lg:col-span-1">
-                        <PourTracker locationId={currentLocation.id} />
                     </div>
-                </div>
-            )}
+                )}
 
             {/* Delete Confirmation Modal */}
             <DeleteRecipeModal
@@ -662,6 +654,6 @@ export default function RecipesPage() {
                 onComplete={fetchRecipes}
             />
 
-        </div>
+        </div >
     );
 }

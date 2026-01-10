@@ -18,8 +18,9 @@ import {
     Split,
     Loader2,
     Zap,
-    TrendingUp,
+    TrendingUp
 } from "lucide-react";
+import { processOrderPours } from "@/lib/pours";
 import { cn, formatCurrency } from "@/lib/utils";
 import { MenuItemType, OrderItem, PricingRule } from "@/types/pos";
 
@@ -404,6 +405,16 @@ function OrdersPageContent() {
                     .eq("id", orderId);
 
                 if (orderUpdateError) throw orderUpdateError;
+            }
+
+            // Process pours asynchronously
+            if (orderId) {
+                processOrderPours(
+                    orderId,
+                    orderItems,
+                    currentLocation.id,
+                    currentEmployee?.id || useAppStore.getState().currentEmployee?.id || null
+                );
             }
 
             toast.success(isEditing ? "Order updated!" : "Order sent to kitchen!");

@@ -191,6 +191,8 @@ export type Database = {
                     unit: string;
                     pour_type: "standard" | "double" | "shot" | "manual";
                     notes: string | null;
+                    order_id: string | null;
+                    order_item_ref: string | null;
                     created_at: string;
                 };
                 Insert: {
@@ -203,6 +205,8 @@ export type Database = {
                     unit: string;
                     pour_type?: "standard" | "double" | "shot" | "manual";
                     notes?: string | null;
+                    order_id?: string | null;
+                    order_item_ref?: string | null;
                     created_at?: string;
                 };
                 Update: {
@@ -215,6 +219,8 @@ export type Database = {
                     unit?: string;
                     pour_type?: "standard" | "double" | "shot" | "manual";
                     notes?: string | null;
+                    order_id?: string | null;
+                    order_item_ref?: string | null;
                 };
             };
             locations: {

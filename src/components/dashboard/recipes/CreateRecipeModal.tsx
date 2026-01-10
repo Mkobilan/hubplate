@@ -30,15 +30,17 @@ interface CreateRecipeModalProps {
     onClose: () => void;
     locationId: string;
     onComplete: () => void;
+    recipe?: any; // Optional recipe to edit
 }
 
-export default function CreateRecipeModal({ isOpen, onClose, locationId, onComplete }: CreateRecipeModalProps) {
+export default function CreateRecipeModal({ isOpen, onClose, locationId, onComplete, recipe }: CreateRecipeModalProps) {
     const [loading, setLoading] = useState(false);
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [instructions, setInstructions] = useState("");
     const [ingredients, setIngredients] = useState<any[]>([]);
     const [selectedMenuItems, setSelectedMenuItems] = useState<string[]>([]);
+    const [isEditing, setIsEditing] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState("");
     const [inventory, setInventory] = useState<any[]>([]);
@@ -48,8 +50,37 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
     useEffect(() => {
         if (isOpen) {
             fetchInitialData();
+            if (recipe) {
+                setIsEditing(true);
+                setName(recipe.name || "");
+                setDescription(recipe.description || "");
+                setInstructions(recipe.instructions || "");
+
+                // Map existing ingredients
+                if (recipe.recipe_ingredients) {
+                    setIngredients(recipe.recipe_ingredients.map((ing: any) => ({
+                        // Preserve ID for updating/tracking, but main logic uses inventory_item_id because this builder is inventory-centric
+                        // CAUTION: Unlinked ingredients (manual text) might not map well here if we strictly require inventory_item_id
+                        // We will allow items without inventory_item_id but filter valid inventory items for search
+                        id: ing.id,
+                        inventory_item_id: ing.inventory_item_id || `temp-${Math.random()}`, // Fallback for unlinked
+                        name: ing.inventory_items?.name || ing.ingredient_name,
+                        unit: ing.unit || ing.inventory_items?.unit,
+                        quantity_used: ing.quantity_used,
+                        is_manual: !ing.inventory_item_id
+                    })));
+                }
+
+                // Map existing menu links
+                if (recipe.recipe_menu_items) {
+                    setSelectedMenuItems(recipe.recipe_menu_items.map((link: any) => link.menu_item_id));
+                }
+            } else {
+                setIsEditing(false);
+                resetForm();
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, recipe]);
 
     const fetchInitialData = async () => {
         setFetchingData(true);
@@ -79,7 +110,8 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
             inventory_item_id: item.id,
             name: item.name,
             unit: item.unit,
-            quantity_used: 1
+            quantity_used: 1,
+            is_manual: false
         }]);
         setSearchQuery("");
     };
@@ -103,33 +135,55 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name) return toast.error("Please enter a recipe name");
-        if (ingredients.length === 0) return toast.error("Please add at least one ingredient");
+        // if (ingredients.length === 0) return toast.error("Please add at least one ingredient"); // Relaxed for editing legacy data
 
         setLoading(true);
         const supabase = createClient();
         try {
-            // 1. Create Recipe
-            const recipeData: RecipeInsert = {
+            let recipeId = recipe?.id;
+
+            // 1. Create OR Update Recipe
+            const recipeData: any = {
                 location_id: locationId,
                 name,
                 description,
-                instructions
+                instructions,
+                updated_at: new Date().toISOString()
             };
 
-            const { data: recipe, error: recipeError } = await (supabase.from("recipes") as any)
-                .insert(recipeData)
-                .select()
-                .single();
+            if (isEditing && recipeId) {
+                const { error: updateError } = await supabase
+                    .from("recipes")
+                    .update(recipeData)
+                    .eq("id", recipeId);
+                if (updateError) throw updateError;
+            } else {
+                const { data: newRecipe, error: createError } = await supabase
+                    .from("recipes")
+                    .insert(recipeData)
+                    .select()
+                    .single();
+                if (createError) throw createError;
+                recipeId = newRecipe.id;
+            }
 
-            if (recipeError) throw recipeError;
+            // 2. Handle Ingredients (Full Replace Strategy is safest for complex lists)
+            // But we need to be careful not to create orphans if we can help it, OR just wipe and replace.
+            // For now, wipe and replace for this recipe is standard for simple relations.
 
-            // 2. Add Ingredients
+            // First, delete existing ingredients for this recipe
+            if (isEditing) {
+                await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
+            }
+
             if (ingredients.length > 0) {
                 const ingredientData: IngredientInsert[] = ingredients.map(ing => ({
-                    recipe_id: (recipe as any).id,
-                    inventory_item_id: ing.inventory_item_id,
+                    recipe_id: recipeId,
+                    inventory_item_id: ing.is_manual ? null : ing.inventory_item_id, // Handle manual/unlinked
+                    ingredient_name: ing.name, // Fallback name
                     quantity_used: ing.quantity_used,
-                    unit: ing.unit
+                    unit: ing.unit,
+                    quantity_raw: `${ing.quantity_used} ${ing.unit}` // Auto-gen raw string
                 }));
 
                 const { error: ingError } = await (supabase
@@ -139,10 +193,14 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                 if (ingError) throw ingError;
             }
 
-            // 3. Link Menu Items
+            // 3. Handle Menu Links (Full Replace)
+            if (isEditing) {
+                await supabase.from("recipe_menu_items").delete().eq("recipe_id", recipeId);
+            }
+
             if (selectedMenuItems.length > 0) {
                 const linkData: RecipeMenuItemInsert[] = selectedMenuItems.map(itemId => ({
-                    recipe_id: (recipe as any).id,
+                    recipe_id: recipeId,
                     menu_item_id: itemId
                 }));
 
@@ -153,13 +211,13 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                 if (linkError) throw linkError;
             }
 
-            toast.success("Recipe created successfully!");
+            toast.success(isEditing ? "Recipe updated!" : "Recipe created successfully!");
             onComplete();
-            resetForm();
+            if (!isEditing) resetForm(); // Only reset if create mode, otherwise closing modal handles it
             onClose();
         } catch (err: any) {
-            console.error("Error creating recipe:", err);
-            toast.error(err.message || "Failed to create recipe");
+            console.error("Error saving recipe:", err);
+            toast.error(err.message || "Failed to save recipe");
         } finally {
             setLoading(false);
         }
@@ -190,8 +248,8 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                             <ChefHat className="h-6 w-6 text-orange-500" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold">Create New Recipe</h2>
-                            <p className="text-sm text-slate-400">Build a recipe and link it to items & inventory</p>
+                            <h2 className="text-xl font-bold">{isEditing ? "Edit Recipe" : "Create New Recipe"}</h2>
+                            <p className="text-sm text-slate-400">{isEditing ? "Modify recipe details and ingredients" : "Build a recipe and link it to items & inventory"}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
@@ -352,7 +410,7 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                         className="btn btn-primary min-w-[140px]"
                         disabled={loading || !name || ingredients.length === 0}
                     >
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Recipe"}
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? "Save Changes" : "Create Recipe")}
                     </button>
                 </div>
             </div>

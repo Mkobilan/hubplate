@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Package,
+    Activity,
     AlertCircle,
     Plus,
     Search,
@@ -668,6 +669,16 @@ export default function InventoryPage() {
                     <div className="card">
                         <h3 className="font-bold mb-4">Quick Links</h3>
                         <div className="space-y-2">
+                            <Link
+                                href="/dashboard/inventory/pours"
+                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Activity className="h-4 w-4 text-pink-400" />
+                                    <span>Pour Logs</span>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-slate-600" />
+                            </Link>
                             <Link
                                 href="/dashboard/inventory/linker"
                                 className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
