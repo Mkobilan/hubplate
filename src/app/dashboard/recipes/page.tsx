@@ -404,8 +404,8 @@ export default function RecipesPage() {
             }
 
             if (matchCount > 0) {
-                const { error: insertError } = await supabase
-                    .from("recipe_menu_items")
+                const { error: insertError } = await (supabase
+                    .from("recipe_menu_items") as any)
                     .insert(newLinks);
 
                 if (insertError) throw insertError;
