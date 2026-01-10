@@ -30,7 +30,8 @@ import {
     Lock,
     Hourglass,
     Coins,
-    Globe
+    Globe,
+    History
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
@@ -149,6 +150,12 @@ export function DashboardSidebar() {
             href: "/dashboard/inventory",
             icon: <Package className="h-5 w-5" />,
             label: t("nav.inventory"),
+            requiresManager: true,
+        },
+        {
+            href: "/dashboard/inventory/pours",
+            icon: <History className="h-5 w-5" />,
+            label: "Inventory Logs",
             requiresManager: true,
         },
         {

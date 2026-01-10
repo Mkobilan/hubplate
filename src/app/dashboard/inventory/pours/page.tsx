@@ -11,24 +11,29 @@ import {
     Download,
     RefreshCw,
     Loader2,
-
     TrendingDown,
     Receipt,
     ArrowUpDown,
-    Info
+    Info,
+    Utensils,
+    Wine,
+    Box
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
+import { Lock } from "lucide-react";
 
-type Pour = {
+type InventoryLog = {
     id: string;
     created_at: string;
     quantity: number;
     unit: string;
     pour_type: string;
+    usage_type: "pour" | "food" | "ingredient";
     notes: string | null;
     order_id: string | null;
     order_item_ref: string | null;
@@ -45,29 +50,46 @@ type Pour = {
     } | null;
 };
 
-export default function PoursPage() {
+export default function InventoryLogsPage() {
     const { t } = useTranslation();
+    const router = useRouter();
+    const currentEmployee = useAppStore((state) => state.currentEmployee);
+    const isOrgOwner = useAppStore((state) => state.isOrgOwner);
+    const isTerminalMode = useAppStore((state) => state.isTerminalMode);
     const currentLocation = useAppStore((state) => state.currentLocation);
-    const [pours, setPours] = useState<Pour[]>([]);
+
+    const [logs, setLogs] = useState<InventoryLog[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const MANAGEMENT_ROLES = ["owner", "manager", "gm", "agm"];
+    const isManager = isTerminalMode
+        ? (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role))
+        : (currentEmployee?.role && MANAGEMENT_ROLES.includes(currentEmployee.role)) || isOrgOwner;
+
+    // Redirect if not authorized
+    useEffect(() => {
+        if (!loading && !isManager) {
+            router.push("/dashboard");
+        }
+    }, [isManager, loading, router]);
+
     const [searchQuery, setSearchQuery] = useState("");
-    const [sortConfig, setSortConfig] = useState<{ key: keyof Pour | 'inventory_items.name' | 'recipes.name' | 'employees.first_name', direction: 'asc' | 'desc' } | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: keyof InventoryLog | 'inventory_items.name' | 'recipes.name' | 'employees.first_name', direction: 'asc' | 'desc' } | null>(null);
 
     // Filter States
-    const [filterType, setFilterType] = useState<string>("all");
+    const [filterUsage, setFilterUsage] = useState<string>("all");
 
     // Pagination / Limiting
     const [limit, setLimit] = useState(50);
 
-    const fetchPours = useCallback(async () => {
+    const fetchLogs = useCallback(async () => {
         if (!currentLocation) return;
         setLoading(true);
         const supabase = createClient();
 
         try {
             const { data, error } = await supabase
-                .from("pours")
+                .from("pours") // Table remains 'pours' for DB backward compatibility
                 .select(`
                     *,
                     inventory_items (
@@ -87,35 +109,37 @@ export default function PoursPage() {
                 .limit(limit);
 
             if (error) throw error;
-            setPours(data as any || []);
+            setLogs(data as any || []);
         } catch (err: any) {
-            console.error("Error fetching pours:", err);
-            toast.error("Failed to load pour logs");
+            console.error("Error fetching inventory logs:", err);
+            toast.error("Failed to load inventory logs");
         } finally {
             setLoading(false);
         }
     }, [currentLocation, limit]);
 
     useEffect(() => {
-        fetchPours();
-    }, [fetchPours]);
+        fetchLogs();
+    }, [fetchLogs]);
 
-    const filteredPours = pours.filter(p => {
+    if (!isManager) return null;
+
+    const filteredLogs = logs.filter(p => {
         const matchesSearch =
             p.inventory_items?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.recipes?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (p.order_id && p.order_id.includes(searchQuery));
 
-        const matchesType = filterType === "all" || p.pour_type === filterType;
+        const matchesUsage = filterUsage === "all" || p.usage_type === filterUsage;
 
-        return matchesSearch && matchesType;
+        return matchesSearch && matchesUsage;
     });
 
-    const sortedPours = [...filteredPours].sort((a, b) => {
+    const sortedLogs = [...filteredLogs].sort((a, b) => {
         if (!sortConfig) return 0;
 
-        let aValue: any = a[sortConfig.key as keyof Pour];
-        let bValue: any = b[sortConfig.key as keyof Pour];
+        let aValue: any = a[sortConfig.key as keyof InventoryLog];
+        let bValue: any = b[sortConfig.key as keyof InventoryLog];
 
         // Handle nested properties
         if (sortConfig.key === 'inventory_items.name') {
@@ -142,8 +166,7 @@ export default function PoursPage() {
         setSortConfig({ key, direction });
     };
 
-    const totalVolume = filteredPours.reduce((sum, p) => sum + p.quantity, 0);
-    const estimatedCost = filteredPours.reduce((sum, p) => sum + (p.quantity * (p.inventory_items?.cost_per_unit || 0)), 0);
+    const estimatedCost = filteredLogs.reduce((sum, p) => sum + (p.quantity * (p.inventory_items?.cost_per_unit || 0)), 0);
 
     return (
         <div className="space-y-6">
@@ -155,16 +178,16 @@ export default function PoursPage() {
                         </Link>
                         <h1 className="text-3xl font-bold flex items-center gap-2">
                             <Activity className="h-8 w-8 text-pink-500" />
-                            Pour Logs
+                            Inventory Logs
                         </h1>
                     </div>
                     <p className="text-slate-400">
-                        Track real-time inventory depletion and recipe usage
+                        Track real-time inventory depletion and ingredient usage
                     </p>
                 </div>
                 <div className="flex gap-2">
                     <button
-                        onClick={fetchPours}
+                        onClick={fetchLogs}
                         className="btn btn-secondary"
                         disabled={loading}
                     >
@@ -179,24 +202,32 @@ export default function PoursPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="card p-4 flex items-center gap-4">
                     <div className="p-3 bg-slate-900 rounded-xl">
                         <Activity className="h-6 w-6 text-pink-400" />
                     </div>
                     <div>
-                        <p className="text-xs text-slate-500 uppercase font-bold">Total Pours</p>
-                        <p className="text-2xl font-bold">{filteredPours.length}</p>
+                        <p className="text-xs text-slate-500 uppercase font-bold">Total Logs</p>
+                        <p className="text-2xl font-bold">{filteredLogs.length}</p>
                     </div>
                 </div>
                 <div className="card p-4 flex items-center gap-4">
                     <div className="p-3 bg-slate-900 rounded-xl">
-                        <TrendingDown className="h-6 w-6 text-orange-400" />
+                        <Wine className="h-6 w-6 text-orange-400" />
                     </div>
                     <div>
-                        <p className="text-xs text-slate-500 uppercase font-bold">Volume Depleted</p>
-                        <p className="text-2xl font-bold">{totalVolume.toFixed(2)} oz</p>
-                        {/* Assuming oz for now, simplistic view */}
+                        <p className="text-xs text-slate-500 uppercase font-bold">Pours</p>
+                        <p className="text-2xl font-bold">{filteredLogs.filter(l => l.usage_type === 'pour').length}</p>
+                    </div>
+                </div>
+                <div className="card p-4 flex items-center gap-4">
+                    <div className="p-3 bg-slate-900 rounded-xl">
+                        <Utensils className="h-6 w-6 text-blue-400" />
+                    </div>
+                    <div>
+                        <p className="text-xs text-slate-500 uppercase font-bold">Food Usage</p>
+                        <p className="text-2xl font-bold">{filteredLogs.filter(l => l.usage_type === 'food').length}</p>
                     </div>
                 </div>
                 <div className="card p-4 flex items-center gap-4">
@@ -215,8 +246,8 @@ export default function PoursPage() {
                 <div>
                     <h3 className="text-sm font-bold text-blue-100">Estimated Cost Calculation</h3>
                     <p className="text-xs text-blue-200/70 mt-1">
-                        Cost is calculated by multiplying the <strong>Quantity Poured</strong> by the <strong>Cost Per Unit</strong> of the inventory item.
-                        This provides a real-time estimate of the cost of goods sold (COGS) for these pours.
+                        Cost is calculated by multiplying the <strong>Quantity Used</strong> by the <strong>Cost Per Unit</strong> of the inventory item.
+                        This provides a real-time estimate of the cost of goods sold (COGS) for these items.
                     </p>
                 </div>
             </div>
@@ -237,14 +268,13 @@ export default function PoursPage() {
                     <div className="flex items-center gap-2">
                         <select
                             className="input !py-1.5"
-                            value={filterType}
-                            onChange={(e) => setFilterType(e.target.value)}
+                            value={filterUsage}
+                            onChange={(e) => setFilterUsage(e.target.value)}
                         >
-                            <option value="all">All Types</option>
-                            <option value="standard">Standard</option>
-                            <option value="shot">Shot</option>
-                            <option value="double">Double</option>
-                            <option value="manual">Manual</option>
+                            <option value="all">All Usage</option>
+                            <option value="pour">Pours / Alcohol</option>
+                            <option value="food">Food Recipes</option>
+                            <option value="ingredient">Direct Links</option>
                         </select>
                         <select
                             className="input !py-1.5"
@@ -300,7 +330,7 @@ export default function PoursPage() {
                                 </th>
                                 <th
                                     className="px-4 py-3 cursor-pointer hover:bg-slate-800 transition-colors"
-                                    onClick={() => handleSort('pour_type')}
+                                    onClick={() => handleSort('usage_type')}
                                 >
                                     <div className="flex items-center gap-1">
                                         Type
@@ -316,7 +346,7 @@ export default function PoursPage() {
                                         <ArrowUpDown className="h-3 w-3 opacity-50" />
                                     </div>
                                 </th>
-                                <th className="px-4 py-3">Link</th>
+                                <th className="px-4 py-3 text-right">Order</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
@@ -326,55 +356,57 @@ export default function PoursPage() {
                                         <Loader2 className="h-6 w-6 animate-spin text-pink-500 mx-auto" />
                                     </td>
                                 </tr>
-                            ) : filteredPours.length === 0 ? (
+                            ) : filteredLogs.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                                        No pours found matching your search.
+                                        No logs found matching your search.
                                     </td>
                                 </tr>
                             ) : (
-                                sortedPours.map((pour) => (
-                                    <tr key={pour.id} className="hover:bg-slate-900/30 transition-colors">
+                                sortedLogs.map((log) => (
+                                    <tr key={log.id} className="hover:bg-slate-900/30 transition-colors">
                                         <td className="px-4 py-3 align-top whitespace-nowrap text-slate-400">
-                                            {new Date(pour.created_at).toLocaleString([], {
+                                            {new Date(log.created_at).toLocaleString([], {
                                                 month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                                             })}
                                         </td>
                                         <td className="px-4 py-3 align-top">
                                             <span className="font-medium text-slate-200">
-                                                {pour.inventory_items?.name || "Unknown Item"}
+                                                {log.inventory_items?.name || "Unknown Item"}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 align-top">
-                                            {pour.recipes ? (
-                                                <span className="text-orange-400 font-medium">
-                                                    {pour.recipes.name}
+                                            {log.recipes ? (
+                                                <span className="text-white font-medium">
+                                                    {log.recipes.name}
                                                 </span>
                                             ) : (
-                                                <span className="text-slate-500 italic">Manual Pour</span>
+                                                <span className="text-slate-500 italic">Direct Link</span>
                                             )}
                                         </td>
                                         <td className="px-4 py-3 align-top font-mono font-bold">
-                                            {pour.quantity} {pour.unit}
+                                            {log.quantity.toFixed(2)} {log.unit}
                                         </td>
                                         <td className="px-4 py-3 align-top">
                                             <span className={cn(
-                                                "badge text-[10px] uppercase",
-                                                pour.pour_type === 'standard' ? "badge-neutral" :
-                                                    pour.pour_type === 'shot' ? "badge-warning" :
-                                                        "badge-info"
+                                                "badge text-[10px] uppercase flex items-center gap-1 w-fit",
+                                                log.usage_type === 'pour' ? "badge-warning" :
+                                                    log.usage_type === 'food' ? "badge-info" :
+                                                        "badge-neutral"
                                             )}>
-                                                {pour.pour_type}
+                                                {log.usage_type === 'pour' ? <Wine className="h-3 w-3" /> :
+                                                    log.usage_type === 'food' ? <Utensils className="h-3 w-3" /> :
+                                                        <Box className="h-3 w-3" />}
+                                                {log.usage_type}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 align-top text-slate-400">
-                                            {pour.employees ? `${pour.employees.first_name} ${pour.employees.last_name?.charAt(0)}.` : "-"}
+                                            {log.employees ? `${log.employees.first_name} ${log.employees.last_name?.charAt(0)}.` : "-"}
                                         </td>
-                                        <td className="px-4 py-3 align-top">
-                                            {pour.order_id && (
-                                                <div className="flex flex-col gap-0.5">
-                                                    <span className="text-[10px] text-slate-500 uppercase">Order</span>
-                                                    <span className="font-mono text-xs text-blue-400">#{pour.order_id.slice(0, 4)}</span>
+                                        <td className="px-4 py-3 align-top text-right">
+                                            {log.order_id && (
+                                                <div className="flex flex-col items-end gap-0.5">
+                                                    <span className="font-mono text-xs text-blue-400">#{log.order_id.slice(0, 4)}</span>
                                                 </div>
                                             )}
                                         </td>

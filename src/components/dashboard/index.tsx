@@ -17,6 +17,7 @@ const MANAGEMENT_ROLES = ["owner", "manager", "gm", "agm"];
 const RESTRICTED_PATHS = [
     "/dashboard/staff",
     "/dashboard/inventory",
+    "/dashboard/inventory/pours",
     "/dashboard/invoices",
     "/dashboard/analytics",
     "/dashboard/payroll",

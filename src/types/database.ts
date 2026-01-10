@@ -190,9 +190,11 @@ export type Database = {
                     quantity: number;
                     unit: string;
                     pour_type: "standard" | "double" | "shot" | "manual";
+                    usage_type: "pour" | "food" | "ingredient";
                     notes: string | null;
                     order_id: string | null;
                     order_item_ref: string | null;
+                    menu_item_id: string | null;
                     created_at: string;
                 };
                 Insert: {
@@ -204,9 +206,11 @@ export type Database = {
                     quantity: number;
                     unit: string;
                     pour_type?: "standard" | "double" | "shot" | "manual";
+                    usage_type?: "pour" | "food" | "ingredient";
                     notes?: string | null;
                     order_id?: string | null;
                     order_item_ref?: string | null;
+                    menu_item_id?: string | null;
                     created_at?: string;
                 };
                 Update: {
@@ -218,9 +222,11 @@ export type Database = {
                     quantity?: number;
                     unit?: string;
                     pour_type?: "standard" | "double" | "shot" | "manual";
+                    usage_type?: "pour" | "food" | "ingredient";
                     notes?: string | null;
                     order_id?: string | null;
                     order_item_ref?: string | null;
+                    menu_item_id?: string | null;
                 };
             };
             locations: {

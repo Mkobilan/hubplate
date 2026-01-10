@@ -407,7 +407,7 @@ function OrdersPageContent() {
                 if (orderUpdateError) throw orderUpdateError;
             }
 
-            // Process pours asynchronously
+            // Process inventory usage tracking asynchronously
             if (orderId) {
                 processOrderPours(
                     orderId,
