@@ -379,10 +379,12 @@ export default function RecipesPage() {
             }
 
             // 2. Fetch all menu items for matching
+            type MenuItemMatch = { id: string; name: string };
             const { data: menuItems, error: menuError } = await supabase
                 .from("menu_items")
                 .select("id, name")
-                .eq("location_id", currentLocation.id);
+                .eq("location_id", currentLocation.id)
+                .returns<MenuItemMatch[]>();
 
             if (menuError) throw menuError;
 
