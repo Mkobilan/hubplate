@@ -47,6 +47,25 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const resetState = () => {
+        setStep("upload");
+        setFile(null);
+        setCsvHeaders([]);
+        setCsvData([]);
+        setMappings([]);
+        setAiSuggestions([]);
+        setIsLoadingAI(false);
+        setLoading(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
+    const handleClose = () => {
+        resetState();
+        onClose();
+    };
+
     if (!isOpen) return null;
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,32 +181,68 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
                         metadata[customName] = csvValue;
                     } else {
                         let value = csvValue;
-                        // Basic sanitization
+                        // Robust number parsing: Take the last numeric group if multiple exist (e.g. "12/27/2025 20" -> 20)
                         if (m.targetField === 'stock_quantity' || m.targetField === 'par_level' || m.targetField === 'cost_per_unit') {
-                            value = parseFloat(value?.toString().replace(/[^0-9.]/g, '')) || 0;
+                            if (value && typeof value === 'string') {
+                                // Find all groups of numbers (including decimals)
+                                const matches = value.match(/[\d.]+/g);
+                                if (matches && matches.length > 0) {
+                                    // Take the last match as the actual value (often the quantity)
+                                    value = parseFloat(matches[matches.length - 1]) || 0;
+                                } else {
+                                    value = 0;
+                                }
+                            } else {
+                                value = parseFloat(value?.toString() || '0') || 0;
+                            }
                         }
                         item[m.targetField] = value;
                     }
                 });
 
+                // Placeholder for missing name to avoid DB constraint violation
+                if (!item.name || item.name.trim() === "") {
+                    item.name = `Unnamed Item ${new Date().toLocaleDateString()}_${Math.floor(Math.random() * 1000)}`;
+                }
+
+                // Default unit to 'unit' if not provided to satisfy DB NOT NULL constraint
+                if (!item.unit || item.unit.trim() === "") {
+                    item.unit = "unit";
+                }
+
                 item.metadata = metadata;
                 return item;
             });
 
-            const validItems = itemsToUpsert.filter(i => i.name && i.name.trim() !== "");
+            const validItems = itemsToUpsert; // All items are now considered "valid" with placeholders
             if (validItems.length === 0) {
                 throw new Error("No valid items found to import (Missing names)");
             }
 
+            // De-duplicate items by name to prevent "ON CONFLICT DO UPDATE command cannot affect row a second time"
+            // If duplicates exist, we take the one with the highest stock (or could sum them)
+            const uniqueItemsMap = new Map<string, any>();
+            validItems.forEach(item => {
+                const key = `${item.location_id}-${item.name.toLowerCase().trim()}`;
+                if (uniqueItemsMap.has(key)) {
+                    const existing = uniqueItemsMap.get(key);
+                    // Merge: sum stock, but keep other fields from latest
+                    item.stock_quantity = (item.stock_quantity || 0) + (existing.stock_quantity || 0);
+                }
+                uniqueItemsMap.set(key, item);
+            });
+
+            const finalItems = Array.from(uniqueItemsMap.values());
+
             const { error } = await (supabase
                 .from('inventory_items' as any) as any)
-                .upsert(validItems, { onConflict: 'location_id, name' });
+                .upsert(finalItems, { onConflict: 'location_id, name' });
 
             if (error) throw error;
 
             toast.success(`Successfully imported ${validItems.length} items`);
             onComplete();
-            onClose();
+            handleClose();
         } catch (err: any) {
             console.error("Import error:", err);
             toast.error("Failed to import: " + err.message);
@@ -197,9 +252,7 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
         }
     };
 
-    const isMappingComplete = Object.entries(STANDARD_INVENTORY_FIELDS)
-        .filter(([_, f]) => f.required)
-        .every(([key]) => mappings.some((m: FieldMapping) => m.targetField === key));
+    const isMappingComplete = true; // All mapping is now optional
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -218,7 +271,7 @@ export default function CSVUploadModal({ isOpen, onClose, locationId, onComplete
                         </p>
                     </div>
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-500 hover:text-white"
                     >
                         <X className="h-5 w-5" />

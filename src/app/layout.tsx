@@ -20,22 +20,26 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://hubplate.app"),
+  alternates: {
+    canonical: "/",
+  },
   title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
   description:
-    "The most powerful AI-powered restaurant POS system for 2025. HubPlate offers mobile-first ordering, AI menu generation, smart scheduling, and CRM with true offline mode. HubPlate.app is the only restaurant management app you'll ever need.",
+    "HubPlate is the all-in-one AI-powered restaurant management platform. Featuring advanced POS, smart scheduling, automated inventory tracking, and QR code ordering with true offline mode. Scale your restaurant efficiency by 80% with HubPlate's next-gen intelligence.",
   keywords: [
-    "restaurant POS software",
-    "cloud-based POS",
-    "AI restaurant management",
-    "mobile POS for restaurants",
-    "kitchen display system",
+    "AI restaurant POS system",
+    "cloud-based restaurant management software",
+    "QR code ordering for restaurants",
+    "smart restaurant inventory management",
+    "AI staff scheduling software",
+    "next-gen kitchen display system",
     "KDS",
-    "restaurant inventory software",
-    "staff scheduling app",
-    "offline POS system",
-    "restaurant CRM",
+    "restaurant CRM and loyalty programs",
+    "best restaurant management app 2025",
+    "offline mode POS system",
     "hubplate.app",
-    "best restaurant POS 2025",
+    "restaurant cost control intelligence",
+    "mobile POS for hospitality",
   ],
   authors: [{ name: "HubPlate Team" }],
   creator: "HubPlate",
@@ -45,7 +49,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
-    description: "AI-powered restaurant POS with offline mode and smart scheduling. Built for the modern hospitality industry.",
+    description: "Scale your restaurant with AI-powered POS, smart scheduling, and true offline ordering. The only platform you'll ever need.",
     url: "https://hubplate.app",
     siteName: "HubPlate",
     images: [
@@ -62,7 +66,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
-    description: "AI-powered restaurant POS with offline mode and smart scheduling.",
+    description: "AI-powered restaurant POS with offline mode and smart scheduling. Built for the modern hospitality industry.",
     images: ["/logo.png"],
   },
   manifest: "/manifest.json",

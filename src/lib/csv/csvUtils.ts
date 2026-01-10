@@ -5,11 +5,11 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || "");
 
 // Standard employee fields that can be mapped
 export const STANDARD_EMPLOYEE_FIELDS = {
-    first_name: { label: "First Name", required: true, type: "text" },
-    last_name: { label: "Last Name", required: true, type: "text" },
+    first_name: { label: "First Name", required: false, type: "text" },
+    last_name: { label: "Last Name", required: false, type: "text" },
     email: { label: "Email", required: false, type: "email" },
     phone: { label: "Phone", required: false, type: "phone" },
-    role: { label: "Role", required: true, type: "role" },
+    role: { label: "Role", required: false, type: "role" },
     hourly_rate: { label: "Hourly Rate", required: false, type: "number" },
     hire_date: { label: "Hire Date", required: false, type: "date" },
     pin_code: { label: "PIN Code", required: false, type: "text" },
@@ -36,17 +36,17 @@ export const STANDARD_CUSTOMER_FIELDS = {
 
 // Standard menu fields that can be mapped
 export const STANDARD_MENU_FIELDS = {
-    name: { label: "Item Name", required: true, type: "text" },
+    name: { label: "Item Name", required: false, type: "text" },
     description: { label: "Description", required: false, type: "text" },
-    category: { label: "Category", required: true, type: "text" },
-    price: { label: "Price", required: true, type: "number" },
+    category: { label: "Category", required: false, type: "text" },
+    price: { label: "Price", required: false, type: "number" },
     cost: { label: "Cost", required: false, type: "number" },
     kds_station: { label: "KDS Station", required: false, type: "text" },
 } as const;
 
 // Standard vendor fields that can be mapped
 export const STANDARD_VENDOR_FIELDS = {
-    name: { label: "Vendor Name", required: true, type: "text" },
+    name: { label: "Vendor Name", required: false, type: "text" },
     email: { label: "Email", required: false, type: "email" },
     phone: { label: "Phone", required: false, type: "phone" },
     address: { label: "Address", required: false, type: "text" },
@@ -56,21 +56,29 @@ export const STANDARD_VENDOR_FIELDS = {
 
 // Standard gift card fields that can be mapped
 export const STANDARD_GIFT_CARD_FIELDS = {
-    card_number: { label: "Card Number", required: true, type: "text" },
-    current_balance: { label: "Current Balance", required: true, type: "number" },
+    card_number: { label: "Card Number", required: false, type: "text" },
+    current_balance: { label: "Current Balance", required: false, type: "number" },
     original_balance: { label: "Original Balance", required: false, type: "number" },
     is_active: { label: "Is Active?", required: false, type: "boolean" },
 } as const;
 
 // Standard inventory fields that can be mapped
 export const STANDARD_INVENTORY_FIELDS = {
-    name: { label: "Item Name", required: true, type: "text" },
-    stock_quantity: { label: "Current Stock", required: true, type: "number" },
-    unit: { label: "Unit", required: true, type: "text" },
+    name: { label: "Item Name", required: false, type: "text" },
+    stock_quantity: { label: "Current Stock", required: false, type: "number" },
+    unit: { label: "Unit", required: false, type: "text" },
     par_level: { label: "Par Level", required: false, type: "number" },
     cost_per_unit: { label: "Unit Cost", required: false, type: "number" },
     supplier: { label: "Supplier", required: false, type: "text" },
     category: { label: "Category", required: false, type: "text" },
+} as const;
+
+// Standard recipe fields that can be mapped
+export const STANDARD_RECIPE_FIELDS = {
+    name: { label: "Recipe Name", required: false, type: "text" },
+    description: { label: "Description", required: false, type: "text" },
+    instructions: { label: "Instructions", required: false, type: "text" },
+    ingredients: { label: "Ingredients", required: false, type: "text" },
 } as const;
 
 export type StandardFieldKey = keyof typeof STANDARD_EMPLOYEE_FIELDS;
@@ -79,6 +87,7 @@ export type MenuFieldKey = keyof typeof STANDARD_MENU_FIELDS;
 export type VendorFieldKey = keyof typeof STANDARD_VENDOR_FIELDS;
 export type GiftCardFieldKey = keyof typeof STANDARD_GIFT_CARD_FIELDS;
 export type InventoryFieldKey = keyof typeof STANDARD_INVENTORY_FIELDS;
+export type RecipeFieldKey = keyof typeof STANDARD_RECIPE_FIELDS;
 
 // Valid roles in the system (including new AGM/GM roles)
 export const VALID_ROLES = [
@@ -180,7 +189,7 @@ export interface CSVParseResult {
     rawData: string[][];
 }
 
-export type AllFieldKey = StandardFieldKey | CustomerFieldKey | MenuFieldKey | VendorFieldKey | GiftCardFieldKey | InventoryFieldKey;
+export type AllFieldKey = StandardFieldKey | CustomerFieldKey | MenuFieldKey | VendorFieldKey | GiftCardFieldKey | InventoryFieldKey | RecipeFieldKey;
 
 export interface FieldMapping {
     csvColumn: string;
@@ -234,6 +243,23 @@ export interface ParsedCustomer {
     total_spent: number;
     total_visits: number;
     notes?: string;
+    custom_fields: Record<string, string>;
+    validation_errors: ValidationError[];
+    row_index: number;
+}
+
+export interface ParsedIngredient {
+    name: string;
+    quantity: number;
+    unit: string;
+}
+
+export interface ParsedRecipe {
+    name: string;
+    description?: string;
+    instructions?: string;
+    ingredients_raw: string;
+    parsed_ingredients: ParsedIngredient[];
     custom_fields: Record<string, string>;
     validation_errors: ValidationError[];
     row_index: number;
@@ -601,21 +627,8 @@ export function transformCSVToEmployees(
             }
         });
 
-        // Validate required fields
-        if (!employee.first_name) {
-            employee.validation_errors.push({
-                row: employee.row_index,
-                column: "first_name",
-                message: "First name is required"
-            });
-        }
-        if (!employee.last_name) {
-            employee.validation_errors.push({
-                row: employee.row_index,
-                column: "last_name",
-                message: "Last name is required"
-            });
-        }
+        // No longer enforcing required fields for employees in CSV upload
+        // Users can map whatever they want. Default values handle the rest.
 
         return employee;
     });
@@ -747,3 +760,144 @@ function parseDate(dateStr: string): string | null {
 
     return null;
 }
+
+/**
+ * Parse ingredients string into structured data
+ * Supports multiple formats:
+ * - Pipe-separated: "Tequila|2|oz;Lime Juice|1|oz"
+ * - Colon-separated: "Grenadine Syrup: 0.33 oz, Angostura Bitters: 1 dash"
+ * - Natural language: "2oz Tequila, 1oz Lime Juice"
+ * - Simple list: "Tequila, Lime Juice, Agave"
+ */
+export function parseIngredients(ingredientsStr: string): ParsedIngredient[] {
+    if (!ingredientsStr || !ingredientsStr.trim()) return [];
+
+    const ingredients: ParsedIngredient[] = [];
+
+    // Try pipe-separated format first: "Item|Qty|Unit;Item|Qty|Unit"
+    if (ingredientsStr.includes("|")) {
+        const parts = ingredientsStr.split(";").map(s => s.trim()).filter(Boolean);
+        for (const part of parts) {
+            const [name, qtyStr, unit] = part.split("|").map(s => s.trim());
+            if (name) {
+                const qty = parseFloat(qtyStr) || 1;
+                ingredients.push({
+                    name,
+                    quantity: qty,
+                    unit: unit || "unit"
+                });
+            }
+        }
+        return ingredients;
+    }
+
+    // Try colon-separated format: "Grenadine Syrup: 0.33 oz" or "Item: qty unit"
+    // Check if the format looks like "Name: quantity unit"
+    const colonPattern = /^([^:]+):\s*([\d.]+)\s*(.*)$/;
+    const parts = ingredientsStr.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+
+    // Check if most parts have colons - if so, use colon format
+    const colonCount = parts.filter(p => colonPattern.test(p)).length;
+    if (colonCount > 0 && colonCount >= parts.length / 2) {
+        for (const part of parts) {
+            const match = part.match(colonPattern);
+            if (match) {
+                const [, name, qtyStr, unitRest] = match;
+                // Clean up unit - remove parenthetical notes like "(Garnish)"
+                const unit = unitRest.replace(/\s*\([^)]*\)\s*/g, '').trim() || "unit";
+                ingredients.push({
+                    name: name.trim(),
+                    quantity: parseFloat(qtyStr) || 1,
+                    unit
+                });
+            } else {
+                // Just a name with no quantity
+                ingredients.push({
+                    name: part.replace(/:\s*$/, '').trim(), // Remove trailing colon if any
+                    quantity: 1,
+                    unit: "unit"
+                });
+            }
+        }
+        return ingredients;
+    }
+
+    // Try natural language format: "2oz Tequila, 1.5oz Lime Juice"
+    // Pattern: optional quantity + optional unit + name
+    const qtyUnitPattern = /^([\d.]+)\s*([a-zA-Z]+)?\s+(.+)$/;
+
+    for (const part of parts) {
+        const match = part.match(qtyUnitPattern);
+        if (match) {
+            const [, qtyStr, unit, name] = match;
+            ingredients.push({
+                name: name.trim(),
+                quantity: parseFloat(qtyStr) || 1,
+                unit: unit || "unit"
+            });
+        } else {
+            // Just a name with no quantity
+            ingredients.push({
+                name: part.trim(),
+                quantity: 1,
+                unit: "unit"
+            });
+        }
+    }
+
+    return ingredients;
+}
+
+/**
+ * Validate and transform recipes from CSV data
+ */
+export function transformCSVToRecipes(
+    csvRows: Record<string, string>[],
+    mappings: FieldMapping[]
+): ParsedRecipe[] {
+    return csvRows.map((row, index) => {
+        const recipe: ParsedRecipe = {
+            name: "",
+            ingredients_raw: "",
+            parsed_ingredients: [],
+            custom_fields: {},
+            validation_errors: [],
+            row_index: index + 2 // +2 for 1-indexing and header row
+        };
+
+        mappings.forEach(mapping => {
+            if (mapping.targetField === "skip") return;
+
+            const value = row[mapping.csvColumn]?.trim() || "";
+
+            if (mapping.targetField === "custom") {
+                if (value && mapping.customFieldName) {
+                    recipe.custom_fields[mapping.customFieldName] = value;
+                }
+            } else {
+                const target = mapping.targetField as RecipeFieldKey;
+                switch (target) {
+                    case "name":
+                        recipe.name = value;
+                        break;
+                    case "description":
+                        recipe.description = value || undefined;
+                        break;
+                    case "instructions":
+                        recipe.instructions = value || undefined;
+                        break;
+                    case "ingredients":
+                        recipe.ingredients_raw = value;
+                        recipe.parsed_ingredients = parseIngredients(value);
+                        break;
+                }
+            }
+        });
+
+        // Removing strict validation for recipes
+        // Data handled gracefully in the Modal's handleImport
+
+        return recipe;
+    });
+}
+

@@ -136,8 +136,10 @@ export type Database = {
                 Row: {
                     id: string;
                     recipe_id: string;
-                    inventory_item_id: string;
+                    inventory_item_id: string | null;
+                    ingredient_name: string | null;
                     quantity_used: number;
+                    quantity_raw: string | null;
                     unit: string | null;
                     created_at: string;
                     updated_at: string;
@@ -145,8 +147,10 @@ export type Database = {
                 Insert: {
                     id?: string;
                     recipe_id: string;
-                    inventory_item_id: string;
+                    inventory_item_id?: string | null;
+                    ingredient_name?: string | null;
                     quantity_used: number;
+                    quantity_raw?: string | null;
                     unit?: string | null;
                     created_at?: string;
                     updated_at?: string;
@@ -154,8 +158,10 @@ export type Database = {
                 Update: {
                     id?: string;
                     recipe_id?: string;
-                    inventory_item_id?: string;
+                    inventory_item_id?: string | null;
+                    ingredient_name?: string | null;
                     quantity_used?: number;
+                    quantity_raw?: string | null;
                     unit?: string | null;
                     updated_at?: string;
                 };

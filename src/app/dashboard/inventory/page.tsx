@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Package,
@@ -19,14 +20,12 @@ import {
     ChevronDown,
     Truck,
     Check,
-    X
+    X,
+    CheckSquare,
+    Square,
+    Loader2
 } from "lucide-react";
-
-
-
 import { cn, formatCurrency } from "@/lib/utils";
-import { useEffect, useState, useRef } from "react";
-
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -59,6 +58,12 @@ export default function InventoryPage() {
     const [visibleColumns, setVisibleColumns] = useState<string[]>(['category', 'supplier', 'stock', 'par', 'reorder', 'unit', 'usage', 'cost', 'last_ordered']);
 
 
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    const [isSelectMode, setIsSelectMode] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<any | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     useEffect(() => {
         const saved = localStorage.getItem('inventory_column_prefs');
         if (saved) {
@@ -78,9 +83,7 @@ export default function InventoryPage() {
         localStorage.setItem('inventory_column_prefs', JSON.stringify(next));
     };
 
-
-
-    const fetchInventory = async () => {
+    const fetchInventory = useCallback(async () => {
         if (!currentLocation) return;
 
         try {
@@ -100,11 +103,70 @@ export default function InventoryPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentLocation?.id]);
 
     useEffect(() => {
         fetchInventory();
-    }, [currentLocation?.id]);
+    }, [fetchInventory]);
+
+    const toggleSelectItem = (id: string) => {
+        const newSelected = new Set(selectedItems);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+            setIsSelectMode(true);
+        }
+        setSelectedItems(newSelected);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedItems.size === filtered.length) {
+            setSelectedItems(new Set());
+        } else {
+            setSelectedItems(new Set(filtered.map(i => i.id)));
+            setIsSelectMode(true);
+        }
+    };
+
+    const handleDeleteItem = (item: any) => {
+        setItemToDelete(item);
+        setShowDeleteModal(true);
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedItems.size === 0) return;
+        setItemToDelete(null); // null means bulk
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        setIsDeleting(true);
+        const supabase = createClient();
+        try {
+            const idsToDelete = itemToDelete ? [itemToDelete.id] : Array.from(selectedItems);
+
+            // Delete associated records if any (e.g. waste logs, reorder history)
+            // But usually the DB has cascade delete. 
+            // We'll just delete from inventory_items
+            const { error } = await (supabase.from("inventory_items") as any)
+                .delete()
+                .in("id", idsToDelete);
+
+            if (error) throw error;
+
+            toast.success(itemToDelete ? `Deleted ${itemToDelete.name}` : `Deleted ${idsToDelete.length} items`);
+            setSelectedItems(new Set());
+            setIsSelectMode(false);
+            fetchInventory();
+            setShowDeleteModal(false);
+        } catch (err: any) {
+            console.error("Delete error:", err);
+            toast.error("Failed to delete: " + err.message);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     const getStatus = (stock: number, par: number) => {
         if (stock <= (par || 0) * 0.2) return "critical";
@@ -238,10 +300,23 @@ export default function InventoryPage() {
                         <Truck className="h-4 w-4" />
                         Vendors
                     </Link>
+                    <button className="btn btn-secondary" onClick={() => setShowUploadModal(true)}>
+                        <Upload className="h-4 w-4 text-orange-500" />
+                        Inventory CSV
+                    </button>
                     <button className="btn btn-secondary" onClick={() => setShowVendorModal(true)}>
                         <Upload className="h-4 w-4" />
                         Vendor CSV
                     </button>
+                    {selectedItems.size > 0 && (
+                        <button
+                            className="btn btn-secondary bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20"
+                            onClick={handleBulkDelete}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Delete ({selectedItems.size})
+                        </button>
+                    )}
                     <button className="btn btn-primary" onClick={() => setShowPOModal(true)}>
                         <ShoppingCart className="h-4 w-4" />
                         Create PO
@@ -297,7 +372,19 @@ export default function InventoryPage() {
                             <table className="w-full text-left border-collapse min-w-[1200px]">
                                 <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
                                     <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                        <th className="px-4 py-4 bg-slate-900 first:rounded-tl-xl last:rounded-tr-xl">Item Name</th>
+                                        <th className="px-4 py-4 bg-slate-900 first:rounded-tl-xl w-10">
+                                            <button
+                                                onClick={toggleSelectAll}
+                                                className="p-1 hover:bg-slate-800 rounded transition-colors"
+                                            >
+                                                {selectedItems.size === filtered.length && filtered.length > 0 ? (
+                                                    <CheckSquare className="h-4 w-4 text-orange-500" />
+                                                ) : (
+                                                    <Square className="h-4 w-4" />
+                                                )}
+                                            </button>
+                                        </th>
+                                        <th className="px-4 py-4 bg-slate-900">Item Name</th>
                                         {visibleColumns.includes('category') && <th className="px-4 py-4 bg-slate-900">Category</th>}
                                         {visibleColumns.includes('supplier') && <th className="px-4 py-4 bg-slate-900">Supplier</th>}
                                         {visibleColumns.includes('stock') && <th className="px-4 py-4 bg-slate-900">Stock</th>}
@@ -307,7 +394,7 @@ export default function InventoryPage() {
                                         {visibleColumns.includes('usage') && <th className="px-4 py-4 bg-slate-900">Usage</th>}
                                         {visibleColumns.includes('cost') && <th className="px-4 py-4 bg-slate-900">Cost</th>}
                                         {visibleColumns.includes('last_ordered') && <th className="px-4 py-4 bg-slate-900">Last Ordered</th>}
-                                        {visibleColumns.includes('created') && <th className="px-4 py-4 bg-slate-900">Added</th>}
+                                        {visibleColumns.includes('created') && <th className="px-4 py-4 bg-slate-900 last:rounded-tr-xl">Added</th>}
                                         <th className="px-4 py-4 bg-slate-900 text-center">Status</th>
                                         <th className="px-4 py-4 bg-slate-900 text-right">Actions</th>
                                     </tr>
@@ -329,10 +416,26 @@ export default function InventoryPage() {
                                                     key={item.id}
                                                     className={cn(
                                                         "border-b border-slate-800/50 transition-colors group",
-                                                        isEditing ? "bg-orange-500/5" : "hover:bg-slate-900/40 cursor-default"
+                                                        isEditing ? "bg-orange-500/5" : "hover:bg-slate-900/40 cursor-default",
+                                                        selectedItems.has(item.id) && "bg-orange-500/10"
                                                     )}
                                                     onDoubleClick={() => !isEditing && startEditing(item)}
                                                 >
+                                                    <td className="px-4 py-3">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleSelectItem(item.id);
+                                                            }}
+                                                            className="p-1 hover:bg-slate-800 rounded transition-colors"
+                                                        >
+                                                            {selectedItems.has(item.id) ? (
+                                                                <CheckSquare className="h-4 w-4 text-orange-500" />
+                                                            ) : (
+                                                                <Square className="h-4 w-4 text-slate-700" />
+                                                            )}
+                                                        </button>
+                                                    </td>
 
                                                     <td className="px-4 py-3">
                                                         {isEditing ? (
@@ -506,12 +609,22 @@ export default function InventoryPage() {
                                                                 </button>
                                                             </div>
                                                         ) : (
-                                                            <button
-                                                                onClick={() => startEditing(item)}
-                                                                className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-slate-800 rounded-lg transition-all text-slate-500 hover:text-orange-500"
-                                                            >
-                                                                <Settings2 className="h-4 w-4" />
-                                                            </button>
+                                                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                                <button
+                                                                    onClick={() => startEditing(item)}
+                                                                    className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-orange-500"
+                                                                    title="Quick Edit"
+                                                                >
+                                                                    <Settings2 className="h-4 w-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteItem(item)}
+                                                                    className="p-1.5 hover:bg-red-500/10 rounded-lg text-slate-500 hover:text-red-500"
+                                                                    title="Delete Item"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </td>
                                                 </tr>
@@ -613,6 +726,58 @@ export default function InventoryPage() {
                     fetchInventory();
                 }}
             />
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="card w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl p-6 animate-in zoom-in-95">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center">
+                                <Trash2 className="h-6 w-6 text-red-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold">Confirm Deletion</h3>
+                                <p className="text-sm text-slate-400">
+                                    {itemToDelete
+                                        ? `Are you sure you want to delete "${itemToDelete.name}"?`
+                                        : `Are you sure you want to delete ${selectedItems.size} items?`
+                                    }
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-red-500/5 rounded-xl border border-red-500/10 mb-6">
+                            <p className="text-xs text-red-400">
+                                <strong>Warning:</strong> This action cannot be undone. All stock history and links associated with {itemToDelete ? 'this item' : 'these items'} will be permanently removed.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                className="btn btn-secondary flex-1"
+                                disabled={isDeleting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="btn btn-primary bg-red-500 hover:bg-red-600 border-none shadow-lg shadow-red-500/20 flex-1"
+                                disabled={isDeleting}
+                            >
+                                {isDeleting ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    'Delete Permanently'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

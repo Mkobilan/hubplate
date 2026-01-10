@@ -32,7 +32,7 @@ interface VendorImportModalProps {
 }
 
 const VENDOR_COLUMNS = [
-    { key: "name", label: "Vendor Name", required: true },
+    { key: "name", label: "Vendor Name", required: false },
     { key: "email", label: "Email", required: false },
     { key: "phone", label: "Phone", required: false },
     { key: "address", label: "Address", required: false },
@@ -48,6 +48,21 @@ export function VendorImportModal({ isOpen, onClose, locationId, onComplete }: V
     const [aiSuggestions, setAiSuggestions] = useState<AIFieldMappingSuggestion[]>([]);
     const [isLoadingAI, setIsLoadingAI] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    const resetState = () => {
+        setStep("upload");
+        setCsvHeaders([]);
+        setCsvData([]);
+        setMappings([]);
+        setAiSuggestions([]);
+        setIsLoadingAI(false);
+        setLoading(false);
+    };
+
+    const handleClose = () => {
+        resetState();
+        onClose();
+    };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -135,15 +150,20 @@ export function VendorImportModal({ isOpen, onClose, locationId, onComplete }: V
                     }
                 });
 
+                // Placeholder for missing name to avoid DB constraint violation
+                if (!vendor.name || vendor.name.trim() === "") {
+                    vendor.name = `Unnamed Vendor ${new Date().toLocaleDateString()}_${Math.floor(Math.random() * 1000)}`;
+                }
+
                 return vendor;
-            }).filter(v => v.name);
+            });
 
             const { error } = await (supabase.from("vendors") as any).upsert(vendorsToInsert, { onConflict: 'location_id, name' });
             if (error) throw error;
 
             toast.success(`Successfully imported ${vendorsToInsert.length} vendors`);
             onComplete();
-            onClose();
+            handleClose();
         } catch (err: any) {
             toast.error(err.message);
             setStep("mapping");
@@ -155,7 +175,7 @@ export function VendorImportModal({ isOpen, onClose, locationId, onComplete }: V
     return (
         <Modal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={handleClose}
             title="Import Vendors"
             className="max-w-4xl"
         >

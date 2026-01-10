@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || "");
 interface MappingRequest {
   headers: string[];
   sampleData: Record<string, string>[];
-  type?: "employee" | "customer" | "inventory" | "menu" | "vendor" | "gift_card";
+  type?: "employee" | "customer" | "inventory" | "menu" | "vendor" | "gift_card" | "recipe";
 }
 
 interface AIFieldMappingSuggestion {
@@ -236,13 +236,42 @@ Return ONLY a JSON array:
 ]
 
 JSON:`;
+    const recipePrompt = `You are an expert at mapping CSV columns to database fields for a restaurant recipe and bar management system.
+
+CSV Headers and Sample Values:
+${headers.map(h => `- "${h}": [${sampleValues[h]?.map(v => `"${v}"`).join(", ") || ""}]`).join("\n")}
+
+Available standard fields to map to:
+- name: The recipe or cocktail name
+- description: A brief description of the recipe
+- instructions: Preparation steps or how to make it
+- ingredients: List of ingredients (any format - will be parsed)
+
+For each CSV column, suggest:
+1. Which standard field it maps to (or "custom" for extra fields, or "skip")
+2. Confidence level (0.0 to 1.0)
+3. If "custom", suggest a field_name (snake_case) and field_label (Human Readable)
+
+Return ONLY a JSON array:
+[
+  {
+    "csvColumn": "Column Name",
+    "suggestedField": "name" | "description" | "instructions" | "ingredients" | "custom" | "skip",
+    "confidence": 0.95,
+    "customFieldName": "category" (only if suggestedField is "custom"),
+    "customFieldLabel": "Category" (only if suggestedField is "custom")
+  }
+]
+
+JSON:`;
 
     const prompt = type === "customer" ? customerPrompt :
       type === "inventory" ? inventoryPrompt :
         type === "menu" ? menuPrompt :
           type === "vendor" ? vendorPrompt :
             type === "gift_card" ? giftCardPrompt :
-              employeePrompt;
+              type === "recipe" ? recipePrompt :
+                employeePrompt;
     const result = await model.generateContent(prompt);
     const text = result.response.text();
 
@@ -266,7 +295,7 @@ JSON:`;
 /**
  * Fallback field mapping without AI
  */
-function fallbackFieldMapping(headers: string[], type: "employee" | "customer" | "inventory" | "menu" | "vendor" | "gift_card" = "employee"): AIFieldMappingSuggestion[] {
+function fallbackFieldMapping(headers: string[], type: "employee" | "customer" | "inventory" | "menu" | "vendor" | "gift_card" | "recipe" = "employee"): AIFieldMappingSuggestion[] {
   const employeeMappings: Record<string, string> = {
     "first_name": "first_name", "firstname": "first_name", "first name": "first_name", "fname": "first_name",
     "last_name": "last_name", "lastname": "last_name", "last name": "last_name", "lname": "last_name",
@@ -308,13 +337,24 @@ function fallbackFieldMapping(headers: string[], type: "employee" | "customer" |
     "current": "current_balance", "original": "original_balance", "active": "is_active"
   };
 
+  const recipeMappings: Record<string, string> = {
+    "name": "name", "recipe": "name", "cocktail": "name", "drink": "name", "title": "name",
+    "recipe name": "name", "cocktail name": "name", "drink name": "name",
+    "description": "description", "desc": "description", "about": "description",
+    "instructions": "instructions", "steps": "instructions", "how to": "instructions",
+    "preparation": "instructions", "method": "instructions", "directions": "instructions",
+    "ingredients": "ingredients", "items": "ingredients", "components": "ingredients",
+    "recipe ingredients": "ingredients", "ingredient list": "ingredients"
+  };
+
   const mappingsMap: Record<string, Record<string, string>> = {
     employee: employeeMappings,
     customer: customerMappings,
     inventory: inventoryMappings,
     menu: menuMappings,
     vendor: vendorMappings,
-    gift_card: giftCardMappings
+    gift_card: giftCardMappings,
+    recipe: recipeMappings
   };
 
   const commonMappings = mappingsMap[type] || employeeMappings;

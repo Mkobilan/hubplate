@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ChefHat,
@@ -21,16 +21,18 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
-import { useAppStore } from "@/stores";
+import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export default function RecipeDetailsPage({ params }: { params: { id: string } }) {
-    const { id } = params;
+export default function RecipeDetailsPage() {
+    const params = useParams();
+    const id = params.id as string;
     const { t } = useTranslation();
     const [recipe, setRecipe] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchRecipe = async () => {
+    const fetchRecipe = useCallback(async () => {
+        if (!id) return;
         setLoading(true);
         const supabase = createClient();
         try {
@@ -40,7 +42,10 @@ export default function RecipeDetailsPage({ params }: { params: { id: string } }
                     *,
                     recipe_ingredients (
                         id,
+                        ingredient_name,
+                        inventory_item_id,
                         quantity_used,
+                        quantity_raw,
                         unit,
                         inventory_items (
                             name,
@@ -68,11 +73,11 @@ export default function RecipeDetailsPage({ params }: { params: { id: string } }
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
     useEffect(() => {
         fetchRecipe();
-    }, [id]);
+    }, [fetchRecipe]);
 
     if (loading) {
         return (
@@ -161,17 +166,25 @@ export default function RecipeDetailsPage({ params }: { params: { id: string } }
                                     {recipe.recipe_ingredients?.map((ri: any) => (
                                         <tr key={ri.id} className="group hover:bg-slate-900/40">
                                             <td className="py-4">
-                                                <div className="font-medium">{ri.inventory_items?.name}</div>
-                                                <div className="text-[10px] text-slate-600 uppercase tracking-tighter">Inventory Item</div>
+                                                <div className="font-medium">{ri.inventory_items?.name || ri.ingredient_name}</div>
+                                                <div className="text-[10px] text-slate-600 uppercase tracking-tighter">
+                                                    {ri.inventory_item_id ? "Inventory Item" : "Manual Entry"}
+                                                </div>
                                             </td>
-                                            <td className="py-4 font-mono text-sm">
-                                                {ri.quantity_used} {ri.unit}
+                                            <td className="py-4 font-mono text-sm text-slate-300">
+                                                {ri.quantity_raw || `${ri.quantity_used} ${ri.unit}`}
                                             </td>
                                             <td className="py-4 font-mono text-sm text-slate-400">
-                                                {ri.inventory_items?.stock_quantity} {ri.inventory_items?.unit}
+                                                {ri.inventory_item_id ? (
+                                                    `${ri.inventory_items?.stock_quantity ?? 0} ${ri.inventory_items?.unit || ''}`
+                                                ) : (
+                                                    <span className="text-slate-600 italic">N/A</span>
+                                                )}
                                             </td>
                                             <td className="py-4 text-right">
-                                                {ri.inventory_items?.stock_quantity <= 0 ? (
+                                                {!ri.inventory_item_id ? (
+                                                    <span className="badge bg-slate-800 text-slate-400 text-[10px]">Unlinked</span>
+                                                ) : ri.inventory_items?.stock_quantity <= 0 ? (
                                                     <span className="badge badge-danger text-[10px]">86'd</span>
                                                 ) : ri.inventory_items?.stock_quantity < 10 ? (
                                                     <span className="badge badge-warning text-[10px]">Low</span>
