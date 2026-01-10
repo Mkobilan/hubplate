@@ -348,6 +348,13 @@ export default function RecipesPage() {
             // So we fetch all recipes and filter in memory or check the `recipe_menu_items` count from the join we already have
             // To ensure we have fresh data, let's fetch strictly ID and name and existing links
 
+            // Define type for the matched recipe with joined menu items
+            type RecipeWithLinks = {
+                id: string;
+                name: string;
+                recipe_menu_items: { menu_item_id: string }[];
+            };
+
             const { data: recipesData, error: recipesError } = await supabase
                 .from("recipes")
                 .select(`
@@ -357,12 +364,13 @@ export default function RecipesPage() {
                         menu_item_id
                     )
                 `)
-                .eq("location_id", currentLocation.id);
+                .eq("location_id", currentLocation.id)
+                .returns<RecipeWithLinks[]>();
 
             if (recipesError) throw recipesError;
 
             // Filter for unlinked recipes
-            const unlinkedRecipes = recipesData?.filter(r => r.recipe_menu_items.length === 0) || [];
+            const unlinkedRecipes = (recipesData as RecipeWithLinks[])?.filter(r => r.recipe_menu_items.length === 0) || [];
 
             if (unlinkedRecipes.length === 0) {
                 toast.success("All recipes are already linked to menu items!");
