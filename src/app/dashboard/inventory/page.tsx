@@ -29,7 +29,8 @@ import {
     Settings2,
     Truck,
     ShoppingCart,
-    Sparkles
+    Sparkles,
+    FileText
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useAppStore } from "@/stores";
@@ -39,6 +40,8 @@ import { toast } from "react-hot-toast";
 import CSVUploadModal from "@/components/dashboard/inventory/CSVUploadModal";
 import { VendorImportModal } from "@/components/dashboard/inventory/VendorImportModal";
 import CreatePOModal from "@/components/dashboard/inventory/CreatePOModal";
+import TakeInventoryModal from "@/components/dashboard/inventory/TakeInventoryModal";
+import InventoryHistoryModal from "@/components/dashboard/inventory/InventoryHistoryModal";
 
 
 
@@ -62,6 +65,9 @@ export default function InventoryPage() {
     const [isAddingArea, setIsAddingArea] = useState(false);
     const [newAreaName, setNewAreaName] = useState("");
     const [isCreatingArea, setIsCreatingArea] = useState(false);
+
+    const [showTakeInventoryModal, setShowTakeInventoryModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
 
 
 
@@ -488,6 +494,10 @@ export default function InventoryPage() {
                         <ShoppingCart className="h-4 w-4" />
                         Create PO
                     </button>
+                    <button className="btn btn-primary bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-500/20" onClick={() => setShowTakeInventoryModal(true)}>
+                        <CheckSquare className="h-4 w-4" />
+                        Take Inventory
+                    </button>
                 </div>
             </div>
 
@@ -545,6 +555,16 @@ export default function InventoryPage() {
                             </div>
                             <ChevronRight className="h-4 w-4" />
                         </Link>
+                        <button
+                            onClick={() => setShowHistoryModal(true)}
+                            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-blue-400 font-medium sm:col-span-2"
+                        >
+                            <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                <span>Variance & Recorded History</span>
+                            </div>
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1155,6 +1175,18 @@ export default function InventoryPage() {
                     </div>
                 </div>
             )}
+            <TakeInventoryModal
+                isOpen={showTakeInventoryModal}
+                onClose={() => setShowTakeInventoryModal(false)}
+                locationId={currentLocation.id}
+                storageAreas={storageAreas}
+            />
+
+            <InventoryHistoryModal
+                isOpen={showHistoryModal}
+                onClose={() => setShowHistoryModal(false)}
+                locationId={currentLocation.id}
+            />
         </div>
     );
 }
