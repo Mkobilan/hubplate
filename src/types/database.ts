@@ -848,6 +848,8 @@ export type Database = {
                     avg_daily_usage: number | null;
                     last_ordered_at: string | null;
                     metadata: Json | null;
+                    storage_area_id: string | null;
+                    storage_area_name: string | null;
                     created_at: string;
                     updated_at: string;
                 };
@@ -866,6 +868,8 @@ export type Database = {
                     avg_daily_usage?: number | null;
                     last_ordered_at?: string | null;
                     metadata?: Json | null;
+                    storage_area_id?: string | null;
+                    storage_area_name?: string | null;
                     created_at?: string;
                     updated_at?: string;
                 };
@@ -884,10 +888,34 @@ export type Database = {
                     avg_daily_usage?: number | null;
                     last_ordered_at?: string | null;
                     metadata?: Json | null;
+                    storage_area_id?: string | null;
+                    storage_area_name?: string | null;
                     created_at?: string;
                     updated_at?: string;
                 };
 
+            };
+            inventory_storage_areas: {
+                Row: {
+                    id: string;
+                    location_id: string;
+                    name: string;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    location_id: string;
+                    name: string;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    location_id?: string;
+                    name?: string;
+                    updated_at?: string;
+                };
             };
             ingredient_links: {
                 Row: {

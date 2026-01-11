@@ -57,12 +57,17 @@ export default function InventoryPage() {
     const [editData, setEditData] = useState<any>(null);
     const [isSyncingRunningStock, setIsSyncingRunningStock] = useState(false);
     const [showRunningStockDropdown, setShowRunningStockDropdown] = useState(false);
+    const [storageAreas, setStorageAreas] = useState<any[]>([]);
+    const [selectedAreaId, setSelectedAreaId] = useState<string>("all");
+    const [isAddingArea, setIsAddingArea] = useState(false);
+    const [newAreaName, setNewAreaName] = useState("");
+    const [isCreatingArea, setIsCreatingArea] = useState(false);
 
 
 
 
     // Default visible columns: Simplified set as requested
-    const [visibleColumns, setVisibleColumns] = useState<string[]>(['category', 'stock', 'stock_unit', 'recipe_unit', 'total_usage', 'running_stock', 'par', 'cost']);
+    const [visibleColumns, setVisibleColumns] = useState<string[]>(['category', 'storage_area', 'stock', 'stock_unit', 'recipe_unit', 'total_usage', 'running_stock', 'par', 'cost']);
 
 
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -97,8 +102,7 @@ export default function InventoryPage() {
             setLoading(true);
             const supabase = createClient();
 
-            const { data, error } = await supabase
-                .from("inventory_items")
+            const { data, error } = await (supabase.from("inventory_items") as any)
                 .select("*")
                 .eq("location_id", currentLocation.id)
                 .order("name");
@@ -112,9 +116,103 @@ export default function InventoryPage() {
         }
     }, [currentLocation?.id]);
 
+    const fetchStorageAreas = useCallback(async () => {
+        if (!currentLocation) return;
+        try {
+            const supabase = createClient();
+            const { data, error } = await (supabase.from("inventory_storage_areas") as any)
+                .select("*")
+                .eq("location_id", currentLocation.id)
+                .order("name");
+
+            if (error) throw error;
+            setStorageAreas(data || []);
+        } catch (err) {
+            console.error("Error fetching storage areas:", err);
+        }
+    }, [currentLocation?.id]);
+
     useEffect(() => {
         fetchInventory();
-    }, [fetchInventory]);
+        fetchStorageAreas();
+    }, [fetchInventory, fetchStorageAreas]);
+
+    const handleCreateArea = async () => {
+        if (!newAreaName.trim() || !currentLocation) return;
+        setIsCreatingArea(true);
+        try {
+            const supabase = createClient();
+            const { data, error } = await (supabase.from("inventory_storage_areas") as any)
+                .insert({
+                    location_id: currentLocation.id,
+                    name: newAreaName.trim()
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+            setStorageAreas([...storageAreas, data]);
+            setNewAreaName("");
+            setIsAddingArea(false);
+            toast.success("Storage area created");
+        } catch (err: any) {
+            toast.error(err.message);
+        } finally {
+            setIsCreatingArea(false);
+        }
+    };
+
+    const handleDeleteArea = async (areaId: string, areaName: string) => {
+        if (!confirm(`Are you sure you want to delete "${areaName}"? Items in this area will be unassigned.`)) return;
+
+        try {
+            const supabase = createClient();
+
+            // 1. Unassign items
+            await (supabase.from("inventory_items") as any)
+                .update({ storage_area_id: null, storage_area_name: null })
+                .eq("storage_area_id", areaId);
+
+            // 2. Delete area
+            const { error } = await (supabase.from("inventory_storage_areas") as any)
+                .delete()
+                .eq("id", areaId);
+
+            if (error) throw error;
+
+            setStorageAreas(storageAreas.filter(a => a.id !== areaId));
+            if (selectedAreaId === areaId) setSelectedAreaId("all");
+            toast.success("Storage area deleted");
+            fetchInventory();
+        } catch (err: any) {
+            toast.error("Failed to delete area: " + err.message);
+        }
+    };
+
+    const handleBulkUpdateArea = async (areaId: string) => {
+        if (selectedItems.size === 0) return;
+        const area = storageAreas.find(a => a.id === areaId);
+
+        const loadingToast = toast.loading(`Moving ${selectedItems.size} items to ${area?.name || 'No Area'}...`);
+        try {
+            const supabase = createClient();
+            const { error } = await (supabase.from("inventory_items") as any)
+                .update({
+                    storage_area_id: areaId || null,
+                    storage_area_name: area ? area.name : null
+                })
+                .in("id", Array.from(selectedItems));
+
+            if (error) throw error;
+
+            toast.success(`Moved ${selectedItems.size} items to ${area?.name || 'No Area'}`, { id: loadingToast });
+            setSelectedItems(new Set());
+            setIsSelectMode(false);
+            fetchInventory();
+        } catch (err: any) {
+            toast.error("Failed to move items: " + err.message, { id: loadingToast });
+        }
+    };
 
     const toggleSelectItem = (id: string) => {
         const newSelected = new Set(selectedItems);
@@ -211,8 +309,12 @@ export default function InventoryPage() {
 
             if (error) throw error;
             fetchInventory();
-        } catch (err) {
+            setEditingId(null);
+            setEditData(null);
+            toast.success("Item updated");
+        } catch (err: any) {
             console.error("Update error:", err);
+            toast.error("Failed to update item: " + err.message);
         }
     };
 
@@ -278,9 +380,11 @@ export default function InventoryPage() {
 
 
 
-    const filtered = inventory.filter(i =>
-        i.name.toLowerCase().includes(searchQuery.toLowerCase())
-    ).map(i => ({
+    const filtered = inventory.filter(i => {
+        const matchesSearch = i.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesArea = selectedAreaId === "all" || i.storage_area_id === selectedAreaId;
+        return matchesSearch && matchesArea;
+    }).map(i => ({
         ...i,
         status: getStatus(i)
     }));
@@ -329,6 +433,8 @@ export default function InventoryPage() {
                             <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-20 p-2 animate-in fade-in zoom-in-95">
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 py-2">Visible Columns</p>
                                 {[
+                                    { key: 'category', label: 'Category' },
+                                    { key: 'storage_area', label: 'Storage Area' },
                                     { key: 'stock', label: 'Stock Unit' },
                                     { key: 'stock_unit', label: 'Stock Meas.' },
                                     { key: 'recipe_unit', label: 'Recipe Unit' },
@@ -339,8 +445,6 @@ export default function InventoryPage() {
                                     { key: 'last_ordered', label: 'Last Ordered' },
                                     { key: 'created', label: 'Added Date' },
                                 ].map(col => (
-
-
                                     <button
                                         key={col.key}
                                         onClick={() => toggleColumn(col.key)}
@@ -373,21 +477,13 @@ export default function InventoryPage() {
                         <Upload className="h-4 w-4" />
                         Vendor CSV
                     </button>
-                    {selectedItems.size > 0 && (
-                        <button
-                            className="btn btn-secondary bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20"
-                            onClick={handleBulkDelete}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            Delete ({selectedItems.size})
-                        </button>
-                    )}
                     {filtered.some(i => i.status !== 'good') && (
                         <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-lg text-orange-500 animate-pulse">
                             <TrendingDown className="h-4 w-4" />
                             <span className="text-xs font-bold">{filtered.filter(i => i.status !== 'good').length} Low Stock</span>
                         </div>
                     )}
+
                     <button className="btn btn-primary" onClick={() => setShowPOModal(true)}>
                         <ShoppingCart className="h-4 w-4" />
                         Create PO
@@ -454,6 +550,79 @@ export default function InventoryPage() {
             </div>
 
             <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={() => setSelectedAreaId("all")}
+                        className={cn(
+                            "px-4 py-2 rounded-xl text-sm font-medium transition-all border",
+                            selectedAreaId === "all"
+                                ? "bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20"
+                                : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800"
+                        )}
+                    >
+                        All Items
+                    </button>
+                    {storageAreas.map((area) => (
+                        <div
+                            key={area.id}
+                            onClick={() => setSelectedAreaId(area.id)}
+                            className={cn(
+                                "px-4 py-2 rounded-xl text-sm font-medium transition-all border flex items-center gap-2 cursor-pointer",
+                                selectedAreaId === area.id
+                                    ? "bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/20"
+                                    : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800"
+                            )}
+                        >
+                            <span>{area.name}</span>
+                            {selectedAreaId === area.id && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteArea(area.id, area.name);
+                                    }}
+                                    className="p-0.5 hover:bg-black/20 rounded-md transition-colors"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                    {isAddingArea ? (
+                        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1 rounded-xl">
+                            <input
+                                autoFocus
+                                type="text"
+                                value={newAreaName}
+                                onChange={(e) => setNewAreaName(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleCreateArea()}
+                                placeholder="Area name..."
+                                className="bg-transparent border-none focus:outline-none text-sm px-2 w-32"
+                            />
+                            <button
+                                onClick={handleCreateArea}
+                                disabled={isCreatingArea}
+                                className="p-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                            >
+                                {isCreatingArea ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                            </button>
+                            <button
+                                onClick={() => setIsAddingArea(false)}
+                                className="p-1.5 text-slate-400 hover:bg-slate-800 rounded-lg transition-colors"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setIsAddingArea(true)}
+                            className="p-2 bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800 rounded-xl transition-all"
+                            title="Add Custom Area"
+                        >
+                            <Plus size={18} />
+                        </button>
+                    )}
+                </div>
+
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <input
@@ -464,6 +633,47 @@ export default function InventoryPage() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
+
+                {selectedItems.size > 0 && (
+                    <div className="flex items-center gap-3 p-3 bg-slate-900 border border-slate-800 rounded-2xl animate-in slide-in-from-top-2">
+                        <span className="text-sm font-bold text-slate-400 ml-2">
+                            {selectedItems.size} items selected
+                        </span>
+                        <div className="h-4 w-px bg-slate-800 mx-2" />
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Add To:</span>
+                            <select
+                                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-medium"
+                                onChange={(e) => handleBulkUpdateArea(e.target.value)}
+                                value=""
+                            >
+                                <option value="" disabled>Select Storage Area...</option>
+                                <option value="">No Area</option>
+                                {storageAreas.map(area => (
+                                    <option key={area.id} value={area.id}>{area.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="ml-auto flex items-center gap-2">
+                            <button
+                                className="btn btn-secondary bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20 py-1.5"
+                                onClick={handleBulkDelete}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                            </button>
+                            <button
+                                onClick={() => setSelectedItems(new Set())}
+                                className="btn btn-secondary py-1.5"
+                            >
+                                <X className="h-4 w-4" />
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div className="card overflow-hidden flex flex-col h-[750px]">
                     <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
@@ -484,6 +694,7 @@ export default function InventoryPage() {
                                     </th>
                                     <th className="px-4 py-4 bg-slate-900">Item Name</th>
                                     {visibleColumns.includes('category') && <th className="px-4 py-4 bg-slate-900">Category</th>}
+                                    {visibleColumns.includes('storage_area') && <th className="px-4 py-4 bg-slate-900">Storage Area</th>}
                                     {visibleColumns.includes('supplier') && <th className="px-4 py-4 bg-slate-900">Supplier</th>}
 
                                     {visibleColumns.includes('stock') && <th className="px-4 py-4 bg-slate-900 font-bold">Stock Unit</th>}
@@ -596,6 +807,32 @@ export default function InventoryPage() {
                                                             />
                                                         ) : (
                                                             <span className="text-sm text-slate-400">{item.category || '-'}</span>
+                                                        )}
+                                                    </td>
+                                                )}
+
+                                                {visibleColumns.includes('storage_area') && (
+                                                    <td className="px-4 py-3">
+                                                        {isEditing ? (
+                                                            <select
+                                                                className="input !py-1 !px-2 text-sm w-full bg-slate-900"
+                                                                value={editData.storage_area_id || ""}
+                                                                onChange={(e) => {
+                                                                    const area = storageAreas.find(a => a.id === e.target.value);
+                                                                    setEditData({
+                                                                        ...editData,
+                                                                        storage_area_id: e.target.value || null,
+                                                                        storage_area_name: area ? area.name : null
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <option value="">No Area</option>
+                                                                {storageAreas.map(area => (
+                                                                    <option key={area.id} value={area.id}>{area.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            <span className="text-sm text-slate-400">{item.storage_area_name || '-'}</span>
                                                         )}
                                                     </td>
                                                 )}
