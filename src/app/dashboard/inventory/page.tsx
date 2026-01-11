@@ -42,6 +42,7 @@ import { VendorImportModal } from "@/components/dashboard/inventory/VendorImport
 import CreatePOModal from "@/components/dashboard/inventory/CreatePOModal";
 import TakeInventoryModal from "@/components/dashboard/inventory/TakeInventoryModal";
 import InventoryHistoryModal from "@/components/dashboard/inventory/InventoryHistoryModal";
+import ExportInventoryModal from "@/components/dashboard/inventory/ExportInventoryModal";
 
 
 
@@ -68,6 +69,7 @@ export default function InventoryPage() {
 
     const [showTakeInventoryModal, setShowTakeInventoryModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
 
 
 
@@ -556,8 +558,18 @@ export default function InventoryPage() {
                             <ChevronRight className="h-4 w-4" />
                         </Link>
                         <button
+                            onClick={() => setShowExportModal(true)}
+                            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-orange-400 font-medium sm:col-span-1"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Download className="h-4 w-4" />
+                                <span>Export</span>
+                            </div>
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
+                        <button
                             onClick={() => setShowHistoryModal(true)}
-                            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-blue-400 font-medium sm:col-span-2"
+                            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-blue-400 font-medium sm:col-span-1"
                         >
                             <div className="flex items-center gap-2">
                                 <FileText className="h-4 w-4" />
@@ -1186,6 +1198,13 @@ export default function InventoryPage() {
                 isOpen={showHistoryModal}
                 onClose={() => setShowHistoryModal(false)}
                 locationId={currentLocation.id}
+            />
+
+            <ExportInventoryModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                locationId={currentLocation.id}
+                storageAreas={storageAreas}
             />
         </div>
     );
