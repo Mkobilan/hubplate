@@ -382,489 +382,463 @@ export default function InventoryPage() {
                             Delete ({selectedItems.size})
                         </button>
                     )}
+                    {filtered.some(i => i.status !== 'good') && (
+                        <div className="flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-lg text-orange-500 animate-pulse">
+                            <TrendingDown className="h-4 w-4" />
+                            <span className="text-xs font-bold">{filtered.filter(i => i.status !== 'good').length} Low Stock</span>
+                        </div>
+                    )}
                     <button className="btn btn-primary" onClick={() => setShowPOModal(true)}>
                         <ShoppingCart className="h-4 w-4" />
                         Create PO
                     </button>
                 </div>
-
-
-
             </div>
 
-            {/* Low Stock Alert Banner */}
-            {filtered.some(i => i.status !== 'good') && (
-                <div className="card border-orange-500/30 bg-orange-500/5 p-4 lg:p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex gap-4">
-                        <div className="p-3 bg-orange-500/20 rounded-2xl h-fit">
-                            <TrendingDown className="h-6 w-6 text-orange-400" />
+            {/* Metrics & Links Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="card">
+                    <h3 className="font-bold mb-4">Stock Value</h3>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-500">Total Asset Value</span>
+                            <span className="font-bold text-lg">{formatCurrency(totalAssetValue)}</span>
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-orange-100">Low Stock Alert</h3>
-                            <p className="text-sm text-orange-200/60 max-w-lg mt-1">
-                                {filtered.filter(i => i.status !== 'good').length} items are below par level.
-                                Reorder these essentials to maintain service standards.
-                            </p>
+                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-orange-500 transition-all duration-500"
+                                style={{ width: `${Math.min(100, (totalAssetValue / 10000) * 100)}%` }}
+                            />
                         </div>
+                        <p className="text-[10px] text-slate-500">
+                            Calculated from {inventory.length} items across all categories.
+                        </p>
                     </div>
-                    <button
-                        onClick={() => setShowPOModal(true)}
-                        className="btn btn-primary whitespace-nowrap bg-orange-500 hover:bg-orange-600 border-none shadow-lg shadow-orange-500/20"
-                    >
-                        Create PO
-                        <ArrowRight className="h-4 w-4" />
-                    </button>
-
                 </div>
-            )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Inventory List */}
-                <div className="lg:col-span-2 space-y-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                        <input
-                            type="text"
-                            placeholder="Search inventory..."
-                            className="input !pl-10"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+                <div className="card">
+                    <h3 className="font-bold mb-4">Quick Links</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Link
+                            href="/dashboard/inventory/pours"
+                            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Activity className="h-4 w-4 text-pink-400" />
+                                <span>Inventory Logs</span>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-slate-600" />
+                        </Link>
+                        <Link
+                            href="/dashboard/inventory/waste"
+                            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Trash2 className="h-4 w-4 text-red-400" />
+                                <span>Waste Logs</span>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-slate-600" />
+                        </Link>
+                        <Link
+                            href="/dashboard/menu/suggestions"
+                            className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-orange-400 font-medium sm:col-span-2"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="h-4 w-4" />
+                                <span>AI Menu Suggestions</span>
+                            </div>
+                            <ChevronRight className="h-4 w-4" />
+                        </Link>
                     </div>
+                </div>
+            </div>
 
-                    <div className="card overflow-hidden flex flex-col h-[750px]">
-                        <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                            <table className="w-full text-left border-collapse min-w-[1200px]">
-                                <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
-                                    <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                        <th className="px-4 py-4 bg-slate-900 first:rounded-tl-xl w-10">
-                                            <button
-                                                onClick={toggleSelectAll}
-                                                className="p-1 hover:bg-slate-800 rounded transition-colors"
-                                            >
-                                                {selectedItems.size === filtered.length && filtered.length > 0 ? (
-                                                    <CheckSquare className="h-4 w-4 text-orange-500" />
-                                                ) : (
-                                                    <Square className="h-4 w-4" />
-                                                )}
-                                            </button>
-                                        </th>
-                                        <th className="px-4 py-4 bg-slate-900">Item Name</th>
-                                        {visibleColumns.includes('category') && <th className="px-4 py-4 bg-slate-900">Category</th>}
-                                        {visibleColumns.includes('supplier') && <th className="px-4 py-4 bg-slate-900">Supplier</th>}
+            <div className="space-y-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <input
+                        type="text"
+                        placeholder="Search inventory..."
+                        className="input !pl-10"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
 
-                                        {visibleColumns.includes('stock') && <th className="px-4 py-4 bg-slate-900 font-bold">Stock Unit</th>}
-                                        {visibleColumns.includes('stock_unit') && <th className="px-4 py-4 bg-slate-900 font-bold text-orange-400">Stock Meas.</th>}
-                                        {visibleColumns.includes('recipe_unit') && <th className="px-4 py-4 bg-slate-900 font-bold">Recipe Unit</th>}
-                                        {visibleColumns.includes('total_usage') && <th className="px-4 py-4 bg-slate-900 text-pink-400 font-bold text-orange-400">Stock Total</th>}
-                                        {visibleColumns.includes('running_stock') && (
-                                            <th className="px-4 py-4 bg-slate-900 text-pink-400 font-bold relative group">
-                                                <div className="flex items-center gap-2">
-                                                    Running Stock
-                                                    <div className="relative inline-block text-left">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setShowRunningStockDropdown(!showRunningStockDropdown);
-                                                            }}
-                                                            className="p-1 hover:bg-slate-800 rounded transition-colors"
-                                                            disabled={isSyncingRunningStock}
-                                                        >
-                                                            {isSyncingRunningStock ? (
-                                                                <Loader2 size={14} className="animate-spin" />
-                                                            ) : (
-                                                                <ChevronDown size={14} />
-                                                            )}
-                                                        </button>
+                <div className="card overflow-hidden flex flex-col h-[750px]">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                        <table className="w-full text-left border-collapse min-w-[1200px]">
+                            <thead className="sticky top-0 z-20 bg-slate-900 shadow-md">
+                                <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                    <th className="px-4 py-4 bg-slate-900 first:rounded-tl-xl w-10">
+                                        <button
+                                            onClick={toggleSelectAll}
+                                            className="p-1 hover:bg-slate-800 rounded transition-colors"
+                                        >
+                                            {selectedItems.size === filtered.length && filtered.length > 0 ? (
+                                                <CheckSquare className="h-4 w-4 text-orange-500" />
+                                            ) : (
+                                                <Square className="h-4 w-4" />
+                                            )}
+                                        </button>
+                                    </th>
+                                    <th className="px-4 py-4 bg-slate-900">Item Name</th>
+                                    {visibleColumns.includes('category') && <th className="px-4 py-4 bg-slate-900">Category</th>}
+                                    {visibleColumns.includes('supplier') && <th className="px-4 py-4 bg-slate-900">Supplier</th>}
 
-                                                        {showRunningStockDropdown && (
-                                                            <div className="absolute left-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-30 p-1 animate-in fade-in zoom-in-95">
-                                                                <button
-                                                                    onClick={handleSyncAllRunningStock}
-                                                                    className="flex items-center w-full px-3 py-2 text-xs font-bold text-pink-400 hover:bg-pink-500/10 rounded-lg text-left gap-2 transition-all"
-                                                                >
-                                                                    <RefreshCw size={12} className={isSyncingRunningStock ? "animate-spin" : ""} />
-                                                                    Update All
-                                                                </button>
-                                                            </div>
+                                    {visibleColumns.includes('stock') && <th className="px-4 py-4 bg-slate-900 font-bold">Stock Unit</th>}
+                                    {visibleColumns.includes('stock_unit') && <th className="px-4 py-4 bg-slate-900 font-bold text-orange-400">Stock Meas.</th>}
+                                    {visibleColumns.includes('recipe_unit') && <th className="px-4 py-4 bg-slate-900 font-bold">Recipe Unit</th>}
+                                    {visibleColumns.includes('total_usage') && <th className="px-4 py-4 bg-slate-900 text-pink-400 font-bold text-orange-400">Stock Total</th>}
+                                    {visibleColumns.includes('running_stock') && (
+                                        <th className="px-4 py-4 bg-slate-900 text-pink-400 font-bold relative group">
+                                            <div className="flex items-center gap-2">
+                                                Running Stock
+                                                <div className="relative inline-block text-left">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setShowRunningStockDropdown(!showRunningStockDropdown);
+                                                        }}
+                                                        className="p-1 hover:bg-slate-800 rounded transition-colors"
+                                                        disabled={isSyncingRunningStock}
+                                                    >
+                                                        {isSyncingRunningStock ? (
+                                                            <Loader2 size={14} className="animate-spin" />
+                                                        ) : (
+                                                            <ChevronDown size={14} />
                                                         )}
-                                                    </div>
-                                                </div>
-                                            </th>
-                                        )}
-                                        {visibleColumns.includes('par') && <th className="px-4 py-4 bg-slate-900 font-bold">Par</th>}
-                                        {visibleColumns.includes('cost') && <th className="px-4 py-4 bg-slate-900 font-bold">Cost</th>}
+                                                    </button>
 
-                                        {visibleColumns.includes('reorder') && <th className="px-4 py-4 bg-slate-900">Reorder</th>}
-                                        {visibleColumns.includes('usage') && <th className="px-4 py-4 bg-slate-900">Usage</th>}
-                                        {visibleColumns.includes('last_ordered') && <th className="px-4 py-4 bg-slate-900">Last Ordered</th>}
-                                        {visibleColumns.includes('created') && <th className="px-4 py-4 bg-slate-900 last:rounded-tr-xl">Added</th>}
-                                        <th className="px-4 py-4 bg-slate-900 text-center">Status</th>
-                                        <th className="px-4 py-4 bg-slate-900 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody className="divide-y divide-slate-800">
-                                    {loading ? (
-                                        <tr>
-                                            <td colSpan={visibleColumns.length + 2} className="px-4 py-12 text-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
-                                            </td>
-                                        </tr>
-                                    ) : filtered.length > 0 ? (
-                                        filtered.map((item) => {
-                                            const isEditing = editingId === item.id;
-
-                                            return (
-                                                <tr
-                                                    key={item.id}
-                                                    className={cn(
-                                                        "border-b border-slate-800/50 transition-colors group",
-                                                        isEditing ? "bg-orange-500/5" : "hover:bg-slate-900/40 cursor-default",
-                                                        selectedItems.has(item.id) && "bg-orange-500/10"
+                                                    {showRunningStockDropdown && (
+                                                        <div className="absolute left-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-30 p-1 animate-in fade-in zoom-in-95">
+                                                            <button
+                                                                onClick={handleSyncAllRunningStock}
+                                                                className="flex items-center w-full px-3 py-2 text-xs font-bold text-pink-400 hover:bg-pink-500/10 rounded-lg text-left gap-2 transition-all"
+                                                            >
+                                                                <RefreshCw size={12} className={isSyncingRunningStock ? "animate-spin" : ""} />
+                                                                Update All
+                                                            </button>
+                                                        </div>
                                                     )}
-                                                    onDoubleClick={() => !isEditing && startEditing(item)}
-                                                >
-                                                    <td className="px-4 py-3">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                toggleSelectItem(item.id);
-                                                            }}
-                                                            className="p-1 hover:bg-slate-800 rounded transition-colors"
-                                                        >
-                                                            {selectedItems.has(item.id) ? (
-                                                                <CheckSquare className="h-4 w-4 text-orange-500" />
-                                                            ) : (
-                                                                <Square className="h-4 w-4 text-slate-700" />
-                                                            )}
-                                                        </button>
-                                                    </td>
+                                                </div>
+                                            </div>
+                                        </th>
+                                    )}
+                                    {visibleColumns.includes('par') && <th className="px-4 py-4 bg-slate-900 font-bold">Par</th>}
+                                    {visibleColumns.includes('cost') && <th className="px-4 py-4 bg-slate-900 font-bold">Cost</th>}
 
+                                    {visibleColumns.includes('reorder') && <th className="px-4 py-4 bg-slate-900">Reorder</th>}
+                                    {visibleColumns.includes('usage') && <th className="px-4 py-4 bg-slate-900">Usage</th>}
+                                    {visibleColumns.includes('last_ordered') && <th className="px-4 py-4 bg-slate-900">Last Ordered</th>}
+                                    {visibleColumns.includes('created') && <th className="px-4 py-4 bg-slate-900 last:rounded-tr-xl">Added</th>}
+                                    <th className="px-4 py-4 bg-slate-900 text-center">Status</th>
+                                    <th className="px-4 py-4 bg-slate-900 text-right">Actions</th>
+                                </tr>
+                            </thead>
+
+                            <tbody className="divide-y divide-slate-800">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={visibleColumns.length + 2} className="px-4 py-12 text-center">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+                                        </td>
+                                    </tr>
+                                ) : filtered.length > 0 ? (
+                                    filtered.map((item) => {
+                                        const isEditing = editingId === item.id;
+
+                                        return (
+                                            <tr
+                                                key={item.id}
+                                                className={cn(
+                                                    "border-b border-slate-800/50 transition-colors group",
+                                                    isEditing ? "bg-orange-500/5" : "hover:bg-slate-900/40 cursor-default",
+                                                    selectedItems.has(item.id) && "bg-orange-500/10"
+                                                )}
+                                                onDoubleClick={() => !isEditing && startEditing(item)}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleSelectItem(item.id);
+                                                        }}
+                                                        className="p-1 hover:bg-slate-800 rounded transition-colors"
+                                                    >
+                                                        {selectedItems.has(item.id) ? (
+                                                            <CheckSquare className="h-4 w-4 text-orange-500" />
+                                                        ) : (
+                                                            <Square className="h-4 w-4 text-slate-700" />
+                                                        )}
+                                                    </button>
+                                                </td>
+
+                                                <td className="px-4 py-3">
+                                                    {isEditing ? (
+                                                        <input
+                                                            className="input !py-1 !px-2 text-sm w-full"
+                                                            value={editData.name}
+                                                            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                                                        />
+                                                    ) : (
+                                                        <span className="font-medium text-sm">{item.name}</span>
+                                                    )}
+                                                </td>
+
+                                                {visibleColumns.includes('category') && (
                                                     <td className="px-4 py-3">
                                                         {isEditing ? (
                                                             <input
                                                                 className="input !py-1 !px-2 text-sm w-full"
-                                                                value={editData.name}
-                                                                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                                                                value={editData.category || ""}
+                                                                onChange={(e) => setEditData({ ...editData, category: e.target.value })}
                                                             />
                                                         ) : (
-                                                            <span className="font-medium text-sm">{item.name}</span>
+                                                            <span className="text-sm text-slate-400">{item.category || '-'}</span>
                                                         )}
                                                     </td>
+                                                )}
 
-                                                    {visibleColumns.includes('category') && (
-                                                        <td className="px-4 py-3">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    className="input !py-1 !px-2 text-sm w-full"
-                                                                    value={editData.category || ""}
-                                                                    onChange={(e) => setEditData({ ...editData, category: e.target.value })}
-                                                                />
-                                                            ) : (
-                                                                <span className="text-sm text-slate-400">{item.category || '-'}</span>
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('supplier') && (
-                                                        <td className="px-4 py-3">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    className="input !py-1 !px-2 text-sm w-full"
-                                                                    value={editData.supplier || ""}
-                                                                    onChange={(e) => setEditData({ ...editData, supplier: e.target.value })}
-                                                                />
-                                                            ) : (
-                                                                <span className="text-sm text-slate-400">{item.supplier || '-'}</span>
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('stock') && (
-                                                        <td className="px-4 py-3 font-mono font-bold text-white">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    type="number"
-                                                                    className="input !py-1 !px-2 text-sm w-full"
-                                                                    value={editData.stock_quantity}
-                                                                    onChange={(e) => setEditData({ ...editData, stock_quantity: parseFloat(e.target.value) || 0 })}
-                                                                />
-                                                            ) : (
-                                                                item.stock_quantity
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('stock_unit') && (
-                                                        <td className="px-4 py-3">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    className="input !py-1 !px-2 text-sm w-full"
-                                                                    value={`${editData.units_per_stock || 1} ${editData.unit || ''}`.trim()}
-                                                                    onChange={(e) => {
-                                                                        const val = e.target.value;
-                                                                        // Match number followed by optional unit label
-                                                                        const match = val.match(/^(\d*\.?\d+)\s*(.*)$/i);
-                                                                        if (match) {
-                                                                            setEditData({
-                                                                                ...editData,
-                                                                                units_per_stock: parseFloat(match[1]) || 1,
-                                                                                unit: match[2].trim() || ''
-                                                                            });
-                                                                        } else {
-                                                                            setEditData({ ...editData, units_per_stock: 1, unit: val.trim() });
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            ) : (
-                                                                <span className="text-sm">
-                                                                    {item.units_per_stock && item.units_per_stock !== 1
-                                                                        ? `${item.units_per_stock} ${item.unit}`
-                                                                        : item.unit}
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('recipe_unit') && (
-                                                        <td className="px-4 py-3">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    className="input !py-1 !px-2 text-sm w-full"
-                                                                    value={editData.recipe_unit || ""}
-                                                                    onChange={(e) => setEditData({ ...editData, recipe_unit: e.target.value })}
-                                                                />
-                                                            ) : (
-                                                                <span className="text-sm text-slate-400">{item.recipe_unit || item.unit}</span>
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('total_usage') && (
-                                                        <td className="px-4 py-3 bg-pink-500/5">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm font-mono font-bold text-orange-400">
-                                                                    {(() => {
-                                                                        const stock = Number(item.stock_quantity || 0);
-                                                                        let multiplier = Number(item.units_per_stock || 1);
-                                                                        let unitLabel = item.unit || '';
-
-                                                                        let conversion = 1;
-                                                                        const combinedUnit = unitLabel.toLowerCase();
-                                                                        const recipeUnit = (item.recipe_unit || '').toLowerCase();
-
-                                                                        if (combinedUnit.includes('lb') && recipeUnit.includes('oz')) {
-                                                                            conversion = 16;
-                                                                        } else if (combinedUnit.includes('gal') && recipeUnit.includes('oz')) {
-                                                                            conversion = 128;
-                                                                        }
-
-                                                                        return (stock * multiplier * conversion).toLocaleString();
-                                                                    })()}
-                                                                </span>
-                                                                <span className="text-[10px] text-slate-500 uppercase font-bold">
-                                                                    TOTAL {item.recipe_unit || item.unit}
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('running_stock') && (
-                                                        <td className="px-4 py-3 bg-pink-500/5">
-                                                            <div className="flex flex-col">
-                                                                {isEditing ? (
-                                                                    <input
-                                                                        type="number"
-                                                                        step="any"
-                                                                        className="input !py-1 !px-2 text-sm w-full font-mono font-bold text-pink-400"
-                                                                        value={editData.running_stock ?? item.running_stock}
-                                                                        onChange={(e) => setEditData({ ...editData, running_stock: parseFloat(e.target.value) })}
-                                                                    />
-                                                                ) : (
-                                                                    <span className="text-sm font-mono font-bold text-pink-400">
-                                                                        {(Number(item.running_stock || 0)).toLocaleString()}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('par') && (
-                                                        <td className="px-4 py-3 text-sm font-mono text-slate-500">
-                                                            {item.par_level}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('reorder') && (
-                                                        <td className="px-4 py-3 text-sm font-mono text-slate-500">
-                                                            {item.reorder_quantity || '-'}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('usage') && (
-                                                        <td className="px-4 py-3">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    type="number"
-                                                                    className="input !py-1 !px-2 text-sm w-full font-mono"
-                                                                    value={editData.avg_daily_usage || 0}
-                                                                    onChange={(e) => setEditData({ ...editData, avg_daily_usage: parseFloat(e.target.value) || 0 })}
-                                                                />
-                                                            ) : (
-                                                                <span className="text-sm font-mono text-slate-500">{item.avg_daily_usage || 0}</span>
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('cost') && (
-                                                        <td className="px-4 py-3">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    type="number"
-                                                                    className="input !py-1 !px-2 text-sm w-full font-mono"
-                                                                    value={editData.cost_per_unit || 0}
-                                                                    onChange={(e) => setEditData({ ...editData, cost_per_unit: parseFloat(e.target.value) || 0 })}
-                                                                />
-                                                            ) : (
-                                                                <span className="text-sm font-mono text-slate-500">{formatCurrency(item.cost_per_unit || 0)}</span>
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('last_ordered') && (
-                                                        <td className="px-4 py-3 text-sm text-slate-500">
-                                                            {item.last_ordered_at ? new Date(item.last_ordered_at).toLocaleDateString() : 'Never'}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('created') && (
-                                                        <td className="px-4 py-3 text-sm text-slate-500">
-                                                            {new Date(item.created_at).toLocaleDateString()}
-                                                        </td>
-                                                    )}
-
+                                                {visibleColumns.includes('supplier') && (
                                                     <td className="px-4 py-3">
-
-                                                        <span className={cn(
-                                                            "badge text-[10px]",
-                                                            item.status === "critical" && "badge-danger",
-                                                            item.status === "low" && "badge-warning",
-                                                            item.status === "good" && "badge-success"
-                                                        )}>
-                                                            {item.status}
-                                                        </span>
-                                                    </td>
-
-                                                    <td className="px-4 py-3 text-right">
                                                         {isEditing ? (
-                                                            <div className="flex justify-end gap-2">
-                                                                <button
-                                                                    onClick={() => handleUpdateItem(item.id, editData)}
-                                                                    className="p-1.5 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded-lg transition-colors"
-                                                                    title="Save Changes"
-                                                                >
-                                                                    <Check className="h-4 w-4" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={cancelEditing}
-                                                                    className="p-1.5 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors"
-                                                                    title="Cancel"
-                                                                >
-                                                                    <X className="h-4 w-4" />
-                                                                </button>
-                                                            </div>
+                                                            <input
+                                                                className="input !py-1 !px-2 text-sm w-full"
+                                                                value={editData.supplier || ""}
+                                                                onChange={(e) => setEditData({ ...editData, supplier: e.target.value })}
+                                                            />
                                                         ) : (
-                                                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                                <button
-                                                                    onClick={() => startEditing(item)}
-                                                                    className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-orange-500"
-                                                                    title="Quick Edit"
-                                                                >
-                                                                    <Settings2 className="h-4 w-4" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteItem(item)}
-                                                                    className="p-1.5 hover:bg-red-500/10 rounded-lg text-slate-500 hover:text-red-500"
-                                                                    title="Delete Item"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </button>
-                                                            </div>
+                                                            <span className="text-sm text-slate-400">{item.supplier || '-'}</span>
                                                         )}
                                                     </td>
-                                                </tr>
-                                            );
-                                        })
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={visibleColumns.length + 2} className="px-4 py-12 text-center text-slate-500">
-                                                No inventory items found
-                                            </td>
-                                        </tr>
-                                    )}
+                                                )}
 
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+                                                {visibleColumns.includes('stock') && (
+                                                    <td className="px-4 py-3 font-mono font-bold text-white">
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                className="input !py-1 !px-2 text-sm w-full"
+                                                                value={editData.stock_quantity}
+                                                                onChange={(e) => setEditData({ ...editData, stock_quantity: parseFloat(e.target.value) || 0 })}
+                                                            />
+                                                        ) : (
+                                                            item.stock_quantity
+                                                        )}
+                                                    </td>
+                                                )}
 
-                {/* Categories & Actions */}
-                <div className="space-y-4">
-                    <div className="card">
-                        <h3 className="font-bold mb-4">Stock Value</h3>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-500">Total Asset Value</span>
-                                <span className="font-bold text-lg">{formatCurrency(totalAssetValue)}</span>
-                            </div>
-                            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-orange-500 transition-all duration-500"
-                                    style={{ width: `${Math.min(100, (totalAssetValue / 10000) * 100)}%` }}
-                                />
-                            </div>
-                            <p className="text-[10px] text-slate-500">
-                                Calculated from {inventory.length} items across all categories.
-                            </p>
-                        </div>
-                    </div>
+                                                {visibleColumns.includes('stock_unit') && (
+                                                    <td className="px-4 py-3">
+                                                        {isEditing ? (
+                                                            <input
+                                                                className="input !py-1 !px-2 text-sm w-full"
+                                                                value={`${editData.units_per_stock || 1} ${editData.unit || ''}`.trim()}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    // Match number followed by optional unit label
+                                                                    const match = val.match(/^(\d*\.?\d+)\s*(.*)$/i);
+                                                                    if (match) {
+                                                                        setEditData({
+                                                                            ...editData,
+                                                                            units_per_stock: parseFloat(match[1]) || 1,
+                                                                            unit: match[2].trim() || ''
+                                                                        });
+                                                                    } else {
+                                                                        setEditData({ ...editData, units_per_stock: 1, unit: val.trim() });
+                                                                    }
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <span className="text-sm">
+                                                                {item.units_per_stock && item.units_per_stock !== 1
+                                                                    ? `${item.units_per_stock} ${item.unit}`
+                                                                    : item.unit}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                )}
 
-                    <div className="card">
-                        <h3 className="font-bold mb-4">Quick Links</h3>
-                        <div className="space-y-2">
-                            <Link
-                                href="/dashboard/inventory/pours"
-                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Activity className="h-4 w-4 text-pink-400" />
-                                    <span>Inventory Logs</span>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-slate-600" />
-                            </Link>
-                            <Link
-                                href="/dashboard/inventory/waste"
-                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Trash2 className="h-4 w-4 text-red-400" />
-                                    <span>Waste Logs</span>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-slate-600" />
-                            </Link>
-                            <Link
-                                href="/dashboard/menu/suggestions"
-                                className="w-full flex items-center justify-between p-3 bg-slate-900/50 rounded-lg hover:bg-slate-800 transition-colors text-sm text-orange-400 font-medium"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Sparkles className="h-4 w-4" />
-                                    <span>AI Menu Suggestions</span>
-                                </div>
-                                <ChevronRight className="h-4 w-4" />
-                            </Link>
-                        </div>
+                                                {visibleColumns.includes('recipe_unit') && (
+                                                    <td className="px-4 py-3">
+                                                        {isEditing ? (
+                                                            <input
+                                                                className="input !py-1 !px-2 text-sm w-full"
+                                                                value={editData.recipe_unit || ""}
+                                                                onChange={(e) => setEditData({ ...editData, recipe_unit: e.target.value })}
+                                                            />
+                                                        ) : (
+                                                            <span className="text-sm text-slate-400">{item.recipe_unit || item.unit}</span>
+                                                        )}
+                                                    </td>
+                                                )}
+
+                                                {visibleColumns.includes('total_usage') && (
+                                                    <td className="px-4 py-3 bg-pink-500/5">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-mono font-bold text-orange-400">
+                                                                {(() => {
+                                                                    const stock = Number(item.stock_quantity || 0);
+                                                                    let multiplier = Number(item.units_per_stock || 1);
+                                                                    let unitLabel = item.unit || '';
+
+                                                                    let conversion = 1;
+                                                                    const combinedUnit = unitLabel.toLowerCase();
+                                                                    const recipeUnit = (item.recipe_unit || '').toLowerCase();
+
+                                                                    if (combinedUnit.includes('lb') && recipeUnit.includes('oz')) {
+                                                                        conversion = 16;
+                                                                    } else if (combinedUnit.includes('gal') && recipeUnit.includes('oz')) {
+                                                                        conversion = 128;
+                                                                    }
+
+                                                                    return (stock * multiplier * conversion).toLocaleString();
+                                                                })()}
+                                                            </span>
+                                                            <span className="text-[10px] text-slate-500 uppercase font-bold">
+                                                                TOTAL {item.recipe_unit || item.unit}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                )}
+
+                                                {visibleColumns.includes('running_stock') && (
+                                                    <td className="px-4 py-3 bg-pink-500/5">
+                                                        <div className="flex flex-col">
+                                                            {isEditing ? (
+                                                                <input
+                                                                    type="number"
+                                                                    step="any"
+                                                                    className="input !py-1 !px-2 text-sm w-full font-mono font-bold text-pink-400"
+                                                                    value={editData.running_stock ?? item.running_stock}
+                                                                    onChange={(e) => setEditData({ ...editData, running_stock: parseFloat(e.target.value) })}
+                                                                />
+                                                            ) : (
+                                                                <span className="text-sm font-mono font-bold text-pink-400">
+                                                                    {(Number(item.running_stock || 0)).toLocaleString()}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                )}
+
+                                                {visibleColumns.includes('par') && (
+                                                    <td className="px-4 py-3 text-sm font-mono text-slate-500">
+                                                        {item.par_level}
+                                                    </td>
+                                                )}
+
+                                                {visibleColumns.includes('reorder') && (
+                                                    <td className="px-4 py-3 text-sm font-mono text-slate-500">
+                                                        {item.reorder_quantity || '-'}
+                                                    </td>
+                                                )}
+
+                                                {visibleColumns.includes('usage') && (
+                                                    <td className="px-4 py-3">
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                className="input !py-1 !px-2 text-sm w-full font-mono"
+                                                                value={editData.avg_daily_usage || 0}
+                                                                onChange={(e) => setEditData({ ...editData, avg_daily_usage: parseFloat(e.target.value) || 0 })}
+                                                            />
+                                                        ) : (
+                                                            <span className="text-sm font-mono text-slate-500">{item.avg_daily_usage || 0}</span>
+                                                        )}
+                                                    </td>
+                                                )}
+
+                                                {visibleColumns.includes('cost') && (
+                                                    <td className="px-4 py-3">
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                className="input !py-1 !px-2 text-sm w-full font-mono"
+                                                                value={editData.cost_per_unit || 0}
+                                                                onChange={(e) => setEditData({ ...editData, cost_per_unit: parseFloat(e.target.value) || 0 })}
+                                                            />
+                                                        ) : (
+                                                            <span className="text-sm font-mono text-slate-500">{formatCurrency(item.cost_per_unit || 0)}</span>
+                                                        )}
+                                                    </td>
+                                                )}
+
+                                                {visibleColumns.includes('last_ordered') && (
+                                                    <td className="px-4 py-3 text-sm text-slate-500">
+                                                        {item.last_ordered_at ? new Date(item.last_ordered_at).toLocaleDateString() : 'Never'}
+                                                    </td>
+                                                )}
+
+                                                {visibleColumns.includes('created') && (
+                                                    <td className="px-4 py-3 text-sm text-slate-500">
+                                                        {new Date(item.created_at).toLocaleDateString()}
+                                                    </td>
+                                                )}
+
+                                                <td className="px-4 py-3">
+
+                                                    <span className={cn(
+                                                        "badge text-[10px]",
+                                                        item.status === "critical" && "badge-danger",
+                                                        item.status === "low" && "badge-warning",
+                                                        item.status === "good" && "badge-success"
+                                                    )}>
+                                                        {item.status}
+                                                    </span>
+                                                </td>
+
+                                                <td className="px-4 py-3 text-right">
+                                                    {isEditing ? (
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                onClick={() => handleUpdateItem(item.id, editData)}
+                                                                className="p-1.5 bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded-lg transition-colors"
+                                                                title="Save Changes"
+                                                            >
+                                                                <Check className="h-4 w-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={cancelEditing}
+                                                                className="p-1.5 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-colors"
+                                                                title="Cancel"
+                                                            >
+                                                                <X className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex justify-end gap-1 transition-all">
+                                                            <button
+                                                                onClick={() => startEditing(item)}
+                                                                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-orange-500"
+                                                                title="Quick Edit"
+                                                            >
+                                                                <Settings2 className="h-4 w-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteItem(item)}
+                                                                className="p-1.5 hover:bg-red-500/10 rounded-lg text-slate-500 hover:text-red-500"
+                                                                title="Delete Item"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td colSpan={visibleColumns.length + 2} className="px-4 py-12 text-center text-slate-500">
+                                            No inventory items found
+                                        </td>
+                                    </tr>
+                                )}
+
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -947,5 +921,3 @@ export default function InventoryPage() {
         </div>
     );
 }
-
-
