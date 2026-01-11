@@ -43,16 +43,8 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
         setLoading(true);
         try {
             const supabase = createClient();
-            const { data, error } = await supabase
-                .from("inventory_items")
-                .select("*")
-                .eq("location_id", locationId)
-                .eq(areaId === 'none' ? 'storage_area_id' : 'storage_area_id', areaId === 'none' ? null : areaId)
-                .is(areaId === 'none' ? 'storage_area_id' : 'dummy', areaId === 'none' ? null : undefined) // Simple way to handle null
-                .order("name");
-
-            // Fixed the null handling logic above
             let query = supabase.from("inventory_items").select("*").eq("location_id", locationId);
+
             if (areaId === 'none') {
                 query = query.is("storage_area_id", null);
             } else {
