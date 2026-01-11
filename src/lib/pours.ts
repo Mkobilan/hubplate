@@ -29,10 +29,38 @@ export async function processOrderPours(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: existingLogs } = await (supabase
             .from('pours') as any)
-            .select('order_item_ref')
+            .select('order_item_ref, parent_item_quantity')
             .eq('order_id', orderId);
 
-        const existingRefs = new Set((existingLogs || []).map((p: any) => p.order_item_ref));
+        const existingLogMap = new Map((existingLogs || []).map((p: any) => [p.order_item_ref, p.parent_item_quantity]));
+
+        // 3. Cleanup: Remove logs for items that are no longer in the order 
+        // OR have changed quantity (we will re-insert them)
+        const currentItemRefs = new Set(items.map(i => i.id).filter(Boolean));
+        const refsToRemove = (existingLogs || [])
+            .filter((p: any) => {
+                const item = items.find(i => i.id === p.order_item_ref);
+                // Remove if item no longer exists OR quantity changed
+                return !item || item.quantity !== p.parent_item_quantity;
+            })
+            .map((p: any) => p.order_item_ref);
+
+        if (refsToRemove.length > 0) {
+            console.log(`Removing ${refsToRemove.length} stale/changed inventory logs...`);
+            await (supabase.from('pours') as any)
+                .delete()
+                .eq('order_id', orderId)
+                .in('order_item_ref', Array.from(new Set(refsToRemove)));
+        }
+
+        // Re-fetch existing refs after cleanup to know what to "skip"
+        const existingRefsAfterCleanup = new Set(
+            (existingLogMap.size > 0)
+                ? (existingLogs || [])
+                    .filter((p: any) => !refsToRemove.includes(p.order_item_ref))
+                    .map((p: any) => p.order_item_ref)
+                : []
+        );
 
         // 3. Find which menu items are linked to recipes
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,7 +163,7 @@ export async function processOrderPours(
         // Process recipe-linked items
         items.forEach(item => {
             // SKIP if already logged
-            if (item.id && existingRefs.has(item.id)) return;
+            if (item.id && existingRefsAfterCleanup.has(item.id)) return;
 
             // Find if this item has linked recipes
             const itemLinks = (recipeLinks || []).filter((l: any) => l.menu_item_id === item.menuItemId);
@@ -159,7 +187,8 @@ export async function processOrderPours(
                                 notes: 'Auto-logged from Order',
                                 order_id: orderId,
                                 order_item_ref: item.id,
-                                menu_item_id: item.menuItemId
+                                menu_item_id: item.menuItemId,
+                                parent_item_quantity: item.quantity
                             });
                         }
                     });
@@ -184,7 +213,8 @@ export async function processOrderPours(
                             notes: 'Auto-logged from Order (direct link)',
                             order_id: orderId,
                             order_item_ref: item.id,
-                            menu_item_id: item.menuItemId
+                            menu_item_id: item.menuItemId,
+                            parent_item_quantity: item.quantity
                         });
                     }
                 });

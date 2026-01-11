@@ -429,6 +429,33 @@ function OrdersPageContent() {
         }
     };
 
+    const voidOrder = async () => {
+        if (!activeOrderId || !confirm("Are you sure you want to void this order? Inventory will be restored.")) return;
+
+        setLoading(true);
+        try {
+            const { error } = await (supabase
+                .from("orders") as any)
+                .update({
+                    status: "cancelled",
+                    updated_at: new Date().toISOString()
+                })
+                .eq("id", activeOrderId);
+
+            if (error) throw error;
+
+            toast.success("Order voided and inventory restored.");
+            setOrderItems([]);
+            setActiveOrderId(null);
+            setTableNumber("5");
+        } catch (error) {
+            console.error("Error voiding order:", error);
+            toast.error("Failed to void order");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const loadOrder = async (order: any) => {
         setActiveOrderId(order.id);
         setOrderType(order.order_type);
@@ -775,6 +802,15 @@ function OrdersPageContent() {
                         >
                             <Split className="h-4 w-4 text-orange-500" />
                             Split Check
+                        </button>
+                    )}
+                    {activeOrderId && (
+                        <button
+                            onClick={voidOrder}
+                            className="btn btn-secondary w-full py-2 text-sm text-red-500 border-red-500/20 hover:bg-red-500/10"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Void Order
                         </button>
                     )}
                 </div>

@@ -55,12 +55,14 @@ export default function InventoryPage() {
     const [showColumnDropdown, setShowColumnDropdown] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editData, setEditData] = useState<any>(null);
+    const [isSyncingRunningStock, setIsSyncingRunningStock] = useState(false);
+    const [showRunningStockDropdown, setShowRunningStockDropdown] = useState(false);
 
 
 
 
     // Default visible columns: Simplified set as requested
-    const [visibleColumns, setVisibleColumns] = useState<string[]>(['category', 'stock', 'stock_unit', 'recipe_unit', 'total_usage', 'par', 'cost']);
+    const [visibleColumns, setVisibleColumns] = useState<string[]>(['category', 'stock', 'stock_unit', 'recipe_unit', 'total_usage', 'running_stock', 'par', 'cost']);
 
 
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -173,32 +175,92 @@ export default function InventoryPage() {
         }
     };
 
-    const getStatus = (stock: number, par: number) => {
-        if (stock <= (par || 0) * 0.2) return "critical";
-        if (stock <= (par || 0)) return "low";
+    const getStatus = (item: any) => {
+        const running = Number(item.running_stock || 0);
+
+        // Calculate par in atomic units
+        let multiplier = Number(item.units_per_stock || 1);
+        let conversion = 1;
+        const combinedUnit = (item.unit || '').toLowerCase();
+        const recipeUnit = (item.recipe_unit || '').toLowerCase();
+
+        if (combinedUnit.includes('lb') && recipeUnit.includes('oz')) conversion = 16;
+        else if (combinedUnit.includes('gal') && recipeUnit.includes('oz')) conversion = 128;
+
+        const parAtomic = Number(item.par_level || 0) * multiplier * conversion;
+
+        if (running <= parAtomic * 0.2) return "critical";
+        if (running <= parAtomic) return "low";
         return "good";
     };
 
     const handleUpdateItem = async (id: string, updates: any) => {
         try {
             const supabase = createClient();
-            // Remove synthetic fields
-            const { status, ...cleanUpdates } = updates;
+            // Remove synthetic fields and fields that should ONLY be updated by triggers or specific manual stock resets
+            const { status, running_stock, ...cleanUpdates } = updates;
+
+            // IF running_stock is explicitly provided in a direct update call (like our new sync button), we allow it.
+            // Otherwise, we strip it to protect the bucket.
+            const finalUpdates = updates.hasOwnProperty('running_stock') ? { ...cleanUpdates, running_stock: updates.running_stock } : cleanUpdates;
 
             const { error } = await (supabase as any)
                 .from("inventory_items")
-                .update(cleanUpdates)
+                .update(finalUpdates)
                 .eq("id", id);
 
-
-
             if (error) throw error;
-            toast.success("Item updated successfully");
             fetchInventory();
-            setEditingId(null);
-            setEditData(null);
-        } catch (err: any) {
-            toast.error("Failed to update: " + err.message);
+        } catch (err) {
+            console.error("Update error:", err);
+        }
+    };
+
+    const handleSyncAllRunningStock = async () => {
+        if (!confirm("Are you sure you want to update all Running Stock values based on your Stock Unit and Stock Meas.? This will overwrite any live deductions.")) return;
+
+        setIsSyncingRunningStock(true);
+        try {
+            const supabase = createClient();
+
+            // Process each item to calculate its theoretical stock
+            const updates = inventory.map(item => {
+                const stock = Number(item.stock_quantity || 0);
+                let multiplier = Number(item.units_per_stock || 1);
+                let unitLabel = item.unit || '';
+
+                let conversion = 1;
+                const combinedUnit = unitLabel.toLowerCase();
+                const recipeUnit = (item.recipe_unit || '').toLowerCase();
+
+                if (combinedUnit.includes('lb') && recipeUnit.includes('oz')) {
+                    conversion = 16;
+                } else if (combinedUnit.includes('gal') && recipeUnit.includes('oz')) {
+                    conversion = 128;
+                }
+
+                return {
+                    id: item.id,
+                    running_stock: stock * multiplier * conversion
+                };
+            });
+
+            // Update them one by one (Supabase doesn't support bulk update with different values easily in a single call without RPC)
+            for (const update of updates) {
+                await (supabase as any)
+                    .from("inventory_items")
+                    .update({ running_stock: update.running_stock })
+                    .eq("id", update.id);
+            }
+
+            fetchInventory();
+            toast.success("All Running Stock values have been updated.");
+        } catch (err) {
+            console.error("Sync error:", err);
+            toast.error("Failed to sync inventory.");
+        } finally {
+            setIsSyncingRunningStock(false);
+            setShowRunningStockDropdown(false);
         }
     };
 
@@ -217,11 +279,10 @@ export default function InventoryPage() {
 
 
     const filtered = inventory.filter(i =>
-
         i.name.toLowerCase().includes(searchQuery.toLowerCase())
     ).map(i => ({
         ...i,
-        status: getStatus(Number(i.stock_quantity || 0), Number(i.par_level || 0))
+        status: getStatus(i)
     }));
 
 
@@ -268,10 +329,11 @@ export default function InventoryPage() {
                             <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-20 p-2 animate-in fade-in zoom-in-95">
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 py-2">Visible Columns</p>
                                 {[
-                                    { key: 'stock', label: 'Stock Unit (Qty)' },
-                                    { key: 'stock_unit', label: 'Stock Meas (e.g. 5lbs)' },
-                                    { key: 'recipe_unit', label: 'Recipe Unit (e.g. oz)' },
-                                    { key: 'total_usage', label: 'Total Stock' },
+                                    { key: 'stock', label: 'Stock Unit' },
+                                    { key: 'stock_unit', label: 'Stock Meas.' },
+                                    { key: 'recipe_unit', label: 'Recipe Unit' },
+                                    { key: 'total_usage', label: 'Stock Total' },
+                                    { key: 'running_stock', label: 'Running Stock' },
                                     { key: 'par', label: 'Par Level' },
                                     { key: 'cost', label: 'Unit Cost' },
                                     { key: 'last_ordered', label: 'Last Ordered' },
@@ -392,9 +454,44 @@ export default function InventoryPage() {
                                         {visibleColumns.includes('supplier') && <th className="px-4 py-4 bg-slate-900">Supplier</th>}
 
                                         {visibleColumns.includes('stock') && <th className="px-4 py-4 bg-slate-900 font-bold">Stock Unit</th>}
-                                        {visibleColumns.includes('stock_unit') && <th className="px-4 py-4 bg-slate-900 font-bold text-orange-400">Stock Meas</th>}
+                                        {visibleColumns.includes('stock_unit') && <th className="px-4 py-4 bg-slate-900 font-bold text-orange-400">Stock Meas.</th>}
                                         {visibleColumns.includes('recipe_unit') && <th className="px-4 py-4 bg-slate-900 font-bold">Recipe Unit</th>}
-                                        {visibleColumns.includes('total_usage') && <th className="px-4 py-4 bg-slate-900 text-pink-400 font-bold">Total Stock</th>}
+                                        {visibleColumns.includes('total_usage') && <th className="px-4 py-4 bg-slate-900 text-pink-400 font-bold text-orange-400">Stock Total</th>}
+                                        {visibleColumns.includes('running_stock') && (
+                                            <th className="px-4 py-4 bg-slate-900 text-pink-400 font-bold relative group">
+                                                <div className="flex items-center gap-2">
+                                                    Running Stock
+                                                    <div className="relative inline-block text-left">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setShowRunningStockDropdown(!showRunningStockDropdown);
+                                                            }}
+                                                            className="p-1 hover:bg-slate-800 rounded transition-colors"
+                                                            disabled={isSyncingRunningStock}
+                                                        >
+                                                            {isSyncingRunningStock ? (
+                                                                <Loader2 size={14} className="animate-spin" />
+                                                            ) : (
+                                                                <ChevronDown size={14} />
+                                                            )}
+                                                        </button>
+
+                                                        {showRunningStockDropdown && (
+                                                            <div className="absolute left-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-30 p-1 animate-in fade-in zoom-in-95">
+                                                                <button
+                                                                    onClick={handleSyncAllRunningStock}
+                                                                    className="flex items-center w-full px-3 py-2 text-xs font-bold text-pink-400 hover:bg-pink-500/10 rounded-lg text-left gap-2 transition-all"
+                                                                >
+                                                                    <RefreshCw size={12} className={isSyncingRunningStock ? "animate-spin" : ""} />
+                                                                    Update All
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </th>
+                                        )}
                                         {visibleColumns.includes('par') && <th className="px-4 py-4 bg-slate-900 font-bold">Par</th>}
                                         {visibleColumns.includes('cost') && <th className="px-4 py-4 bg-slate-900 font-bold">Cost</th>}
 
@@ -547,23 +644,12 @@ export default function InventoryPage() {
                                                     {visibleColumns.includes('total_usage') && (
                                                         <td className="px-4 py-3 bg-pink-500/5">
                                                             <div className="flex flex-col">
-                                                                <span className="text-sm font-mono font-bold text-pink-400">
+                                                                <span className="text-sm font-mono font-bold text-orange-400">
                                                                     {(() => {
                                                                         const stock = Number(item.stock_quantity || 0);
-
-                                                                        // Smart parsing for existing data where multiplier might be in 'unit' string
                                                                         let multiplier = Number(item.units_per_stock || 1);
                                                                         let unitLabel = item.unit || '';
 
-                                                                        if (multiplier === 1) {
-                                                                            const match = unitLabel.match(/^(\d*\.?\d+)\s*(.*)$/);
-                                                                            if (match) {
-                                                                                multiplier = parseFloat(match[1]);
-                                                                                unitLabel = match[2];
-                                                                            }
-                                                                        }
-
-                                                                        // Automatic lb to oz conversion
                                                                         let conversion = 1;
                                                                         const combinedUnit = unitLabel.toLowerCase();
                                                                         const recipeUnit = (item.recipe_unit || '').toLowerCase();
@@ -578,8 +664,28 @@ export default function InventoryPage() {
                                                                     })()}
                                                                 </span>
                                                                 <span className="text-[10px] text-slate-500 uppercase font-bold">
-                                                                    Total {item.recipe_unit || item.unit}
+                                                                    TOTAL {item.recipe_unit || item.unit}
                                                                 </span>
+                                                            </div>
+                                                        </td>
+                                                    )}
+
+                                                    {visibleColumns.includes('running_stock') && (
+                                                        <td className="px-4 py-3 bg-pink-500/5">
+                                                            <div className="flex flex-col">
+                                                                {isEditing ? (
+                                                                    <input
+                                                                        type="number"
+                                                                        step="any"
+                                                                        className="input !py-1 !px-2 text-sm w-full font-mono font-bold text-pink-400"
+                                                                        value={editData.running_stock ?? item.running_stock}
+                                                                        onChange={(e) => setEditData({ ...editData, running_stock: parseFloat(e.target.value) })}
+                                                                    />
+                                                                ) : (
+                                                                    <span className="text-sm font-mono font-bold text-pink-400">
+                                                                        {(Number(item.running_stock || 0)).toLocaleString()}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     )}
