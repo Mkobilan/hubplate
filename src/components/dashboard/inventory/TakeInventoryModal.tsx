@@ -69,11 +69,11 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
             const supabase = createClient();
 
             // 1. Create Session
-            const { data: session, error: sessionError } = await supabase
-                .from("physical_inventory_sessions")
+            const { data: session, error: sessionError } = await (supabase
+                .from("physical_inventory_sessions") as any)
                 .insert({
                     location_id: locationId,
-                    storage_area_id: selectedArea?.id || null,
+                    storage_area_id: selectedArea?.id === 'none' ? null : selectedArea?.id,
                     status: 'completed'
                 })
                 .select()
@@ -109,8 +109,8 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
             });
 
             // 3. Batch Insert Counts
-            const { error: countsError } = await supabase
-                .from("physical_inventory_counts")
+            const { error: countsError } = await (supabase
+                .from("physical_inventory_counts") as any)
                 .insert(countsToInsert);
 
             if (countsError) throw countsError;

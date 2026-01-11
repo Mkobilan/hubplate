@@ -40,8 +40,8 @@ export default function InventoryHistoryModal({ isOpen, onClose, locationId }: I
         setLoading(true);
         try {
             const supabase = createClient();
-            const { data, error } = await supabase
-                .from("physical_inventory_sessions")
+            const { data, error } = await (supabase
+                .from("physical_inventory_sessions") as any)
                 .select("*, storage_area:inventory_storage_areas(name)")
                 .eq("location_id", locationId)
                 .order("created_at", { ascending: false });
@@ -60,8 +60,8 @@ export default function InventoryHistoryModal({ isOpen, onClose, locationId }: I
         setCountsLoading(true);
         try {
             const supabase = createClient();
-            const { data, error } = await supabase
-                .from("physical_inventory_counts")
+            const { data, error } = await (supabase
+                .from("physical_inventory_counts") as any)
                 .select("*, item:inventory_items(name, unit, cost_per_unit, units_per_stock)")
                 .eq("session_id", session.id)
                 .order("created_at", { ascending: true });
