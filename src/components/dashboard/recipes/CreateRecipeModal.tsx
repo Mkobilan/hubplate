@@ -40,6 +40,7 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
     const [instructions, setInstructions] = useState("");
     const [ingredients, setIngredients] = useState<any[]>([]);
     const [selectedMenuItems, setSelectedMenuItems] = useState<string[]>([]);
+    const [producedItemId, setProducedItemId] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -65,7 +66,9 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                         id: ing.id,
                         inventory_item_id: ing.inventory_item_id || `temp-${Math.random()}`, // Fallback for unlinked
                         name: ing.inventory_items?.name || ing.ingredient_name,
-                        unit: ing.unit || ing.inventory_items?.unit,
+                        unit: ing.unit || ing.inventory_items?.recipe_unit || ing.inventory_items?.unit,
+                        stock_unit: ing.inventory_items?.unit,
+                        recipe_unit: ing.inventory_items?.recipe_unit,
                         quantity_used: ing.quantity_used,
                         is_manual: !ing.inventory_item_id
                     })));
@@ -75,6 +78,8 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                 if (recipe.recipe_menu_items) {
                     setSelectedMenuItems(recipe.recipe_menu_items.map((link: any) => link.menu_item_id));
                 }
+
+                setProducedItemId(recipe.produced_inventory_item_id || null);
             } else {
                 setIsEditing(false);
                 resetForm();
@@ -109,7 +114,9 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
         setIngredients([...ingredients, {
             inventory_item_id: item.id,
             name: item.name,
-            unit: item.unit,
+            unit: item.recipe_unit || item.unit,
+            stock_unit: item.unit,
+            recipe_unit: item.recipe_unit,
             quantity_used: 1,
             is_manual: false
         }]);
@@ -148,6 +155,7 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                 name,
                 description,
                 instructions,
+                produced_inventory_item_id: producedItemId,
                 updated_at: new Date().toISOString()
             };
 
@@ -229,6 +237,7 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
         setInstructions("");
         setIngredients([]);
         setSelectedMenuItems([]);
+        setProducedItemId(null);
     };
 
     if (!isOpen) return null;
@@ -305,7 +314,12 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                                     <div key={ing.inventory_item_id} className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
                                         <div className="flex-1 min-w-0">
                                             <p className="font-medium text-sm truncate">{ing.name}</p>
-                                            <p className="text-[10px] text-slate-500 uppercase tracking-tighter">{ing.unit}</p>
+                                            <p className="text-[10px] text-slate-500 uppercase tracking-tighter">
+                                                {ing.unit}
+                                                {ing.recipe_unit && ing.recipe_unit !== ing.stock_unit && (
+                                                    <span className="ml-1 text-slate-600">(Stocked in {ing.stock_unit})</span>
+                                                )}
+                                            </p>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <input
@@ -344,7 +358,9 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                                                     className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-between text-sm group"
                                                 >
                                                     <span className="truncate">{item.name}</span>
-                                                    <span className="text-[10px] text-slate-500 uppercase">{item.unit}</span>
+                                                    <span className="text-[10px] text-slate-500 uppercase">
+                                                        {item.recipe_unit || item.unit}
+                                                    </span>
                                                 </button>
                                             )) : (
                                                 <div className="p-3 text-center text-xs text-slate-500 italic">No matching items</div>
@@ -390,6 +406,30 @@ export default function CreateRecipeModal({ isOpen, onClose, locationId, onCompl
                                         <p className="text-xs text-slate-500">No menu items found</p>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Bulk Prep Config */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-bold uppercase tracking-widest text-orange-500">Bulk Prep Output</h3>
+                                <div className="text-[10px] text-slate-400">Makes an inventory item</div>
+                            </div>
+                            <div className="p-4 bg-orange-500/5 border border-orange-500/20 rounded-2xl space-y-3">
+                                <p className="text-xs text-slate-400 leading-relaxed">
+                                    Does this recipe produce a bulk item like Chili or Sauce?
+                                    Selecting an item here allows you to "Log Prep" to increase its stock.
+                                </p>
+                                <select
+                                    className="input w-full bg-slate-900"
+                                    value={producedItemId || ""}
+                                    onChange={(e) => setProducedItemId(e.target.value || null)}
+                                >
+                                    <option value="">-- Not a Bulk Prep Recipe --</option>
+                                    {inventory.map(item => (
+                                        <option key={item.id} value={item.id}>Produces: {item.name} ({item.unit})</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     </div>

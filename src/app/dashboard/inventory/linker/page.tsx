@@ -100,7 +100,7 @@ export default function IngredientLinkerPage() {
                         menu_item_id: menuItemId,
                         inventory_item_id: selectedItemId,
                         quantity_used: 1,
-                        unit: inventory.find(i => i.id === selectedItemId)?.unit || "unit"
+                        unit: inventory.find(i => i.id === selectedItemId)?.recipe_unit || inventory.find(i => i.id === selectedItemId)?.unit || "unit"
                     })
                     .select()
                     .single();

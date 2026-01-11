@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Package,
@@ -11,20 +11,25 @@ import {
     ArrowRight,
     RefreshCw,
     TrendingDown,
-    ChevronRight,
-    Sparkles,
     Trash2,
-    ShoppingCart,
-    Link2,
-    Upload,
-    Settings2,
+    ArrowUpDown,
     ChevronDown,
-    Truck,
+    ChevronRight,
+    MoreVertical,
+    Edit,
+    Download,
+    Upload,
+    Filter,
     Check,
     X,
     CheckSquare,
     Square,
-    Loader2
+    Loader2,
+    Info,
+    Settings2,
+    Truck,
+    ShoppingCart,
+    Sparkles
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useAppStore } from "@/stores";
@@ -32,7 +37,6 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import CSVUploadModal from "@/components/dashboard/inventory/CSVUploadModal";
-
 import { VendorImportModal } from "@/components/dashboard/inventory/VendorImportModal";
 import CreatePOModal from "@/components/dashboard/inventory/CreatePOModal";
 
@@ -55,8 +59,8 @@ export default function InventoryPage() {
 
 
 
-    // Default visible columns: Show all by default now
-    const [visibleColumns, setVisibleColumns] = useState<string[]>(['category', 'supplier', 'stock', 'par', 'reorder', 'unit', 'usage', 'cost', 'last_ordered']);
+    // Default visible columns: Simplified set as requested
+    const [visibleColumns, setVisibleColumns] = useState<string[]>(['category', 'stock', 'stock_unit', 'recipe_unit', 'total_usage', 'par', 'cost']);
 
 
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -264,13 +268,11 @@ export default function InventoryPage() {
                             <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-20 p-2 animate-in fade-in zoom-in-95">
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 py-2">Visible Columns</p>
                                 {[
-                                    { key: 'category', label: 'Category' },
-                                    { key: 'supplier', label: 'Supplier' },
-                                    { key: 'stock', label: 'Current Stock' },
+                                    { key: 'stock', label: 'Stock Unit (Qty)' },
+                                    { key: 'stock_unit', label: 'Stock Meas (e.g. 5lbs)' },
+                                    { key: 'recipe_unit', label: 'Recipe Unit (e.g. oz)' },
+                                    { key: 'total_usage', label: 'Total Stock' },
                                     { key: 'par', label: 'Par Level' },
-                                    { key: 'reorder', label: 'Reorder Qty' },
-                                    { key: 'unit', label: 'Unit' },
-                                    { key: 'usage', label: 'Daily Usage' },
                                     { key: 'cost', label: 'Unit Cost' },
                                     { key: 'last_ordered', label: 'Last Ordered' },
                                     { key: 'created', label: 'Added Date' },
@@ -388,12 +390,16 @@ export default function InventoryPage() {
                                         <th className="px-4 py-4 bg-slate-900">Item Name</th>
                                         {visibleColumns.includes('category') && <th className="px-4 py-4 bg-slate-900">Category</th>}
                                         {visibleColumns.includes('supplier') && <th className="px-4 py-4 bg-slate-900">Supplier</th>}
-                                        {visibleColumns.includes('stock') && <th className="px-4 py-4 bg-slate-900">Stock</th>}
-                                        {visibleColumns.includes('par') && <th className="px-4 py-4 bg-slate-900">Par</th>}
+
+                                        {visibleColumns.includes('stock') && <th className="px-4 py-4 bg-slate-900 font-bold">Stock Unit</th>}
+                                        {visibleColumns.includes('stock_unit') && <th className="px-4 py-4 bg-slate-900 font-bold text-orange-400">Stock Meas</th>}
+                                        {visibleColumns.includes('recipe_unit') && <th className="px-4 py-4 bg-slate-900 font-bold">Recipe Unit</th>}
+                                        {visibleColumns.includes('total_usage') && <th className="px-4 py-4 bg-slate-900 text-pink-400 font-bold">Total Stock</th>}
+                                        {visibleColumns.includes('par') && <th className="px-4 py-4 bg-slate-900 font-bold">Par</th>}
+                                        {visibleColumns.includes('cost') && <th className="px-4 py-4 bg-slate-900 font-bold">Cost</th>}
+
                                         {visibleColumns.includes('reorder') && <th className="px-4 py-4 bg-slate-900">Reorder</th>}
-                                        {visibleColumns.includes('unit') && <th className="px-4 py-4 bg-slate-900">Unit</th>}
                                         {visibleColumns.includes('usage') && <th className="px-4 py-4 bg-slate-900">Usage</th>}
-                                        {visibleColumns.includes('cost') && <th className="px-4 py-4 bg-slate-900">Cost</th>}
                                         {visibleColumns.includes('last_ordered') && <th className="px-4 py-4 bg-slate-900">Last Ordered</th>}
                                         {visibleColumns.includes('created') && <th className="px-4 py-4 bg-slate-900 last:rounded-tr-xl">Added</th>}
                                         <th className="px-4 py-4 bg-slate-900 text-center">Status</th>
@@ -479,61 +485,114 @@ export default function InventoryPage() {
                                                     )}
 
                                                     {visibleColumns.includes('stock') && (
-                                                        <td className="px-4 py-3">
+                                                        <td className="px-4 py-3 font-mono font-bold text-white">
                                                             {isEditing ? (
                                                                 <input
                                                                     type="number"
-                                                                    className="input !py-1 !px-2 text-sm w-full font-mono"
+                                                                    className="input !py-1 !px-2 text-sm w-full"
                                                                     value={editData.stock_quantity}
                                                                     onChange={(e) => setEditData({ ...editData, stock_quantity: parseFloat(e.target.value) || 0 })}
                                                                 />
                                                             ) : (
-                                                                <span className="text-sm font-mono">{item.stock_quantity} {item.unit}</span>
+                                                                item.stock_quantity
                                                             )}
                                                         </td>
                                                     )}
 
-                                                    {visibleColumns.includes('par') && (
-                                                        <td className="px-4 py-3">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    type="number"
-                                                                    className="input !py-1 !px-2 text-sm w-full font-mono"
-                                                                    value={editData.par_level || 0}
-                                                                    onChange={(e) => setEditData({ ...editData, par_level: parseFloat(e.target.value) || 0 })}
-                                                                />
-                                                            ) : (
-                                                                <span className="text-sm font-mono text-slate-500">{item.par_level}</span>
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('reorder') && (
-                                                        <td className="px-4 py-3">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    type="number"
-                                                                    className="input !py-1 !px-2 text-sm w-full font-mono"
-                                                                    value={editData.reorder_quantity || 0}
-                                                                    onChange={(e) => setEditData({ ...editData, reorder_quantity: parseFloat(e.target.value) || 0 })}
-                                                                />
-                                                            ) : (
-                                                                <span className="text-sm font-mono text-slate-500">{item.reorder_quantity || '-'}</span>
-                                                            )}
-                                                        </td>
-                                                    )}
-
-                                                    {visibleColumns.includes('unit') && (
+                                                    {visibleColumns.includes('stock_unit') && (
                                                         <td className="px-4 py-3">
                                                             {isEditing ? (
                                                                 <input
                                                                     className="input !py-1 !px-2 text-sm w-full"
-                                                                    value={editData.unit}
-                                                                    onChange={(e) => setEditData({ ...editData, unit: e.target.value })}
+                                                                    value={`${editData.units_per_stock || 1} ${editData.unit || ''}`.trim()}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        // Match number followed by optional unit label
+                                                                        const match = val.match(/^(\d*\.?\d+)\s*(.*)$/i);
+                                                                        if (match) {
+                                                                            setEditData({
+                                                                                ...editData,
+                                                                                units_per_stock: parseFloat(match[1]) || 1,
+                                                                                unit: match[2].trim() || ''
+                                                                            });
+                                                                        } else {
+                                                                            setEditData({ ...editData, units_per_stock: 1, unit: val.trim() });
+                                                                        }
+                                                                    }}
                                                                 />
                                                             ) : (
-                                                                <span className="text-sm text-slate-500">{item.unit}</span>
+                                                                <span className="text-sm">
+                                                                    {item.units_per_stock && item.units_per_stock !== 1
+                                                                        ? `${item.units_per_stock} ${item.unit}`
+                                                                        : item.unit}
+                                                                </span>
                                                             )}
+                                                        </td>
+                                                    )}
+
+                                                    {visibleColumns.includes('recipe_unit') && (
+                                                        <td className="px-4 py-3">
+                                                            {isEditing ? (
+                                                                <input
+                                                                    className="input !py-1 !px-2 text-sm w-full"
+                                                                    value={editData.recipe_unit || ""}
+                                                                    onChange={(e) => setEditData({ ...editData, recipe_unit: e.target.value })}
+                                                                />
+                                                            ) : (
+                                                                <span className="text-sm text-slate-400">{item.recipe_unit || item.unit}</span>
+                                                            )}
+                                                        </td>
+                                                    )}
+
+                                                    {visibleColumns.includes('total_usage') && (
+                                                        <td className="px-4 py-3 bg-pink-500/5">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-mono font-bold text-pink-400">
+                                                                    {(() => {
+                                                                        const stock = Number(item.stock_quantity || 0);
+
+                                                                        // Smart parsing for existing data where multiplier might be in 'unit' string
+                                                                        let multiplier = Number(item.units_per_stock || 1);
+                                                                        let unitLabel = item.unit || '';
+
+                                                                        if (multiplier === 1) {
+                                                                            const match = unitLabel.match(/^(\d*\.?\d+)\s*(.*)$/);
+                                                                            if (match) {
+                                                                                multiplier = parseFloat(match[1]);
+                                                                                unitLabel = match[2];
+                                                                            }
+                                                                        }
+
+                                                                        // Automatic lb to oz conversion
+                                                                        let conversion = 1;
+                                                                        const combinedUnit = unitLabel.toLowerCase();
+                                                                        const recipeUnit = (item.recipe_unit || '').toLowerCase();
+
+                                                                        if (combinedUnit.includes('lb') && recipeUnit.includes('oz')) {
+                                                                            conversion = 16;
+                                                                        } else if (combinedUnit.includes('gal') && recipeUnit.includes('oz')) {
+                                                                            conversion = 128;
+                                                                        }
+
+                                                                        return (stock * multiplier * conversion).toLocaleString();
+                                                                    })()}
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-500 uppercase font-bold">
+                                                                    Total {item.recipe_unit || item.unit}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                    )}
+
+                                                    {visibleColumns.includes('par') && (
+                                                        <td className="px-4 py-3 text-sm font-mono text-slate-500">
+                                                            {item.par_level}
+                                                        </td>
+                                                    )}
+
+                                                    {visibleColumns.includes('reorder') && (
+                                                        <td className="px-4 py-3 text-sm font-mono text-slate-500">
+                                                            {item.reorder_quantity || '-'}
                                                         </td>
                                                     )}
 
