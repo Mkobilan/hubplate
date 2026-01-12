@@ -700,28 +700,37 @@ export default function KitchenPage() {
                             )}
                         </>
                     )}
-                    <span className="text-lg text-slate-400">{now.toLocaleTimeString()}</span>
+                    {/* Clock moved to tabs bar */}
                 </div>
             </div>
 
-            {/* KDS Screen Tabs */}
+            {/* KDS Screen Tabs & Clock */}
             {kdsScreens.length > 0 && (
-                <div className="flex items-center gap-2 border-b border-slate-700 pb-2 overflow-x-auto">
-                    {kdsScreens.map((screen) => (
-                        <button
-                            key={screen.id}
-                            onClick={() => setActiveKdsScreenId(screen.id)}
-                            className={cn(
-                                "px-4 py-2 rounded-t-lg font-medium transition-all whitespace-nowrap",
-                                activeKdsScreenId === screen.id
-                                    ? "bg-orange-500 text-white"
-                                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                            )}
-                        >
-                            {screen.name}
-                            {screen.is_default && <span className="ml-1 text-xs opacity-70">(Main)</span>}
-                        </button>
-                    ))}
+                <div className="flex items-center border-b border-slate-700 pb-2 justify-between">
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                        {kdsScreens.map((screen) => (
+                            <button
+                                key={screen.id}
+                                onClick={() => setActiveKdsScreenId(screen.id)}
+                                className={cn(
+                                    "px-4 py-2 rounded-t-lg font-medium transition-all whitespace-nowrap",
+                                    activeKdsScreenId === screen.id
+                                        ? "bg-orange-500 text-white"
+                                        : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                                )}
+                            >
+                                {screen.name}
+                                {screen.is_default && <span className="ml-1 text-xs opacity-70">(Main)</span>}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center gap-3 px-4 text-slate-400 font-medium bg-slate-800/50 py-1.5 rounded-lg border border-slate-700/50 ml-4">
+                        <Clock className="h-4 w-4 text-orange-500" />
+                        <span className="text-lg font-mono tracking-wide text-slate-200">
+                            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                    </div>
                 </div>
             )}
 
@@ -766,11 +775,16 @@ export default function KitchenPage() {
                         const ticketTime = getTicketTime(order.createdAt);
                         const timeColor = getTimeColor(ticketTime);
 
+                        // Check if order is "long" to trigger multi-column layout
+                        const isLongOrder = order.items.length > 8;
+
                         return (
                             <div
                                 key={order.id}
                                 className={cn(
-                                    "card border-2 transition-all min-w-[320px] max-w-[380px] flex-shrink-0 flex flex-col shadow-xl",
+                                    "card border-2 transition-all flex-shrink-0 flex flex-col shadow-xl",
+                                    // Make card wider for long orders to accommodate columns
+                                    isLongOrder ? "min-w-[600px] max-w-[700px]" : "min-w-[320px] max-w-[380px]",
                                     getCardStyle(order)
                                 )}
                             >
@@ -812,12 +826,16 @@ export default function KitchenPage() {
                                 </div>
 
                                 {/* Items with individual status badges */}
-                                <div className="flex-1 space-y-3 mb-6">
+                                <div className={cn(
+                                    "flex-1 mb-6",
+                                    // Use CSS columns for long orders
+                                    isLongOrder ? "columns-2 gap-4 space-y-0 block" : "space-y-3 flex flex-col"
+                                )}>
                                     {order.items.map((item) => (
                                         <div
                                             key={item.id}
                                             className={cn(
-                                                "flex flex-col gap-2 p-2 rounded-xl transition-all cursor-pointer border-2",
+                                                "flex flex-col gap-2 p-2 rounded-xl transition-all cursor-pointer border-2 break-inside-avoid mb-3",
                                                 selectedItemId === item.id
                                                     ? "bg-orange-500/10 border-orange-500/40 shadow-inner"
                                                     : "border-transparent hover:bg-slate-700/30"
@@ -826,7 +844,9 @@ export default function KitchenPage() {
                                         >
                                             <div className="flex items-start gap-3 group">
                                                 <div className={cn(
-                                                    "flex items-center justify-center min-w-[2.5rem] h-[2.5rem] rounded-xl font-bold text-lg border transition-colors",
+                                                    "flex items-center justify-center min-w-[2.5rem] h-[2.5rem] rounded-xl font-bold border transition-colors",
+                                                    // Reduce font size for long orders
+                                                    isLongOrder ? "text-base" : "text-lg",
                                                     selectedItemId === item.id
                                                         ? "bg-orange-500 text-white border-orange-400"
                                                         : "bg-orange-500/10 text-orange-500 border-orange-500/20"
@@ -835,7 +855,11 @@ export default function KitchenPage() {
                                                 </div>
                                                 <div className="flex-1 pt-1">
                                                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                        <p className="font-bold text-slate-100 text-lg leading-tight">{item.name}</p>
+                                                        <p className={cn(
+                                                            "font-bold text-slate-100 leading-tight",
+                                                            // Reduce font size for long orders
+                                                            isLongOrder ? "text-base" : "text-lg"
+                                                        )}>{item.name}</p>
                                                         {item.seatNumber && (
                                                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-bold">
                                                                 S{item.seatNumber}
