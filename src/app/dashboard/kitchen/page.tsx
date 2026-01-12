@@ -641,6 +641,15 @@ export default function KitchenPage() {
     };
 
     // Get card border color based on items' statuses
+    {/* Helper to determine grid configuration based on item count */ }
+    const getGridConfig = (itemCount: number) => {
+        if (itemCount <= 7) return { width: "min-w-[350px] max-w-[350px]", columns: "columns-1" };
+        if (itemCount <= 14) return { width: "min-w-[700px] max-w-[700px]", columns: "columns-2" };
+        if (itemCount <= 21) return { width: "min-w-[1050px] max-w-[1050px]", columns: "columns-3" };
+        return { width: "min-w-[1400px] max-w-[1400px]", columns: "columns-4" };
+    };
+
+    // Get card card style (retaining existing logic)
     const getCardStyle = (order: KitchenOrder) => {
         const hasSent = order.items.some(i => i.status === 'sent');
         const hasPreparing = order.items.some(i => i.status === 'preparing');
@@ -704,10 +713,11 @@ export default function KitchenPage() {
                 </div>
             </div>
 
-            {/* KDS Screen Tabs & Clock */}
+            {/* KDS Screen Tabs, Stats, & Clock */}
             {kdsScreens.length > 0 && (
-                <div className="flex items-center border-b border-slate-700 pb-2 justify-between">
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                <div className="flex items-center border-b border-slate-700 pb-2 justify-between gap-4">
+                    {/* LEFT: Tabs */}
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
                         {kdsScreens.map((screen) => (
                             <button
                                 key={screen.id}
@@ -725,7 +735,26 @@ export default function KitchenPage() {
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-3 px-4 text-slate-400 font-medium bg-slate-800/50 py-1.5 rounded-lg border border-slate-700/50 ml-4">
+                    {/* CENTER: Stats */}
+                    <div className="flex items-center gap-6 px-6 bg-slate-800/30 rounded-lg mx-auto">
+                        <div className="flex flex-col items-center">
+                            <span className="text-2xl font-bold text-blue-400 leading-none">{sentOrders.length}</span>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">{t("kitchen.newOrders")}</span>
+                        </div>
+                        <div className="h-8 w-px bg-slate-700/50"></div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-2xl font-bold text-amber-400 leading-none">{preparingOrders.length}</span>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">{t("kitchen.preparing")}</span>
+                        </div>
+                        <div className="h-8 w-px bg-slate-700/50"></div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-2xl font-bold text-green-400 leading-none">{readyOrders.length}</span>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">{t("kitchen.ready")}</span>
+                        </div>
+                    </div>
+
+                    {/* RIGHT: Clock */}
+                    <div className="flex items-center gap-3 px-4 text-slate-400 font-medium bg-slate-800/50 py-1.5 rounded-lg border border-slate-700/50 ml-auto">
                         <Clock className="h-4 w-4 text-orange-500" />
                         <span className="text-lg font-mono tracking-wide text-slate-200">
                             {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -733,22 +762,6 @@ export default function KitchenPage() {
                     </div>
                 </div>
             )}
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4">
-                <div className="card text-center">
-                    <span className="text-3xl font-bold text-blue-400">{sentOrders.length}</span>
-                    <p className="text-sm text-slate-400 mt-1">{t("kitchen.newOrders")}</p>
-                </div>
-                <div className="card text-center">
-                    <span className="text-3xl font-bold text-amber-400">{preparingOrders.length}</span>
-                    <p className="text-sm text-slate-400 mt-1">{t("kitchen.preparing")}</p>
-                </div>
-                <div className="card text-center">
-                    <span className="text-3xl font-bold text-green-400">{readyOrders.length}</span>
-                    <p className="text-sm text-slate-400 mt-1">{t("kitchen.ready")}</p>
-                </div>
-            </div>
 
             {/* Orders Grid with Horizontal Scroll */}
             <div className="relative">
@@ -775,16 +788,17 @@ export default function KitchenPage() {
                         const ticketTime = getTicketTime(order.createdAt);
                         const timeColor = getTimeColor(ticketTime);
 
-                        // Check if order is "long" to trigger multi-column layout
-                        const isLongOrder = order.items.length > 8;
+                        // Dynamic Grid Config
+                        const gridConfig = getGridConfig(order.items.length);
+                        const isExpanded = order.items.length > 7;
 
                         return (
                             <div
                                 key={order.id}
                                 className={cn(
                                     "card border-2 transition-all flex-shrink-0 flex flex-col shadow-xl",
-                                    // Make card wider for long orders to accommodate columns
-                                    isLongOrder ? "min-w-[600px] max-w-[700px]" : "min-w-[320px] max-w-[380px]",
+                                    // Apply dynamic width
+                                    gridConfig.width,
                                     getCardStyle(order)
                                 )}
                             >
@@ -825,17 +839,20 @@ export default function KitchenPage() {
                                     </div>
                                 </div>
 
-                                {/* Items with individual status badges */}
+                                {/* Items with dynamic columns */}
                                 <div className={cn(
                                     "flex-1 mb-6",
-                                    // Use CSS columns for long orders
-                                    isLongOrder ? "columns-2 gap-4 space-y-0 block" : "space-y-3 flex flex-col"
+                                    // Apply dynamic columns
+                                    gridConfig.columns,
+                                    isExpanded ? "gap-4 block space-y-0" : "flex flex-col space-y-3"
                                 )}>
                                     {order.items.map((item) => (
                                         <div
                                             key={item.id}
                                             className={cn(
-                                                "flex flex-col gap-2 p-2 rounded-xl transition-all cursor-pointer border-2 break-inside-avoid mb-3",
+                                                "flex flex-col gap-2 p-2 rounded-xl transition-all cursor-pointer border-2 break-inside-avoid",
+                                                // Add margin bottom for column layout spacing
+                                                isExpanded ? "mb-3" : "",
                                                 selectedItemId === item.id
                                                     ? "bg-orange-500/10 border-orange-500/40 shadow-inner"
                                                     : "border-transparent hover:bg-slate-700/30"
@@ -845,8 +862,8 @@ export default function KitchenPage() {
                                             <div className="flex items-start gap-3 group">
                                                 <div className={cn(
                                                     "flex items-center justify-center min-w-[2.5rem] h-[2.5rem] rounded-xl font-bold border transition-colors",
-                                                    // Reduce font size for long orders
-                                                    isLongOrder ? "text-base" : "text-lg",
+                                                    // Reduce font size for expanded views
+                                                    isExpanded ? "text-base" : "text-lg",
                                                     selectedItemId === item.id
                                                         ? "bg-orange-500 text-white border-orange-400"
                                                         : "bg-orange-500/10 text-orange-500 border-orange-500/20"
@@ -857,8 +874,8 @@ export default function KitchenPage() {
                                                     <div className="flex flex-wrap items-center gap-2 mb-1">
                                                         <p className={cn(
                                                             "font-bold text-slate-100 leading-tight",
-                                                            // Reduce font size for long orders
-                                                            isLongOrder ? "text-base" : "text-lg"
+                                                            // Reduce font size for expanded views
+                                                            isExpanded ? "text-base" : "text-lg"
                                                         )}>{item.name}</p>
                                                         {item.seatNumber && (
                                                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-bold">
