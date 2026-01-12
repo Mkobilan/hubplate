@@ -376,6 +376,37 @@ export default function SeatMapViewer() {
         }
     };
 
+    const handleForceClearTable = async () => {
+        if (!selectedTable) return;
+
+        setActionLoading(true);
+        try {
+            // 1. Clear waitlist entry if exists
+            const seatedEntry = seatedWaitlist.find(w => w.table_id === selectedTable.id);
+            if (seatedEntry) {
+                const { error: wlError } = await (supabaseRef.current
+                    .from("waitlist") as any)
+                    .update({ status: 'completed' })
+                    .eq('id', seatedEntry.id);
+
+                if (wlError) throw wlError;
+            }
+
+            // Note: We intentionally do NOT clear/complete the order here as per user request.
+            // This button is strictly for making the table available again visually/logically 
+            // by removing the "Seated" status (which comes from waitlist).
+
+            toast.success("Table marked as available");
+            setSelectedTable(null);
+            fetchSeatedWaitlist();
+        } catch (err) {
+            console.error("Error force clearing table:", err);
+            toast.error("Failed to clear table availability");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleAssignServer = async (employeeId: string | null) => {
         if (!selectedTable) return;
 
@@ -857,6 +888,7 @@ export default function SeatMapViewer() {
                             setSelectedTable(null);
                         }}
                         onGoToOrder={(tableLabel) => router.push(`/dashboard/orders?table=${tableLabel}`)}
+                        onForceClear={handleForceClearTable}
                         actionLoading={actionLoading}
                         reservationSettings={reservationSettings}
                     />
@@ -945,6 +977,7 @@ interface TableStatusModalProps {
     onSitTable: (partySize: number) => void;
     onPay: (order: any) => void;
     onGoToOrder: (label: string) => void;
+    onForceClear: () => void;
     actionLoading: boolean;
     reservationSettings: ReservationSettings | null;
 }
@@ -959,6 +992,7 @@ function TableStatusModal({
     onSitTable,
     onPay,
     onGoToOrder,
+    onForceClear,
     actionLoading,
     reservationSettings
 }: TableStatusModalProps) {
@@ -1076,6 +1110,17 @@ function TableStatusModal({
                                         <p className="text-white font-semibold">{seatedWaitlistEntry.customer_phone || 'N/A'}</p>
                                     </div>
                                 </div>
+                            </div>
+                            {/* Force Clear for Seated-only tables */}
+                            <div className="mt-4 pt-4 border-t border-red-500/20">
+                                <button
+                                    onClick={onForceClear}
+                                    disabled={actionLoading}
+                                    className="w-full flex items-center justify-center gap-2 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors"
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Clear Available
+                                </button>
                             </div>
                         </div>
                     )}
@@ -1281,6 +1326,15 @@ function TableStatusModal({
                                     >
                                         {actionLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Receipt className="h-5 w-5" />}
                                         Clear & Pay
+                                    </button>
+
+                                    <button
+                                        onClick={onForceClear}
+                                        disabled={actionLoading}
+                                        className="sm:col-span-2 w-full flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl font-medium transition-all text-xs uppercase tracking-widest border border-slate-700 hover:border-slate-600"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        Clear Table (Keep Order)
                                     </button>
                                 </>
                             )}
