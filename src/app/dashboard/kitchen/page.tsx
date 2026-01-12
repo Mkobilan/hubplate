@@ -505,8 +505,8 @@ export default function KitchenPage() {
 
         return orders.map(order => {
             const filteredItems = order.items.filter(item => {
-                // Skip items already served on this screen, EXCEPT for the Main Kitchen KDS
-                if (item.status === 'served' && !activeScreen?.is_default) return false;
+                // Skip items already served or completed from ALL screens
+                if (item.status === 'served' || item.status === 'completed') return false;
 
                 if (!item.menuItemId) {
                     return activeScreen?.is_default === true;
