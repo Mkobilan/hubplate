@@ -792,16 +792,14 @@ export default function KitchenPage() {
                         const timeColor = getTimeColor(ticketTime);
 
                         // Dynamic Grid Config
-                        const gridConfig = getGridConfig(order.items.length);
-                        const isExpanded = order.items.length > 7;
+                        const isExpanded = true; // Always use compact view for strict layout
 
                         return (
                             <div
                                 key={order.id}
+                                style={{ minWidth: "max-content" }}
                                 className={cn(
                                     "card border-2 transition-all flex-shrink-0 flex flex-col shadow-xl",
-                                    // Apply dynamic width
-                                    gridConfig.width,
                                     getCardStyle(order)
                                 )}
                             >
@@ -843,19 +841,15 @@ export default function KitchenPage() {
                                 </div>
 
                                 {/* Items with dynamic columns */}
-                                <div className={cn(
-                                    "flex-1 mb-6",
-                                    // Apply dynamic columns
-                                    gridConfig.columns,
-                                    isExpanded ? "gap-4 block space-y-0" : "flex flex-col space-y-3"
-                                )}>
+                                {/* Items with flex-col-wrap layout */}
+                                <div className="flex flex-col flex-wrap content-start gap-4 h-[calc(100vh-250px)] overflow-y-hidden overflow-x-auto pr-2 pb-2">
                                     {order.items.map((item) => (
                                         <div
                                             key={item.id}
                                             className={cn(
-                                                "flex flex-col gap-2 p-2 rounded-xl transition-all cursor-pointer border-2 break-inside-avoid",
+                                                "flex flex-col gap-2 p-2 rounded-xl transition-all cursor-pointer border-2 w-[320px] shrink-0",
                                                 // Add margin bottom for column layout spacing
-                                                isExpanded ? "mb-3" : "",
+                                                "mb-2",
                                                 selectedItemId === item.id
                                                     ? "bg-orange-500/10 border-orange-500/40 shadow-inner"
                                                     : "border-transparent hover:bg-slate-700/30"
