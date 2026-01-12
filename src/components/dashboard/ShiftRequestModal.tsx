@@ -186,7 +186,7 @@ export function ShiftRequestModal({
                 className="absolute inset-0 bg-black/80 backdrop-blur-sm"
                 onClick={onClose}
             />
-            <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md animate-slide-up shadow-2xl">
+            <div className="relative bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
