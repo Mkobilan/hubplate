@@ -48,20 +48,22 @@ export function ClockInOut() {
         checkStatus();
     }, [currentEmployee?.id]);
 
+    const pinLength = (currentEmployee as any)?.pin_code?.length || 4;
+
     const handlePinInput = (num: string) => {
-        if (pin.length < 4) setPin(prev => prev + num);
+        if (pin.length < pinLength) setPin(prev => prev + num);
     };
 
     const clearPin = () => setPin("");
 
     useEffect(() => {
-        if (pin.length === 4) {
+        if (pin.length === pinLength) {
             handleSubmit();
         }
-    }, [pin]);
+    }, [pin, pinLength]);
 
     const handleSubmit = async () => {
-        if (pin.length !== 4 || !currentEmployee) return;
+        if (pin.length !== pinLength || !currentEmployee) return;
 
         setLoading(true);
         setStatus("idle");
@@ -283,10 +285,10 @@ export function ClockInOut() {
     };
 
     useEffect(() => {
-        if (pin.length === 4) {
+        if (pin.length === pinLength) {
             handleSubmit();
         }
-    }, [pin]);
+    }, [pin, pinLength]);
 
     return (
         <>
@@ -325,12 +327,12 @@ export function ClockInOut() {
                             <>
                                 <div className="text-center mb-8">
                                     <h2 className="text-2xl font-bold mb-2">Staff Access</h2>
-                                    <p className="text-slate-400 text-sm">Enter your 4-digit PIN</p>
+                                    <p className="text-slate-400 text-sm">Enter your Access PIN</p>
                                 </div>
 
                                 {/* PIN Display */}
                                 <div className="flex justify-center gap-4 mb-8">
-                                    {[0, 1, 2, 3].map((i) => (
+                                    {Array.from({ length: pinLength }).map((_, i) => (
                                         <div
                                             key={i}
                                             className={cn(
