@@ -67,7 +67,10 @@ function OrdersPageContent() {
 
     useEffect(() => {
         const fetchMenuData = async () => {
-            if (!currentLocation?.id) return;
+            if (!currentLocation?.id) {
+                setLoading(false);
+                return;
+            }
 
             setLoading(true);
             setSelectedCategory(""); // Reset category on location change

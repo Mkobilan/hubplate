@@ -181,7 +181,10 @@ export default function KitchenPage() {
     };
 
     const fetchOrders = async () => {
-        if (!currentLocation?.id) return;
+        if (!currentLocation?.id) {
+            setLoading(false);
+            return;
+        }
 
         try {
             // Fetch active orders with consolidated item details
