@@ -33,6 +33,7 @@ import {
     FileText
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { getInventoryItemStatus, calculateInventoryItemValue } from "@/lib/utils/inventoryUtils";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -282,22 +283,7 @@ export default function InventoryPage() {
     };
 
     const getStatus = (item: any) => {
-        const running = Number(item.running_stock || 0);
-
-        // Calculate par in atomic units
-        let multiplier = Number(item.units_per_stock || 1);
-        let conversion = 1;
-        const combinedUnit = (item.unit || '').toLowerCase();
-        const recipeUnit = (item.recipe_unit || '').toLowerCase();
-
-        if (combinedUnit.includes('lb') && recipeUnit.includes('oz')) conversion = 16;
-        else if (combinedUnit.includes('gal') && recipeUnit.includes('oz')) conversion = 128;
-
-        const parAtomic = Number(item.par_level || 0) * multiplier * conversion;
-
-        if (running <= parAtomic * 0.2) return "critical";
-        if (running <= parAtomic) return "low";
-        return "good";
+        return getInventoryItemStatus(item);
     };
 
     const handleUpdateItem = async (id: string, updates: any) => {
@@ -399,7 +385,7 @@ export default function InventoryPage() {
 
 
     const totalAssetValue = inventory.reduce((sum, i) =>
-        sum + (Number(i.stock_quantity || 0) * Number(i.cost_per_unit || 0)), 0
+        sum + calculateInventoryItemValue(i), 0
     );
 
 

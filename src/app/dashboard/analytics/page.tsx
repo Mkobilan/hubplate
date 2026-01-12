@@ -17,6 +17,7 @@ import {
     RefreshCw
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { getInventoryItemStatus, calculateInventoryItemValue } from "@/lib/utils/inventoryUtils";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { format, startOfDay, endOfDay, subDays } from "date-fns";
@@ -266,20 +267,11 @@ export default function AnalyticsPage() {
                 .lte("created_at", endISO);
 
             const lowStockItems = (inventoryItems || []).filter((i: any) =>
-                i.par_level && (i.stock_quantity || 0) < i.par_level
+                getInventoryItemStatus(i) !== 'good'
             );
 
             const totalValue = (inventoryItems || []).reduce((sum: number, i: any) => {
-                // User requested to use 'unit' column for quantity instead of stock_quantity
-                // because stock_quantity contains bad data (dates)
-                const quantity = parseFloat(i.unit);
-                const cost = Number(i.cost_per_unit || 0);
-
-                // If unit is text (e.g. 'lb') this will be NaN and excluded (value 0)
-                // If unit contains a number (e.g. '5'), it will be used.
-                if (isNaN(quantity) || isNaN(cost)) return sum;
-
-                return sum + (quantity * cost);
+                return sum + calculateInventoryItemValue(i);
             }, 0);
 
             const wasteCost = (wasteLogs || []).reduce((sum: number, w: any) => sum + Number(w.cost || 0), 0);
