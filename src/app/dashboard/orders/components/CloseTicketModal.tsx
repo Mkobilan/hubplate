@@ -16,6 +16,9 @@ interface CloseTicketModalProps {
     onClose: () => void;
     onPaymentComplete?: () => void;
     linkedCustomer?: any;
+    isOrderComped?: boolean;
+    compMeta?: any;
+    compReason?: string;
 }
 
 import { createClient } from "@/lib/supabase/client";
@@ -28,7 +31,10 @@ export default function CloseTicketModal({
     total,
     onClose,
     onPaymentComplete,
-    linkedCustomer
+    linkedCustomer,
+    isOrderComped,
+    compMeta,
+    compReason
 }: CloseTicketModalProps) {
     const [paymentStatus, setPaymentStatus] = useState<string>("");
     const [isNative, setIsNative] = useState(false);
@@ -367,7 +373,10 @@ export default function CloseTicketModal({
                     tip: tip,
                     total: finalTotal,
                     status: "completed",
-                    completed_at: new Date().toISOString()
+                    completed_at: new Date().toISOString(),
+                    is_comped: isOrderComped,
+                    comp_meta: compMeta,
+                    comp_reason: compReason
                 })
                 .eq("id", orderId);
 
@@ -394,7 +403,10 @@ export default function CloseTicketModal({
                     tip: tip,
                     total: total + tip,
                     status: "completed",
-                    completed_at: new Date().toISOString()
+                    completed_at: new Date().toISOString(),
+                    is_comped: isOrderComped,
+                    comp_meta: compMeta,
+                    comp_reason: compReason
                 })
                 .eq("id", orderId);
 
@@ -462,7 +474,10 @@ export default function CloseTicketModal({
                         tip: tip,
                         total: totalToPay,
                         status: "completed",
-                        completed_at: new Date().toISOString()
+                        completed_at: new Date().toISOString(),
+                        is_comped: isOrderComped,
+                        comp_meta: compMeta,
+                        comp_reason: compReason
                     })
                     .eq("id", orderId);
 

@@ -82,10 +82,7 @@ function OrdersPageContent() {
 
     const isManagement =
         isOrgOwner ||
-        currentEmployee?.role === "owner" ||
-        currentEmployee?.role === "manager" ||
-        currentEmployee?.role === "gm" ||
-        currentEmployee?.role === "agm";
+        ["owner", "manager", "gm", "agm"].includes(currentEmployee?.role?.toLowerCase() || "");
 
 
     useEffect(() => {
@@ -1022,6 +1019,9 @@ function OrdersPageContent() {
                     total={total}
                     onClose={() => setShowCloseTicket(false)}
                     linkedCustomer={linkedCustomer}
+                    isOrderComped={isOrderComped}
+                    compMeta={compMeta}
+                    compReason={compReason}
                 />
             )}
 
