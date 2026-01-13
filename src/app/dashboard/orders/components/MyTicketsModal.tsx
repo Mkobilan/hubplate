@@ -29,7 +29,7 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
         try {
             const { data, error } = await supabase
                 .from("orders")
-                .select("id, location_id, server_id, table_number, seat_number, status, order_type, subtotal, tax, delivery_fee, discount, points_redeemed, total, items, customer_id, customer_name, customer_phone, customer_email, created_at")
+                .select("id, location_id, server_id, table_number, seat_number, status, order_type, subtotal, tax, delivery_fee, discount, points_redeemed, total, items, customer_id, customer_name, customer_phone, customer_email, created_at, is_comped, comp_meta, comp_reason")
                 .eq("location_id", currentLocation.id)
                 .eq("server_id", currentEmployee.id)
                 .or('payment_status.neq.paid,payment_status.is.null')

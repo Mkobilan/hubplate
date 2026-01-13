@@ -61,6 +61,9 @@ function OrdersPageContent() {
     const [selectedSeat, setSelectedSeat] = useState(1);
     const [tableCapacity, setTableCapacity] = useState(4); // Default to 4
     const [deliveryFee, setDeliveryFee] = useState(0);
+    const [isOrderComped, setIsOrderComped] = useState(false);
+    const [compMeta, setCompMeta] = useState<any>(null);
+    const [compReason, setCompReason] = useState("");
 
     const [categories, setCategories] = useState<string[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
@@ -286,7 +289,7 @@ function OrdersPageContent() {
             try {
                 const { data, error } = await supabase
                     .from("orders")
-                    .select("id, location_id, server_id, table_number, seat_number, status, order_type, subtotal, tax, delivery_fee, discount, points_redeemed, total, items, customer_id, customer_name, customer_phone, customer_email, created_at")
+                    .select("id, location_id, server_id, table_number, seat_number, status, order_type, subtotal, tax, delivery_fee, discount, points_redeemed, total, items, customer_id, customer_name, customer_phone, customer_email, created_at, is_comped, comp_meta, comp_reason")
                     .eq("location_id", currentLocation.id)
                     .eq("table_number", tableNumber.trim())
                     .neq("payment_status", "paid")
@@ -322,6 +325,10 @@ function OrdersPageContent() {
 
     const subtotal = orderItems.reduce(
         (sum, item) => {
+            if (isOrderComped) return 0;
+            const isItemComped = compMeta?.comped_items?.[item.id];
+            if (isItemComped) return sum;
+
             const modifiersTotal = (item.modifiers || []).reduce((s, a) => s + a.price, 0);
             return sum + (item.price + modifiersTotal) * item.quantity;
         },
@@ -329,7 +336,7 @@ function OrdersPageContent() {
     );
     const taxRate = currentLocation?.tax_rate ?? 8.75;
     const tax = Math.max(0, subtotal - discount) * (taxRate / 100);
-    const total = Math.max(0, subtotal - discount) + tax + deliveryFee;
+    const total = isOrderComped ? 0 : (Math.max(0, subtotal - discount) + tax + deliveryFee);
 
     const sendToKitchen = async () => {
         if (!currentLocation?.id || orderItems.length === 0) return;
@@ -378,6 +385,9 @@ function OrdersPageContent() {
                         customer_phone: linkedCustomer?.phone || null,
                         customer_email: linkedCustomer?.email || null,
                         customer_name: linkedCustomer ? `${linkedCustomer.first_name} ${linkedCustomer.last_name}` : null,
+                        is_comped: isOrderComped,
+                        comp_meta: compMeta,
+                        comp_reason: compReason,
                         items: itemsToSave
                     })
                     .select("id")
@@ -420,6 +430,9 @@ function OrdersPageContent() {
                         customer_phone: linkedCustomer?.phone || null,
                         customer_email: linkedCustomer?.email || null,
                         customer_name: linkedCustomer ? `${linkedCustomer.first_name} ${linkedCustomer.last_name}` : null,
+                        is_comped: isOrderComped,
+                        comp_meta: compMeta,
+                        comp_reason: compReason,
                         items: itemsToSave,
                         is_edited: true,
                         updated_at: new Date().toISOString()
@@ -496,6 +509,9 @@ function OrdersPageContent() {
         setDeliveryFee(order.delivery_fee || 0);
         setDiscount(order.discount || 0);
         setPointsRedeemed(order.points_redeemed || 0);
+        setIsOrderComped(order.is_comped || false);
+        setCompMeta(order.comp_meta || null);
+        setCompReason(order.comp_reason || "");
 
         // Fetch customer if linked
         if (cId) {
@@ -775,9 +791,17 @@ function OrdersPageContent() {
                                                     {item.isUpsell && (
                                                         <span className="badge badge-success text-[10px] px-1 py-0 h-4">Upsell</span>
                                                     )}
+                                                    {(isOrderComped || compMeta?.comped_items?.[item.id]) && (
+                                                        <span className="badge badge-warning text-[10px] px-1 py-0 h-4">Comped</span>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                                                    <span>{formatCurrency(item.price)} each</span>
+                                                    <span className={cn((isOrderComped || compMeta?.comped_items?.[item.id]) && "line-through")}>
+                                                        {formatCurrency(item.price)} each
+                                                    </span>
+                                                    {(isOrderComped || compMeta?.comped_items?.[item.id]) && (
+                                                        <span className="text-green-400 font-bold">$0.00</span>
+                                                    )}
                                                 </div>
                                                 {item.notes && (
                                                     <div className="mt-0.5 text-[10px] text-orange-400 font-medium italic">
@@ -853,8 +877,13 @@ function OrdersPageContent() {
                             <span>{formatCurrency(deliveryFee)}</span>
                         </div>
                     )}
-                    <div className="flex justify-between text-base font-bold pt-1 border-t border-slate-700">
-                        <span>{t("pos.total")}</span>
+                    <div className="flex justify-between items-center text-base font-bold pt-1 border-t border-slate-700">
+                        <div className="flex flex-col">
+                            <span>{t("pos.total")}</span>
+                            {isOrderComped && (
+                                <span className="badge badge-warning text-[8px] py-0 px-1 uppercase w-fit">Comped</span>
+                            )}
+                        </div>
                         <span className="text-orange-400">{formatCurrency(total)}</span>
                     </div>
                 </div>

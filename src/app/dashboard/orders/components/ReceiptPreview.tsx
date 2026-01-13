@@ -124,8 +124,22 @@ export default function ReceiptPreview({ orderId }: ReceiptPreviewProps) {
                         <div key={idx}>
                             <div className="grid grid-cols-12">
                                 <span className="col-span-2">{item.quantity}</span>
-                                <span className="col-span-7 font-bold">{item.name}</span>
-                                <span className="col-span-3 text-right">{formatCurrency(item.price)}</span>
+                                <span className="col-span-7 font-bold">
+                                    {item.name}
+                                    {(data.is_comped || data.comp_meta?.comped_items?.[item.id]) && (
+                                        <span className="ml-2 text-[10px] uppercase">[Comped]</span>
+                                    )}
+                                </span>
+                                <span className="col-span-3 text-right">
+                                    {(data.is_comped || data.comp_meta?.comped_items?.[item.id]) ? (
+                                        <div className="flex flex-col items-end">
+                                            <span className="line-through text-xs font-normal opacity-50">{formatCurrency(item.price)}</span>
+                                            <span className="font-bold">$0.00</span>
+                                        </div>
+                                    ) : (
+                                        formatCurrency(item.price)
+                                    )}
+                                </span>
                             </div>
                             {/* Support for add_ons (from JSON) or specific modifiers if used elsewhere */}
                             {item.add_ons && item.add_ons.length > 0 && (
@@ -164,7 +178,12 @@ export default function ReceiptPreview({ orderId }: ReceiptPreviewProps) {
                     <span>{formatCurrency(tax)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg border-t border-black pt-2">
-                    <span>Total:</span>
+                    <div className="flex flex-col">
+                        <span>Total:</span>
+                        {data.is_comped && (
+                            <span className="text-[10px] uppercase font-bold text-gray-500">Complimentary</span>
+                        )}
+                    </div>
                     <span>{formatCurrency(total)}</span>
                 </div>
             </div>
