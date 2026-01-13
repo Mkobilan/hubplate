@@ -157,52 +157,99 @@ export async function POST(request: NextRequest) {
                     }
 
                     // Loyalty Points Logic
-                    let customerPhone = order.customer_phone;
-                    const customerEmail = order.customer_email;
+                    // Use updatedOrder (finalized after payment) instead of stale order
+                    const currentOrder = updatedOrder || order;
+                    let customerPhone = currentOrder.customer_phone;
+                    const customerEmail = currentOrder.customer_email;
+                    const customerId = currentOrder.customer_id;
 
-                    if (customerPhone || customerEmail) {
+                    console.log(`Processing loyalty for order ${orderId}. CustomerID: ${customerId}, Phone: ${customerPhone}, Email: ${customerEmail}`);
+
+                    if (customerId || customerPhone || customerEmail) {
                         // Standardize phone
                         if (customerPhone) customerPhone = customerPhone.replace(/\D/g, '');
+                        
                         // 1. Get Earning Rate
                         const { data: program } = await (supabaseAdmin
                             .from('loyalty_programs') as any)
                             .select('points_per_dollar')
-                            .eq('location_id', order.location_id)
-                            .single();
+                            .eq('location_id', currentOrder.location_id)
+                            .maybeSingle();
 
                         const rate = (program as any)?.points_per_dollar || 1;
-                        const pointsEarned = Math.floor((order.total || 0) * rate);
-                        const pointsRedeemed = order.points_redeemed || 0;
+                        // Use total from CURRENT order state (after tip/discount)
+                        const pointsEarned = Math.floor((currentOrder.total || 0) * rate);
+                        const pointsRedeemed = currentOrder.points_redeemed || 0;
 
-                        // 2. Find Customer
-                        let customer;
-                        if (customerPhone) {
-                            const { data } = await (supabaseAdmin.from('customers') as any)
-                                .select('*').eq('location_id', order.location_id).eq('phone', customerPhone).maybeSingle();
+                        console.log(`Loyalty calculation: Rate=${rate}, Total=${currentOrder.total}, Earned=${pointsEarned}, Redeemed=${pointsRedeemed}`);
+
+                        // 2. Find Customer (Try ID first, then phone, then email)
+                        let customer: any = null;
+                        
+                        if (customerId) {
+                            const { data } = await supabaseAdmin.from('customers').select('*').eq('id', customerId).maybeSingle();
                             customer = data;
-                        } else {
-                            const { data } = await (supabaseAdmin.from('customers') as any)
-                                .select('*').eq('location_id', order.location_id).eq('email', customerEmail).maybeSingle();
-                            customer = data;
+                        }
+
+                        if (!customer && customerPhone) {
+                            // Search by phone - try location first, then global fallback
+                            const { data: locMatch } = await (supabaseAdmin.from('customers') as any)
+                                .select('*').eq('location_id', currentOrder.location_id).eq('phone', customerPhone).maybeSingle();
+                            
+                            if (locMatch) {
+                                customer = locMatch;
+                            } else {
+                                const { data: globalMatch } = await (supabaseAdmin.from('customers') as any)
+                                    .select('*').eq('phone', customerPhone).limit(1).maybeSingle();
+                                customer = globalMatch;
+                            }
+                        }
+
+                        if (!customer && customerEmail) {
+                            const { data: locMatch } = await (supabaseAdmin.from('customers') as any)
+                                .select('*').eq('location_id', currentOrder.location_id).eq('email', customerEmail).maybeSingle();
+                            
+                            if (locMatch) {
+                                customer = locMatch;
+                            } else {
+                                const { data: globalMatch } = await (supabaseAdmin.from('customers') as any)
+                                    .select('*').eq('email', customerEmail).limit(1).maybeSingle();
+                                customer = globalMatch;
+                            }
                         }
 
                         if (customer) {
                             const newPointBalance = Math.max(0, (customer.loyalty_points || 0) + pointsEarned - pointsRedeemed);
                             const newVisitCount = (customer.total_visits || 0) + 1;
-                            const newTotalSpent = (customer.total_spent || 0) + (order.total || 0);
+                            const newTotalSpent = Number((Number(customer.total_spent || 0) + Number(currentOrder.total || 0)).toFixed(2));
 
-                            await (supabaseAdmin.from('customers') as any)
+                            const { error: loyaltyUpdateError } = await (supabaseAdmin.from('customers') as any)
                                 .update({
                                     loyalty_points: newPointBalance,
                                     total_visits: newVisitCount,
                                     total_spent: newTotalSpent,
-                                    is_loyalty_member: true, // Auto-enroll if paying and provided contact
-                                    last_visit_at: new Date().toISOString()
+                                    is_loyalty_member: true,
+                                    last_visit_at: new Date().toISOString(),
+                                    // If we matched a global customer but they aren't linked to this location, we could update location_id here,
+                                    // but we keep it safe for now to avoid side effects across different businesses.
                                 })
                                 .eq('id', customer.id);
 
-                            console.log(`Updated loyalty for customer ${customer.id}: +${pointsEarned} earned, -${pointsRedeemed} redeemed.`);
+                            if (loyaltyUpdateError) {
+                                console.error(`FAILED to update loyalty points for customer ${customer.id}:`, loyaltyUpdateError);
+                            } else {
+                                console.log(`SUCCESS: Updated loyalty for customer ${customer.id}: +${pointsEarned} earned, -${pointsRedeemed} redeemed. New Balance: ${newPointBalance}`);
+                            }
+                            
+                            // Also ensure the order is definitely linked to this customer ID if it wasn't already
+                            if (!currentOrder.customer_id) {
+                                await supabaseAdmin.from('orders').update({ customer_id: customer.id }).eq('id', orderId);
+                            }
+                        } else {
+                            console.log(`LOYALTY: No customer found for Order ${orderId} (Phone: ${customerPhone}, Email: ${customerEmail})`);
                         }
+                    } else {
+                        console.log(`LOYALTY: Skipping for Order ${orderId} - No customer contact info found.`);
                     }
                 }
             }
