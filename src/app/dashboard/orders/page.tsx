@@ -35,6 +35,7 @@ import MyTicketsModal from "./components/MyTicketsModal";
 import CloseTicketModal from "./components/CloseTicketModal";
 import SplitCheckModal from "./components/SplitCheckModal";
 import LoyaltyModal from "./components/LoyaltyModal";
+import { Modal } from "@/components/ui/modal";
 
 
 function OrdersPageContent() {
@@ -64,6 +65,9 @@ function OrdersPageContent() {
     const [isOrderComped, setIsOrderComped] = useState(false);
     const [compMeta, setCompMeta] = useState<any>(null);
     const [compReason, setCompReason] = useState("");
+    const [showCompModal, setShowCompModal] = useState(false);
+    const [compReasonTemp, setCompReasonTemp] = useState("");
+    const [compingItemId, setCompingItemId] = useState<string | null>(null);
 
     const [categories, setCategories] = useState<string[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
@@ -73,7 +77,15 @@ function OrdersPageContent() {
     const currentLocation = useAppStore((state) => state.currentLocation);
     const setCurrentLocation = useAppStore((state) => state.setCurrentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
+    const isOrgOwner = useAppStore((state) => state.isOrgOwner);
     const supabase = createClient();
+
+    const isManagement =
+        isOrgOwner ||
+        currentEmployee?.role === "owner" ||
+        currentEmployee?.role === "manager" ||
+        currentEmployee?.role === "gm" ||
+        currentEmployee?.role === "agm";
 
 
     useEffect(() => {
@@ -581,6 +593,24 @@ function OrdersPageContent() {
         setShowMyTickets(false);
     };
 
+    const handleConfirmComp = () => {
+        if (!compingItemId) return;
+
+        const isRemoving = compMeta?.comped_items?.[compingItemId];
+        const newCompedItems = { ...(compMeta?.comped_items || {}) };
+
+        if (isRemoving) {
+            delete newCompedItems[compingItemId];
+        } else {
+            newCompedItems[compingItemId] = compReasonTemp;
+        }
+
+        setCompMeta({ ...compMeta, comped_items: newCompedItems });
+        setShowCompModal(false);
+        setCompReasonTemp("");
+        setCompingItemId(null);
+    };
+
     return (
         <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-6rem)]">
             {/* Menu Section */}
@@ -957,6 +987,21 @@ function OrdersPageContent() {
                         setEditingTicketItem(null);
                     }}
                     onConfirm={(notes, modifiers) => handleAddToOrder(customizingItem, notes, modifiers as any)}
+                    canComp={isManagement}
+                    isComped={!!(editingTicketItem && compMeta?.comped_items?.[editingTicketItem.id])}
+                    onCompClick={() => {
+                        if (editingTicketItem) {
+                            setCompingItemId(editingTicketItem.id);
+                            setCompReasonTemp(compMeta?.comped_items?.[editingTicketItem.id] || "");
+                            setShowCompModal(true);
+                        } else {
+                            // If it's a new item, we need an ID to track the comp.
+                            // But handleAddToOrder generates a UUID.
+                            // The user specifically asked for comping when clicking on the PENCIL icon.
+                            // New items don't have a pencil icon until they are in the ticket.
+                            toast.error("Finish adding the item first, then edit it to comp.");
+                        }
+                    }}
                 />
             )}
 
@@ -1010,6 +1055,66 @@ function OrdersPageContent() {
                 }}
                 currentCustomer={linkedCustomer}
             />
+
+            {/* Comp Confirmation Modal */}
+            <Modal
+                isOpen={showCompModal}
+                onClose={() => {
+                    setShowCompModal(false);
+                    setCompingItemId(null);
+                    setCompReasonTemp("");
+                }}
+                title={compMeta?.comped_items?.[compingItemId || ""] ? "Remove Item Comp" : "Comp Item"}
+                className="max-w-md"
+            >
+                <div className="space-y-4">
+                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                        <p className="text-sm text-slate-400">Item to {compMeta?.comped_items?.[compingItemId || ""] ? 'un-comp' : 'comp'}:</p>
+                        <p className="text-lg font-bold">
+                            {orderItems.find(i => i.id === compingItemId)?.name || "Selected Item"}
+                        </p>
+                    </div>
+
+                    {!compMeta?.comped_items?.[compingItemId || ""] ? (
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-slate-500">Reason for Comping</label>
+                            <textarea
+                                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:border-orange-500 outline-none transition-colors min-h-[100px] text-white"
+                                placeholder="E.g., Manager guest, widespread service delay, VIP..."
+                                value={compReasonTemp}
+                                onChange={(e) => setCompReasonTemp(e.target.value)}
+                            />
+                        </div>
+                    ) : (
+                        <p className="text-sm text-slate-400 italic font-medium">
+                            Are you sure you want to remove the complimentary status for this item?
+                        </p>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                        <button
+                            onClick={() => {
+                                setShowCompModal(false);
+                                setCompingItemId(null);
+                                setCompReasonTemp("");
+                            }}
+                            className="btn btn-secondary flex-1 py-2 text-white"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleConfirmComp}
+                            disabled={!compMeta?.comped_items?.[compingItemId || ""] && !compReasonTemp.trim()}
+                            className={cn(
+                                "btn flex-1 py-2 rounded-xl font-bold transition-all",
+                                compMeta?.comped_items?.[compingItemId || ""] ? "bg-orange-500 hover:bg-orange-600 text-white" : "btn-primary"
+                            )}
+                        >
+                            {compMeta?.comped_items?.[compingItemId || ""] ? "Remove Comp" : "Confirm Comp"}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
@@ -1032,12 +1137,18 @@ function ItemCustomizationModal({
     initialModifiers,
     onClose,
     onConfirm,
+    canComp,
+    isComped,
+    onCompClick,
 }: {
     item: MenuItemType;
     initialNotes?: string;
     initialModifiers?: { id?: string; name: string; price: number; type: 'add-on' | 'upsell' | 'side' | 'dressing' }[];
     onClose: () => void;
     onConfirm: (notes: string[], modifiers: { id?: string; name: string; price: number; type: 'add-on' | 'upsell' | 'side' | 'dressing' }[]) => void;
+    canComp?: boolean;
+    isComped?: boolean;
+    onCompClick?: () => void;
 }) {
     const { t } = useTranslation();
     const [notes, setNotes] = useState<string[]>([]);
@@ -1283,6 +1394,19 @@ function ItemCustomizationModal({
                         <button onClick={onClose} className="btn btn-secondary flex-1">
                             Cancel
                         </button>
+                        {canComp && (
+                            <button
+                                onClick={onCompClick}
+                                className={cn(
+                                    "flex-1 py-2 rounded-xl font-bold transition-all border",
+                                    isComped
+                                        ? "bg-orange-500/20 border-orange-500/50 text-orange-400 hover:bg-orange-500/30"
+                                        : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600"
+                                )}
+                            >
+                                {isComped ? "Un-Comp" : "Comp Item"}
+                            </button>
+                        )}
                         <button
                             onClick={() => onConfirm(notes, selectedModifiers)}
                             className="btn btn-primary flex-[2] text-lg font-bold"
