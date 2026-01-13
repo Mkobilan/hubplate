@@ -49,7 +49,11 @@ export function SessionHandler() {
             // Only set org owner if NOT in terminal mode (in terminal mode, permissions are determined by PIN login)
             if (org && !useAppStore.getState().isTerminalMode) {
                 setIsOrgOwner(true);
+            } else {
+                setIsOrgOwner(false);
+            }
 
+            if (org && !useAppStore.getState().isTerminalMode) {
                 // 1.5 Strict Onboarding & Subscription Check
                 const status = org.subscription_status;
                 const onboarding = org.onboarding_status;

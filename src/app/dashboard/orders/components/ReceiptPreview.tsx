@@ -7,9 +7,22 @@ import { Loader2 } from "lucide-react";
 
 interface ReceiptPreviewProps {
     orderId: string;
+    // Optional overrides for real-time preview before DB sync
+    subtotal?: number;
+    tax?: number;
+    total?: number;
+    isComped?: boolean;
+    compMeta?: any;
 }
 
-export default function ReceiptPreview({ orderId }: ReceiptPreviewProps) {
+export default function ReceiptPreview({
+    orderId,
+    subtotal: overrideSubtotal,
+    tax: overrideTax,
+    total: overrideTotal,
+    isComped: overrideIsComped,
+    compMeta: overrideCompMeta
+}: ReceiptPreviewProps) {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
 
@@ -75,7 +88,15 @@ export default function ReceiptPreview({ orderId }: ReceiptPreviewProps) {
         );
     }
 
-    const { location, items, subtotal, tax, total, table_number, created_at, id, customer } = data;
+    const { location, items, table_number, created_at, id, customer } = data;
+
+    // Use overrides if provided, otherwise fallback to DB data
+    const displaySubtotal = overrideSubtotal !== undefined ? overrideSubtotal : data.subtotal;
+    const displayTax = overrideTax !== undefined ? overrideTax : data.tax;
+    const displayTotal = overrideTotal !== undefined ? overrideTotal : data.total;
+    const displayIsComped = overrideIsComped !== undefined ? overrideIsComped : data.is_comped;
+    const displayCompMeta = overrideCompMeta !== undefined ? overrideCompMeta : data.comp_meta;
+
     const date = new Date(created_at).toLocaleString();
 
     return (
@@ -126,12 +147,12 @@ export default function ReceiptPreview({ orderId }: ReceiptPreviewProps) {
                                 <span className="col-span-2">{item.quantity}</span>
                                 <span className="col-span-7 font-bold">
                                     {item.name}
-                                    {(data.is_comped || data.comp_meta?.comped_items?.[item.id]) && (
+                                    {(displayIsComped || displayCompMeta?.comped_items?.[item.id]) && (
                                         <span className="ml-2 text-[10px] uppercase">[Comped]</span>
                                     )}
                                 </span>
                                 <span className="col-span-3 text-right">
-                                    {(data.is_comped || data.comp_meta?.comped_items?.[item.id]) ? (
+                                    {(displayIsComped || displayCompMeta?.comped_items?.[item.id]) ? (
                                         <div className="flex flex-col items-end">
                                             <span className="line-through text-xs font-normal opacity-50">{formatCurrency(item.price)}</span>
                                             <span className="font-bold">$0.00</span>
@@ -171,20 +192,20 @@ export default function ReceiptPreview({ orderId }: ReceiptPreviewProps) {
             <div className="space-y-2 mb-6 text-right">
                 <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>{formatCurrency(subtotal)}</span>
+                    <span>{formatCurrency(displaySubtotal)}</span>
                 </div>
                 <div className="flex justify-between">
                     <span>Tax:</span>
-                    <span>{formatCurrency(tax)}</span>
+                    <span>{formatCurrency(displayTax)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg border-t border-black pt-2">
                     <div className="flex flex-col">
                         <span>Total:</span>
-                        {data.is_comped && (
+                        {displayIsComped && (
                             <span className="text-[10px] uppercase font-bold text-gray-500">Complimentary</span>
                         )}
                     </div>
-                    <span>{formatCurrency(total)}</span>
+                    <span>{formatCurrency(displayTotal)}</span>
                 </div>
             </div>
 

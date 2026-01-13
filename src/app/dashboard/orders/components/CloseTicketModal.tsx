@@ -12,6 +12,8 @@ interface CloseTicketModalProps {
     orderId: string;
     tableNumber: string;
     orderType: string;
+    subtotal: number;
+    tax: number;
     total: number;
     onClose: () => void;
     onPaymentComplete?: () => void;
@@ -28,6 +30,8 @@ export default function CloseTicketModal({
     orderId,
     tableNumber,
     orderType,
+    subtotal,
+    tax,
     total,
     onClose,
     onPaymentComplete,
@@ -711,7 +715,14 @@ export default function CloseTicketModal({
                     <div className="flex flex-col h-full">
                         <div className="flex-1 overflow-y-auto mb-4 bg-white rounded-lg p-4 custom-scrollbar">
                             <div className="max-w-[300px] mx-auto shadow-lg scale-90 origin-top">
-                                <ReceiptPreview orderId={orderId} />
+                                <ReceiptPreview
+                                    orderId={orderId}
+                                    subtotal={subtotal}
+                                    tax={tax}
+                                    total={total}
+                                    isComped={isOrderComped}
+                                    compMeta={compMeta}
+                                />
                             </div>
                         </div>
                         <div className="flex gap-3 mt-auto pt-4 border-t border-slate-800">

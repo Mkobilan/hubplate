@@ -11,6 +11,7 @@ export function TerminalPortal() {
     const isTerminalLocked = useAppStore((state) => state.isTerminalLocked);
     const setTerminalLocked = useAppStore((state) => state.setTerminalLocked);
     const setCurrentEmployee = useAppStore((state) => state.setCurrentEmployee);
+    const setIsOrgOwner = useAppStore((state) => state.setIsOrgOwner);
     const refreshClockStatus = useAppStore((state) => state.refreshClockStatus);
 
     const [showPinPad, setShowPinPad] = useState(false);
@@ -36,6 +37,7 @@ export function TerminalPortal() {
                         onClose={() => setShowPinPad(false)}
                         onSuccess={async (employee) => {
                             setCurrentEmployee(employee);
+                            setIsOrgOwner(false);
                             await refreshClockStatus(supabase, employee.id);
                             setTerminalLocked(false);
                             setShowPinPad(false);

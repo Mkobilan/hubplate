@@ -590,22 +590,66 @@ function OrdersPageContent() {
         setShowMyTickets(false);
     };
 
-    const handleConfirmComp = () => {
+    const handleConfirmComp = async () => {
         if (!compingItemId) return;
 
-        const isRemoving = compMeta?.comped_items?.[compingItemId];
-        const newCompedItems = { ...(compMeta?.comped_items || {}) };
+        const isRemoving = !!compMeta?.comped_items?.[compingItemId];
+        const currentCompedItems = compMeta?.comped_items || {};
+        const newCompedItems = { ...currentCompedItems };
 
         if (isRemoving) {
             delete newCompedItems[compingItemId];
         } else {
-            newCompedItems[compingItemId] = compReasonTemp;
+            newCompedItems[compingItemId] = compReasonTemp || "No Reason Provided";
         }
 
-        setCompMeta({ ...compMeta, comped_items: newCompedItems });
+        const newMeta = {
+            ...(compMeta || {}),
+            comped_items: newCompedItems,
+            is_order_comped: isOrderComped // Keep in sync
+        };
+
+        setCompMeta(newMeta);
         setShowCompModal(false);
         setCompReasonTemp("");
         setCompingItemId(null);
+
+        // Immediate Persistence
+        if (activeOrderId) {
+            const newSubtotal = orderItems.reduce((sum, item) => {
+                if (isOrderComped) return 0;
+                // Check against NEW meta
+                if (newCompedItems[item.id]) return sum;
+                const mods = (item.modifiers || []).reduce((s, a) => s + a.price, 0);
+                return sum + (item.price + mods) * item.quantity;
+            }, 0);
+
+            const taxRate = currentLocation?.tax_rate || 0;
+            const newTax = newSubtotal * (taxRate / 100);
+            // Ensure deliveryFee and discount are numbers
+            const dFee = deliveryFee || 0;
+            const disc = discount || 0;
+            const newTotal = newSubtotal + newTax + dFee - disc;
+
+            try {
+                const { error } = await supabase
+                    .from("orders")
+                    .update({
+                        comp_meta: newMeta,
+                        subtotal: newSubtotal,
+                        tax: newTax,
+                        total: newTotal
+                    })
+                    .eq("id", activeOrderId);
+
+                if (error) {
+                    console.error("Error saving comp status:", error);
+                    toast.error("Failed to save comp status");
+                }
+            } catch (err) {
+                console.error("Error updating order:", err);
+            }
+        }
     };
 
     return (
@@ -1016,6 +1060,8 @@ function OrdersPageContent() {
                     orderId={activeOrderId}
                     tableNumber={tableNumber}
                     orderType={orderType}
+                    subtotal={subtotal}
+                    tax={tax}
                     total={total}
                     onClose={() => setShowCloseTicket(false)}
                     linkedCustomer={linkedCustomer}
