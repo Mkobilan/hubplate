@@ -911,6 +911,8 @@ export default function SeatMapViewer() {
                         orderId={payingOrder.id}
                         tableNumber={payingOrder.table_number || ""}
                         orderType={payingOrder.order_type || "dine_in"}
+                        subtotal={payingOrder.subtotal || 0}
+                        tax={payingOrder.tax || 0}
                         total={payingOrder.total}
                         onClose={() => setPayingOrder(null)}
                         onPaymentComplete={() => {
