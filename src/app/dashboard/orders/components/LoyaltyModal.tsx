@@ -56,8 +56,8 @@ export default function LoyaltyModal({
         try {
             // Use the lookup API we saw earlier or direct supabase call
             // Using direct call for simplicity in this component
-            const { data, error } = await supabase
-                .from("customers")
+            const { data, error } = await (supabase
+                .from("customers") as any)
                 .select("*")
                 .eq("phone", phone)
                 .limit(1)
@@ -91,8 +91,8 @@ export default function LoyaltyModal({
 
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from("customers")
+            const { data, error } = await (supabase
+                .from("customers") as any)
                 .upsert({
                     location_id: locationId,
                     first_name: joinForm.firstName,
@@ -114,7 +114,7 @@ export default function LoyaltyModal({
             handleLinkCustomer(data);
         } catch (err) {
             console.error("Join error:", err);
-            toast.error("Failed to crate customer profile");
+            toast.error("Failed to create customer profile");
         } finally {
             setLoading(false);
         }
@@ -129,8 +129,8 @@ export default function LoyaltyModal({
 
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from("orders")
+            const { error } = await (supabase
+                .from("orders") as any)
                 .update({
                     customer_id: customer.id,
                     customer_phone: customer.phone,

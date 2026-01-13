@@ -476,8 +476,8 @@ function OrdersPageContent() {
         // Fetch customer if linked
         if (order.customer_id) {
             try {
-                const { data: customer } = await supabase
-                    .from("customers")
+                const { data: customer } = await (supabase
+                    .from("customers") as any)
                     .select("*")
                     .eq("id", order.customer_id)
                     .single();
