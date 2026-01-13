@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { X, Clock, DollarSign, LayoutList, Loader2 } from "lucide-react";
+import { X, Clock, DollarSign, LayoutList, Loader2, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
 import { formatCurrency } from "@/lib/utils";
@@ -29,7 +29,7 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
         try {
             const { data, error } = await supabase
                 .from("orders")
-                .select("*")
+                .select("id, location_id, server_id, table_number, seat_number, status, order_type, subtotal, tax, delivery_fee, discount, points_redeemed, total, items, customer_id, customer_name, customer_phone, customer_email, created_at")
                 .eq("location_id", currentLocation.id)
                 .eq("server_id", currentEmployee.id)
                 .or('payment_status.neq.paid,payment_status.is.null')
@@ -38,6 +38,7 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
                 .order("created_at", { ascending: false });
 
             if (error) throw error;
+            console.log("MyTicketsModal: Fetched orders =", data);
             setOrders(data || []);
         } catch (error) {
             console.error("Error fetching tickets:", error);
@@ -104,6 +105,12 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
                                             {order.status === 'pending' ? 'Pending Payment' : order.status}
                                         </span>
                                     </div>
+                                    {order.customer_name && (
+                                        <div className="flex items-center gap-1.5 text-xs text-orange-400 font-bold mb-2 italic">
+                                            <Star className="h-3 w-3 fill-orange-400" />
+                                            {order.customer_name}
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-4 mt-auto">
                                         <div className="flex items-center gap-1 text-slate-400 text-sm">
                                             <Clock className="h-3 w-3" />

@@ -71,6 +71,7 @@ function OrdersPageContent() {
     const setCurrentLocation = useAppStore((state) => state.setCurrentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
     const supabase = createClient();
+    console.log("RENDER page: activeOrderId =", activeOrderId, "linkedCustomer =", linkedCustomer?.id || linkedCustomer?.phone || "null");
 
     useEffect(() => {
         const fetchMenuData = async () => {
@@ -285,7 +286,7 @@ function OrdersPageContent() {
             try {
                 const { data, error } = await supabase
                     .from("orders")
-                    .select("*")
+                    .select("id, location_id, server_id, table_number, seat_number, status, order_type, subtotal, tax, delivery_fee, discount, points_redeemed, total, items, customer_id, customer_name, customer_phone, customer_email, created_at")
                     .eq("location_id", currentLocation.id)
                     .eq("table_number", tableNumber.trim())
                     .neq("payment_status", "paid")
@@ -332,8 +333,7 @@ function OrdersPageContent() {
 
     const sendToKitchen = async () => {
         if (!currentLocation?.id || orderItems.length === 0) return;
-
-        setLoading(true);
+        console.log("SendToKitchen: linkedCustomer =", linkedCustomer);
         try {
             let orderId = activeOrderId;
             const isEditing = !!orderId;
@@ -374,6 +374,10 @@ function OrdersPageContent() {
                         discount: discount,
                         points_redeemed: pointsRedeemed,
                         total: total,
+                        customer_id: linkedCustomer?.id || null,
+                        customer_phone: linkedCustomer?.phone || null,
+                        customer_email: linkedCustomer?.email || null,
+                        customer_name: linkedCustomer ? `${linkedCustomer.first_name} ${linkedCustomer.last_name}` : null,
                         items: itemsToSave
                     })
                     .select("id")
@@ -412,6 +416,10 @@ function OrdersPageContent() {
                         discount,
                         points_redeemed: pointsRedeemed,
                         total,
+                        customer_id: linkedCustomer?.id || null,
+                        customer_phone: linkedCustomer?.phone || null,
+                        customer_email: linkedCustomer?.email || null,
+                        customer_name: linkedCustomer ? `${linkedCustomer.first_name} ${linkedCustomer.last_name}` : null,
                         items: itemsToSave,
                         is_edited: true,
                         updated_at: new Date().toISOString()
@@ -477,6 +485,12 @@ function OrdersPageContent() {
     };
 
     const loadOrder = async (order: any) => {
+        console.log("LoadOrder: Full order object:", JSON.stringify(order, null, 2));
+        const cId = order.customer_id || order.customerId;
+        const cPhone = order.customer_phone || order.customerPhone;
+        const cName = order.customer_name || order.customerName;
+        console.log("LoadOrder: Extracted customer info:", { cId, cPhone, cName });
+
         setActiveOrderId(order.id);
         setOrderType(order.order_type);
         setTableNumber(order.table_number || "");
@@ -486,20 +500,55 @@ function OrdersPageContent() {
         setPointsRedeemed(order.points_redeemed || 0);
 
         // Fetch customer if linked
-        if (order.customer_id) {
+        if (cId) {
             try {
                 const { data: customer } = await (supabase
                     .from("customers") as any)
                     .select("*")
-                    .eq("id", order.customer_id)
+                    .eq("id", cId)
                     .single();
-                if (customer) setLinkedCustomer(customer);
+
+                if (customer) {
+                    console.log("LoadOrder: Found customer profile in DB:", customer.id);
+                    setLinkedCustomer(customer);
+                } else if (cName) {
+                    console.log("LoadOrder: Customer profile not found, using fallback from name");
+                    setLinkedCustomer({
+                        id: cId,
+                        first_name: cName.split(' ')[0],
+                        last_name: cName.split(' ').slice(1).join(' '),
+                        phone: cPhone
+                    });
+                }
             } catch (err) {
-                console.error("Error loading linked customer:", err);
+                console.error("Error loading linked customer profile:", err);
+                if (cName) {
+                    setLinkedCustomer({
+                        id: cId,
+                        first_name: cName.split(' ')[0],
+                        last_name: cName.split(' ').slice(1).join(' '),
+                        phone: cPhone
+                    });
+                }
             }
+        } else if (cPhone) {
+            console.log("LoadOrder: No ID found, using fallback from phone/name");
+            setLinkedCustomer({
+                first_name: cName?.split(' ')[0] || "Guest",
+                last_name: cName?.split(' ').slice(1).join(' ') || "",
+                phone: cPhone
+            });
+        } else if (cName) {
+            console.log("LoadOrder: Only name found, using fallback");
+            setLinkedCustomer({
+                first_name: cName.split(' ')[0] || "Guest",
+                last_name: cName.split(' ').slice(1).join(' ') || "",
+            });
         } else {
+            console.log("LoadOrder: No customer info found in order object");
             setLinkedCustomer(null);
         }
+
 
         if (order.items && Array.isArray(order.items)) {
             setOrderItems(order.items.map((i: any) => ({
@@ -617,6 +666,12 @@ function OrdersPageContent() {
             <div className="lg:w-96 flex flex-col bg-slate-900/50 rounded-xl border border-slate-800">
                 {/* Order Header */}
                 <div className="p-3 border-b border-slate-800">
+                    {/* DEBUG: Remove before production */}
+                    <div className="text-[8px] text-slate-500 mb-1 flex gap-2">
+                        <span>ID: {activeOrderId || 'None'}</span>
+                        <span>CID: {linkedCustomer?.id || 'None'}</span>
+                        <span>CNAME: {linkedCustomer?.first_name || 'None'}</span>
+                    </div>
                     <div className="flex flex-col gap-2">
                         {/* Row 1: Order title, Order Type, and action buttons */}
                         <div className="flex items-center justify-between gap-2">
