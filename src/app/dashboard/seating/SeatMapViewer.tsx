@@ -545,7 +545,7 @@ export default function SeatMapViewer() {
                 .select("id, customer_name, reservation_date, reservation_time, duration_minutes, party_size, status")
                 .eq("location_id", locId)
                 .eq("reservation_date", today)
-                .in("status", ["pending", "confirmed"]);
+                .in("status", ["pending", "confirmed", "seated"]);
 
             if (resError) throw resError;
 
@@ -582,7 +582,8 @@ export default function SeatMapViewer() {
             const showFromTime = addMinutes(resDateTime, -advanceMinutes);
 
             // Show if we're within the advance window or during the reservation
-            if (now >= showFromTime && now <= resEndTime) {
+            // Only show for pending/confirmed status (not seated)
+            if (now >= showFromTime && now <= resEndTime && res.status !== 'seated') {
                 return res;
             }
         }
@@ -595,10 +596,14 @@ export default function SeatMapViewer() {
         const reservation = getTableReservation(table.id);
         const seatedWaitlistEntry = seatedWaitlist.find(w => w.table_id === table.id);
 
-        if (order) return { status: "occupied", order, reservation: null, seatedWaitlistEntry: null };
-        if (seatedWaitlistEntry) return { status: "seated", order: null, reservation: null, seatedWaitlistEntry };
-        if (reservation) return { status: "reserved", order: null, reservation, seatedWaitlistEntry: null };
-        return { status: "available", order: null, reservation: null, seatedWaitlistEntry: null };
+        // Find seated reservation
+        const seatedReservation = upcomingReservations.find(r => r.table_ids.includes(table.id) && r.status === 'seated');
+
+        if (order) return { status: "occupied", order, reservation: null, seatedWaitlistEntry: null, seatedReservation: null };
+        if (seatedWaitlistEntry) return { status: "seated", order: null, reservation: null, seatedWaitlistEntry, seatedReservation: null };
+        if (seatedReservation) return { status: "seated", order: null, reservation: null, seatedWaitlistEntry: null, seatedReservation };
+        if (reservation) return { status: "reserved", order: null, reservation, seatedWaitlistEntry: null, seatedReservation: null };
+        return { status: "available", order: null, reservation: null, seatedWaitlistEntry: null, seatedReservation: null };
     };
 
     if (loading && maps.length === 0) {
@@ -704,7 +709,7 @@ export default function SeatMapViewer() {
                         <Layer>
                             <Group>
                                 {tables.map((table) => {
-                                    const { status, order, reservation, seatedWaitlistEntry } = getTableStatus(table);
+                                    const { status, order, reservation, seatedWaitlistEntry, seatedReservation } = getTableStatus(table);
                                     const isOccupied = status === "occupied" || status === "seated";
                                     const isReserved = status === "reserved";
                                     const assignedServer = servers.find(s => s.id === table.assigned_server_id);
@@ -853,7 +858,13 @@ export default function SeatMapViewer() {
                                             {(table.object_type !== 'structure' || table.shape === 'door') && (
                                                 <Group y={table.height / 2} listening={false} opacity={table.shape === 'door' ? 0.9 : 1}>
                                                     <Text
-                                                        text={initials ? `${table.label}\n${initials}` : table.label}
+                                                        text={(() => {
+                                                            if (status === 'seated') {
+                                                                const name = seatedWaitlistEntry?.customer_name || seatedReservation?.customer_name;
+                                                                if (name) return `${table.label}\n${name}`;
+                                                            }
+                                                            return initials ? `${table.label}\n${initials}` : table.label;
+                                                        })()}
                                                         width={table.width}
                                                         fontSize={Math.min(table.width / 3, 16)}
                                                         fontStyle="bold"
@@ -970,7 +981,7 @@ export default function SeatMapViewer() {
 interface TableStatusModalProps {
     table: TableConfig;
     onClose: () => void;
-    status: { status: string; order: any; reservation: any; seatedWaitlistEntry: any };
+    status: { status: string; order: any; reservation: any; seatedWaitlistEntry: any; seatedReservation?: any };
     servers: Server[];
     canEdit: boolean;
     onAssignServer: (id: string | null) => void;
@@ -1002,6 +1013,7 @@ function TableStatusModal({
     const order = status.order;
     const reservation = status.reservation;
     const seatedWaitlistEntry = status.seatedWaitlistEntry;
+    const seatedReservation = status.seatedReservation;
 
     // Calculate camping time
     const [now, setNow] = useState(new Date());
@@ -1062,7 +1074,12 @@ function TableStatusModal({
                                     <div className="flex items-center gap-1.5 text-xs font-medium">
                                         <Hourglass className="h-3.5 w-3.5 text-orange-400" />
                                         <span>
-                                            {isOccupied ? `Camping: ${campingMinutes}m` : `Seated: ${differenceInMinutes(now, new Date(seatedWaitlistEntry?.seated_at || seatedWaitlistEntry?.created_at || now))}m`}
+                                            {isOccupied ? `Camping: ${campingMinutes}m` : `Seated: ${differenceInMinutes(now, new Date(
+                                                seatedReservation?.updated_at ||
+                                                seatedWaitlistEntry?.seated_at ||
+                                                seatedWaitlistEntry?.created_at ||
+                                                now
+                                            ))}m`}
                                         </span>
                                     </div>
                                 )}
@@ -1093,21 +1110,29 @@ function TableStatusModal({
                         <div className="p-5 rounded-2xl border border-red-500/30 bg-red-500/10">
                             <div className="flex items-center gap-2 mb-4">
                                 <Users className="h-5 w-5 text-red-500" />
-                                <span className="text-sm font-bold uppercase tracking-wider text-red-500">Guest Seated (Waitlist)</span>
+                                <span className="text-sm font-bold uppercase tracking-wider text-red-500">
+                                    {seatedReservation ? "Guest Seated (Reservation)" : "Guest Seated (Waitlist)"}
+                                </span>
                             </div>
                             <div className="space-y-3">
                                 <div>
                                     <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-1">Guest Name</p>
-                                    <p className="text-xl font-bold text-white">{seatedWaitlistEntry.customer_name}</p>
+                                    <p className="text-xl font-bold text-white">
+                                        {seatedReservation ? seatedReservation.customer_name : seatedWaitlistEntry?.customer_name}
+                                    </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-1">Party Size</p>
-                                        <p className="text-white font-semibold">{seatedWaitlistEntry.party_size} People</p>
+                                        <p className="text-white font-semibold">
+                                            {seatedReservation ? seatedReservation.party_size : seatedWaitlistEntry?.party_size} People
+                                        </p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-1">Phone</p>
-                                        <p className="text-white font-semibold">{seatedWaitlistEntry.customer_phone || 'N/A'}</p>
+                                        <p className="text-white font-semibold">
+                                            {(seatedReservation ? seatedReservation.customer_phone : seatedWaitlistEntry?.customer_phone) || 'N/A'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
