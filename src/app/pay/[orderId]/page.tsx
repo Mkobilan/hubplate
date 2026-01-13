@@ -26,6 +26,8 @@ interface OrderDetails {
         price: number;
     }>;
     delivery_fee?: number;
+    customer_id?: string;
+    customer_name?: string;
 }
 
 export default function PaymentPage() {
@@ -62,6 +64,21 @@ export default function PaymentPage() {
 
                 setOrder(orderData);
                 setTip(Number(orderData.tip) || 0);
+
+                // Auto-loyalty check
+                if (orderData.customer_id) {
+                    try {
+                        const loyaltyRes = await fetch(`/api/customers/lookup?id=${orderData.customer_id}&locationId=${orderData.location_id}`);
+                        const loyaltyData = await loyaltyRes.json();
+                        if (loyaltyData.found) {
+                            setLoyaltyCustomer(loyaltyData.customer);
+                            setAvailableRewards(loyaltyData.availableRewards || []);
+                            setShowLoyaltyField(false);
+                        }
+                    } catch (err) {
+                        console.error("Auto-loyalty error:", err);
+                    }
+                }
 
                 // Create payment intent
                 const paymentRes = await fetch("/api/stripe/payment-intent", {

@@ -30,7 +30,9 @@ export async function GET(
                 server_id,
                 items,
                 tip,
-                delivery_fee
+                delivery_fee,
+                customer_id,
+                customer_name
             `)
             .eq('id', orderId)
             .single();
@@ -52,7 +54,9 @@ export async function GET(
             server_id: order.server_id,
             items: order.items || [],
             tip: order.tip,
-            delivery_fee: order.delivery_fee
+            delivery_fee: order.delivery_fee,
+            customer_id: order.customer_id,
+            customer_name: order.customer_name
         });
     } catch (error) {
         console.error('Error fetching order:', error);

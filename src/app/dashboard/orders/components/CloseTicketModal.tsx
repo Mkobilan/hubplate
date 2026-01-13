@@ -15,6 +15,7 @@ interface CloseTicketModalProps {
     total: number;
     onClose: () => void;
     onPaymentComplete?: () => void;
+    linkedCustomer?: any;
 }
 
 import { createClient } from "@/lib/supabase/client";
@@ -26,7 +27,8 @@ export default function CloseTicketModal({
     orderType,
     total,
     onClose,
-    onPaymentComplete
+    onPaymentComplete,
+    linkedCustomer
 }: CloseTicketModalProps) {
     const [paymentStatus, setPaymentStatus] = useState<string>("");
     const [isNative, setIsNative] = useState(false);
@@ -55,7 +57,12 @@ export default function CloseTicketModal({
 
     useEffect(() => {
         setIsNative(Capacitor.isNativePlatform());
-    }, []);
+
+        if (linkedCustomer) {
+            setLoyaltyName(linkedCustomer.first_name || "Guest");
+            setLoyaltySuccess(true);
+        }
+    }, [linkedCustomer]);
 
     const handleCheckIn = async () => {
         if (!loyaltyPhone) return;

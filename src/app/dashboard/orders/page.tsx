@@ -906,6 +906,7 @@ function OrdersPageContent() {
                     orderType={orderType}
                     total={total}
                     onClose={() => setShowCloseTicket(false)}
+                    linkedCustomer={linkedCustomer}
                 />
             )}
 

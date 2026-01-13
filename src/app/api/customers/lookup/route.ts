@@ -10,21 +10,24 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         let phone = searchParams.get('phone');
+        const id = searchParams.get('id');
         const locationId = searchParams.get('locationId');
 
-        if (!phone || !locationId) {
-            return NextResponse.json({ error: 'Phone and Location ID are required' }, { status: 400 });
+        if ((!phone && !id) || !locationId) {
+            return NextResponse.json({ error: 'Phone or ID and Location ID are required' }, { status: 400 });
         }
 
-        // Standardize phone number: strip all non-numeric characters
-        phone = phone.replace(/\D/g, '');
+        let query = (supabaseAdmin as any).from('customers').select('*');
 
-        // Search for customer by phone anywhere in the system
-        const { data: customers, error } = await (supabaseAdmin
-            .from('customers') as any)
-            .select('*')
-            .eq('phone', phone)
-            .limit(1);
+        if (id) {
+            query = query.eq('id', id);
+        } else {
+            // Standardize phone number: strip all non-numeric characters
+            phone = phone!.replace(/\D/g, '');
+            query = query.eq('phone', phone);
+        }
+
+        const { data: customers, error } = await query.limit(1);
 
         const customer = customers && customers.length > 0 ? customers[0] : null;
 
