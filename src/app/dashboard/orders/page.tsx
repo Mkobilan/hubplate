@@ -56,6 +56,8 @@ function OrdersPageContent() {
     const [showSplitCheck, setShowSplitCheck] = useState(false);
     const [showLoyaltyModal, setShowLoyaltyModal] = useState(false);
     const [linkedCustomer, setLinkedCustomer] = useState<any | null>(null);
+    const [discount, setDiscount] = useState(0);
+    const [pointsRedeemed, setPointsRedeemed] = useState(0);
     const [selectedSeat, setSelectedSeat] = useState(1);
     const [tableCapacity, setTableCapacity] = useState(4); // Default to 4
     const [deliveryFee, setDeliveryFee] = useState(0);
@@ -325,8 +327,8 @@ function OrdersPageContent() {
         0
     );
     const taxRate = currentLocation?.tax_rate ?? 8.75;
-    const tax = subtotal * (taxRate / 100);
-    const total = subtotal + tax + deliveryFee;
+    const tax = Math.max(0, subtotal - discount) * (taxRate / 100);
+    const total = Math.max(0, subtotal - discount) + tax + deliveryFee;
 
     const sendToKitchen = async () => {
         if (!currentLocation?.id || orderItems.length === 0) return;
@@ -369,6 +371,8 @@ function OrdersPageContent() {
                         subtotal: subtotal,
                         tax: tax,
                         delivery_fee: deliveryFee,
+                        discount: discount,
+                        points_redeemed: pointsRedeemed,
                         total: total,
                         items: itemsToSave
                     })
@@ -405,6 +409,8 @@ function OrdersPageContent() {
                         subtotal,
                         tax,
                         delivery_fee: deliveryFee,
+                        discount,
+                        points_redeemed: pointsRedeemed,
                         total,
                         items: itemsToSave,
                         is_edited: true,
@@ -429,6 +435,8 @@ function OrdersPageContent() {
             setOrderItems([]);
             setActiveOrderId(null);
             setLinkedCustomer(null);
+            setDiscount(0);
+            setPointsRedeemed(0);
             setTableNumber("5");
         } catch (error) {
             console.error("Error sending order:", error);
@@ -457,6 +465,8 @@ function OrdersPageContent() {
             setOrderItems([]);
             setActiveOrderId(null);
             setLinkedCustomer(null);
+            setDiscount(0);
+            setPointsRedeemed(0);
             setTableNumber("5");
         } catch (error) {
             console.error("Error voiding order:", error);
@@ -472,6 +482,8 @@ function OrdersPageContent() {
         setTableNumber(order.table_number || "");
         if (order.seat_number) setSelectedSeat(order.seat_number);
         setDeliveryFee(order.delivery_fee || 0);
+        setDiscount(order.discount || 0);
+        setPointsRedeemed(order.points_redeemed || 0);
 
         // Fetch customer if linked
         if (order.customer_id) {
@@ -628,6 +640,8 @@ function OrdersPageContent() {
                                             setActiveOrderId(null);
                                             setOrderItems([]);
                                             setLinkedCustomer(null);
+                                            setDiscount(0);
+                                            setPointsRedeemed(0);
                                             setTableNumber("5");
                                         }}
                                         className="btn btn-secondary text-xs py-0.5 px-2"
@@ -919,6 +933,10 @@ function OrdersPageContent() {
                 locationId={currentLocation?.id || ""}
                 orderId={activeOrderId}
                 onCustomerLinked={(customer) => setLinkedCustomer(customer)}
+                onRewardApplied={(discountAmount: number, pointsUsed: number) => {
+                    setDiscount(prev => prev + discountAmount);
+                    setPointsRedeemed(prev => prev + pointsUsed);
+                }}
                 currentCustomer={linkedCustomer}
             />
         </div>
