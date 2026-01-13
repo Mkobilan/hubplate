@@ -632,7 +632,7 @@ function OrdersPageContent() {
             const newTotal = newSubtotal + newTax + dFee - disc;
 
             try {
-                const { error } = await supabase
+                const { error } = await (supabase as any)
                     .from("orders")
                     .update({
                         comp_meta: newMeta,
