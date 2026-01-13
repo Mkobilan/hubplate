@@ -18,7 +18,9 @@ import {
     Split,
     Loader2,
     Zap,
-    TrendingUp
+    TrendingUp,
+    Star,
+    UserPlus
 } from "lucide-react";
 import { processOrderPours } from "@/lib/pours";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -32,6 +34,7 @@ import { Suspense } from "react";
 import MyTicketsModal from "./components/MyTicketsModal";
 import CloseTicketModal from "./components/CloseTicketModal";
 import SplitCheckModal from "./components/SplitCheckModal";
+import LoyaltyModal from "./components/LoyaltyModal";
 
 
 function OrdersPageContent() {
@@ -51,6 +54,8 @@ function OrdersPageContent() {
     const [showMyTickets, setShowMyTickets] = useState(false);
     const [showCloseTicket, setShowCloseTicket] = useState(false);
     const [showSplitCheck, setShowSplitCheck] = useState(false);
+    const [showLoyaltyModal, setShowLoyaltyModal] = useState(false);
+    const [linkedCustomer, setLinkedCustomer] = useState<any | null>(null);
     const [selectedSeat, setSelectedSeat] = useState(1);
     const [tableCapacity, setTableCapacity] = useState(4); // Default to 4
     const [deliveryFee, setDeliveryFee] = useState(0);
@@ -423,6 +428,7 @@ function OrdersPageContent() {
             toast.success(isEditing ? "Order updated!" : "Order sent to kitchen!");
             setOrderItems([]);
             setActiveOrderId(null);
+            setLinkedCustomer(null);
             setTableNumber("5");
         } catch (error) {
             console.error("Error sending order:", error);
@@ -450,6 +456,7 @@ function OrdersPageContent() {
             toast.success("Order voided and inventory restored.");
             setOrderItems([]);
             setActiveOrderId(null);
+            setLinkedCustomer(null);
             setTableNumber("5");
         } catch (error) {
             console.error("Error voiding order:", error);
@@ -465,6 +472,22 @@ function OrdersPageContent() {
         setTableNumber(order.table_number || "");
         if (order.seat_number) setSelectedSeat(order.seat_number);
         setDeliveryFee(order.delivery_fee || 0);
+
+        // Fetch customer if linked
+        if (order.customer_id) {
+            try {
+                const { data: customer } = await supabase
+                    .from("customers")
+                    .select("*")
+                    .eq("id", order.customer_id)
+                    .single();
+                if (customer) setLinkedCustomer(customer);
+            } catch (err) {
+                console.error("Error loading linked customer:", err);
+            }
+        } else {
+            setLinkedCustomer(null);
+        }
 
         if (order.items && Array.isArray(order.items)) {
             setOrderItems(order.items.map((i: any) => ({
@@ -604,6 +627,7 @@ function OrdersPageContent() {
                                         onClick={() => {
                                             setActiveOrderId(null);
                                             setOrderItems([]);
+                                            setLinkedCustomer(null);
                                             setTableNumber("5");
                                         }}
                                         className="btn btn-secondary text-xs py-0.5 px-2"
@@ -798,6 +822,25 @@ function OrdersPageContent() {
                         <Receipt className="h-4 w-4" />
                         Close Ticket
                     </button>
+                    <button
+                        onClick={() => setShowLoyaltyModal(true)}
+                        className={cn(
+                            "btn w-full py-2 text-sm transition-all duration-300",
+                            linkedCustomer ? "bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20" : "btn-secondary"
+                        )}
+                    >
+                        {linkedCustomer ? (
+                            <>
+                                <Star className="h-4 w-4 fill-green-400" />
+                                Loyal Member
+                            </>
+                        ) : (
+                            <>
+                                <UserPlus className="h-4 w-4" />
+                                Join Loyalty
+                            </>
+                        )}
+                    </button>
                     {activeOrderId && orderItems.length > 0 && (
                         <button
                             onClick={() => setShowSplitCheck(true)}
@@ -869,6 +912,15 @@ function OrdersPageContent() {
                     }}
                 />
             )}
+
+            <LoyaltyModal
+                isOpen={showLoyaltyModal}
+                onClose={() => setShowLoyaltyModal(false)}
+                locationId={currentLocation?.id || ""}
+                orderId={activeOrderId}
+                onCustomerLinked={(customer) => setLinkedCustomer(customer)}
+                currentCustomer={linkedCustomer}
+            />
         </div>
     );
 }

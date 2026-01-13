@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
     order_type TEXT CHECK (order_type IN ('dine_in', 'takeout', 'delivery', 'qr_order')),
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'ready', 'served', 'completed', 'cancelled')),
     customer_name TEXT,
+    customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL,
     customer_phone TEXT,
     customer_email TEXT,
     subtotal DECIMAL(10,2) DEFAULT 0,
@@ -471,6 +472,7 @@ CREATE INDEX IF NOT EXISTS idx_menu_items_category ON public.menu_items(category
 CREATE INDEX IF NOT EXISTS idx_orders_location ON public.orders(location_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON public.orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON public.orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON public.order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_shifts_employee ON public.shifts(employee_id);
 CREATE INDEX IF NOT EXISTS idx_shifts_date ON public.shifts(date);
