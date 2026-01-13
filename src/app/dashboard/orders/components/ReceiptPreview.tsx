@@ -135,11 +135,17 @@ export default function ReceiptPreview({ orderId }: ReceiptPreviewProps) {
                                     ))}
                                 </div>
                             )}
-                            {item.modifiers && Object.keys(item.modifiers).length > 0 && (
+                            {item.modifiers && (
                                 <div className="pl-6 text-xs text-gray-600">
-                                    {Object.entries(item.modifiers).map(([key, value]) => (
-                                        <div key={key}>+ {value as string}</div>
-                                    ))}
+                                    {Array.isArray(item.modifiers) ? (
+                                        item.modifiers.map((mod: any, i: number) => (
+                                            <div key={i}>+ {typeof mod === 'string' ? mod : mod.name}</div>
+                                        ))
+                                    ) : (
+                                        Object.entries(item.modifiers).map(([key, value]) => (
+                                            <div key={key}>+ {typeof value === 'string' ? value : (value as any).name}</div>
+                                        ))
+                                    )}
                                 </div>
                             )}
                         </div>

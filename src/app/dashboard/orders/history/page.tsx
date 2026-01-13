@@ -416,8 +416,15 @@ export default function OrderHistoryPage() {
                                                     {item.notes && <p className="text-xs text-orange-400 mt-0.5 italic">{item.notes}</p>}
                                                     {item.modifiers && (
                                                         <div className="flex flex-wrap gap-1 mt-1">
-                                                            {(item.modifiers as string[]).map((mod: string, idx: number) => (
-                                                                <span key={idx} className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">{mod}</span>
+                                                            {(item.modifiers as any[]).map((mod: any, idx: number) => (
+                                                                <span key={idx} className={cn(
+                                                                    "text-[9px] px-1.5 py-0.5 rounded border",
+                                                                    typeof mod === 'object' && mod.type === 'upsell' ? "bg-green-500/10 border-green-500/30 text-green-400" :
+                                                                        typeof mod === 'object' && mod.type === 'side' ? "bg-blue-500/10 border-blue-500/30 text-blue-400" :
+                                                                            "bg-slate-800 border-slate-700 text-slate-400"
+                                                                )}>
+                                                                    {typeof mod === 'string' ? mod : mod.name}
+                                                                </span>
                                                             ))}
                                                         </div>
                                                     )}
