@@ -805,8 +805,9 @@ export default function RecipesPage() {
                                                     <div
                                                         key={recipe.id}
                                                         className={cn(
-                                                            "card group hover:border-orange-500/50 transition-all overflow-hidden relative",
-                                                            isSelectMode && selectedRecipes.has(recipe.id) && "border-orange-500 bg-orange-500/5"
+                                                            "card group hover:border-orange-500/50 transition-all relative",
+                                                            isSelectMode && selectedRecipes.has(recipe.id) && "border-orange-500 bg-orange-500/5",
+                                                            openDropdownId === recipe.id ? "z-20" : ""
                                                         )}
                                                     >
                                                         {/* Selection checkbox */}
