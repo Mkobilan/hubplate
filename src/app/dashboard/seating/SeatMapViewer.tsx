@@ -298,6 +298,24 @@ export default function SeatMapViewer() {
         }
     };
 
+    const completeTableReservation = async (tableId: string) => {
+        const seatedReservation = upcomingReservations.find(r => r.table_ids.includes(tableId) && r.status === 'seated');
+
+        if (seatedReservation) {
+            console.log("Completing reservation:", seatedReservation.id);
+            const { error } = await (supabaseRef.current
+                .from("reservations") as any)
+                .update({ status: 'completed' })
+                .eq('id', seatedReservation.id);
+
+            if (error) {
+                console.error("Error completing reservation:", error);
+            } else {
+                await fetchUpcomingReservations();
+            }
+        }
+    };
+
     const handleSitTable = async (partySize: number) => {
         console.log("SeatMapViewer: handleSitTable called", { partySize, selectedTableId: selectedTable?.id });
         if (!selectedTable || !currentLocation) {
@@ -392,6 +410,9 @@ export default function SeatMapViewer() {
 
                 if (wlError) throw wlError;
             }
+
+            // 2. Complete reservation if exists
+            await completeTableReservation(selectedTable.id);
 
             // Note: We intentionally do NOT clear/complete the order here as per user request.
             // This button is strictly for making the table available again visually/logically 
@@ -918,6 +939,14 @@ export default function SeatMapViewer() {
                         linkedCustomer={payingOrder.customer}
                         onClose={() => setPayingOrder(null)}
                         onPaymentComplete={() => {
+                            if (payingOrder && payingOrder.table_number) {
+                                // Find table by label to get ID
+                                // Note: This depends on table_number matching label exactly
+                                const table = tables.find(t => t.label === payingOrder.table_number);
+                                if (table) {
+                                    completeTableReservation(table.id);
+                                }
+                            }
                             fetchActiveOrders();
                             setPayingOrder(null);
                         }}
