@@ -114,9 +114,8 @@ export default function AnalyticsPage() {
 
     const [serverPerformanceData, setServerPerformanceData] = useState<any>({
         servers: [],
-        totalUpsellRevenue: 0,
         totalAddOnRevenue: 0,
-        topUpseller: "N/A"
+        topAddOnSeller: "N/A"
     });
 
     const fetchAllData = useCallback(async () => {
@@ -503,7 +502,6 @@ export default function AnalyticsPage() {
                     name,
                     role: emp.role,
                     sales: 0,
-                    upsellRevenue: 0,
                     addOnRevenue: 0,
                     reviewsCount: 0,
                     avgRating: 0,
@@ -524,9 +522,7 @@ export default function AnalyticsPage() {
                             if (item.modifiers && Array.isArray(item.modifiers)) {
                                 item.modifiers.forEach((mod: any) => {
                                     const modRev = (Number(mod.price) || 0) * (item.quantity || 1);
-                                    if (mod.type === 'upsell') {
-                                        serverStats[order.server_id].upsellRevenue += modRev;
-                                    } else if (mod.type === 'add-on') {
+                                    if (mod.type === 'upsell' || mod.type === 'add-on') {
                                         serverStats[order.server_id].addOnRevenue += modRev;
                                     }
                                 });
@@ -556,15 +552,13 @@ export default function AnalyticsPage() {
                 .filter((s: any) => s.sales > 0 || s.reviewsCount > 0 || s.loyaltySignups > 0)
                 .sort((a: any, b: any) => b.sales - a.sales);
 
-            const totalUpsellRevenue = serverList.reduce((sum: number, s: any) => sum + s.upsellRevenue, 0);
             const totalAddOnRevenue = serverList.reduce((sum: number, s: any) => sum + s.addOnRevenue, 0);
-            const topUpseller = (serverList.sort((a: any, b: any) => b.upsellRevenue - a.upsellRevenue)[0] as any)?.name || "N/A";
+            const topAddOnSeller = (serverList.sort((a: any, b: any) => b.addOnRevenue - a.addOnRevenue)[0] as any)?.name || "N/A";
 
             setServerPerformanceData({
                 servers: serverList,
-                totalUpsellRevenue,
                 totalAddOnRevenue,
-                topUpseller
+                topAddOnSeller
             });
 
 
@@ -787,18 +781,8 @@ export default function AnalyticsPage() {
                         {/* Metrics Row */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                             <MetricBox
-                                label="Total Upsell Revenue"
-                                value={formatCurrency(serverPerformanceData.totalUpsellRevenue)}
-                                color="text-green-400"
-                            />
-                            <MetricBox
-                                label="Total Add-On Revenue"
-                                value={formatCurrency(serverPerformanceData.totalAddOnRevenue)}
-                                color="text-blue-400"
-                            />
-                            <MetricBox
-                                label="Top Upseller"
-                                value={serverPerformanceData.topUpseller}
+                                label="Top Add-On Seller"
+                                value={serverPerformanceData.topAddOnSeller}
                                 color="text-purple-400"
                             />
                             <MetricBox
@@ -822,7 +806,6 @@ export default function AnalyticsPage() {
                                         <tr className="bg-slate-900/50 text-slate-500 text-[10px] uppercase tracking-widest border-b border-slate-700/50">
                                             <th className="px-4 py-3 font-bold">Server</th>
                                             <th className="px-4 py-3 font-bold text-right">Total Sales</th>
-                                            <th className="px-4 py-3 font-bold text-right text-green-400">Upsells</th>
                                             <th className="px-4 py-3 font-bold text-right text-blue-400">Add-Ons</th>
                                             <th className="px-4 py-3 font-bold text-center">Reviews</th>
                                             <th className="px-4 py-3 font-bold text-center">Avg Rating</th>
@@ -841,9 +824,6 @@ export default function AnalyticsPage() {
                                                     </td>
                                                     <td className="px-4 py-3 text-right font-semibold text-slate-300">
                                                         {formatCurrency(server.sales)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-green-500/80 font-mono">
-                                                        {formatCurrency(server.upsellRevenue)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right text-blue-500/80 font-mono">
                                                         {formatCurrency(server.addOnRevenue)}
@@ -871,7 +851,7 @@ export default function AnalyticsPage() {
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={7} className="px-4 py-8 text-center text-slate-500 italic">
+                                                <td colSpan={6} className="px-4 py-8 text-center text-slate-500 italic">
                                                     No server data recorded for this period
                                                 </td>
                                             </tr>
