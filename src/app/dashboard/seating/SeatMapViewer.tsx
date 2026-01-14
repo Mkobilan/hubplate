@@ -928,7 +928,10 @@ export default function SeatMapViewer() {
                     isOpen={isWaitlistOpen}
                     onClose={() => setIsWaitlistOpen(false)}
                     tables={tables.filter(t => t.object_type === 'table' || !t.object_type)}
-                    occupiedTableLabels={activeOrders.map(o => o.table_number).filter(Boolean) as string[]}
+                    occupiedTableLabels={[
+                        ...activeOrders.map(o => o.table_number).filter(Boolean) as string[],
+                        ...seatedWaitlist.map(w => w.table_label).filter(Boolean) as string[]
+                    ]}
                 />
 
                 {/* Add Section Modal */}

@@ -394,7 +394,10 @@ export default function WaitlistPage() {
                     fetchTablesAndOrders();
                 }}
                 tables={tables}
-                occupiedTableLabels={activeOrders.map((o) => o.table_number).filter(Boolean)}
+                occupiedTableLabels={[
+                    ...activeOrders.map((o) => o.table_number).filter(Boolean),
+                    ...entries.filter((e) => e.status === 'seated').map((e) => e.table_label).filter(Boolean)
+                ]}
             />
         </div>
     );
