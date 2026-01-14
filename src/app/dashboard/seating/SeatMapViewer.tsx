@@ -328,6 +328,26 @@ export default function SeatMapViewer() {
             const seatedEntry = seatedWaitlist.find(w => w.table_id === selectedTable.id);
             console.log("SeatMapViewer: Existing seated entry?", seatedEntry);
 
+            // Check for reservation to seat
+            const reservation = getTableReservation(selectedTable.id);
+            let customerName = "Walk-in Guest";
+
+            if (reservation) {
+                console.log("Seating reservation:", reservation);
+                const { error: resError } = await (supabaseRef.current
+                    .from("reservations") as any)
+                    .update({ status: 'seated', seated_at: new Date().toISOString() })
+                    .eq('id', reservation.id);
+
+                if (resError) {
+                    console.error("Error updating reservation status:", resError);
+                    toast.error("Failed to update reservation status");
+                } else {
+                    await fetchUpcomingReservations();
+                }
+                customerName = reservation.customer_name;
+            }
+
             // Just update the waitlist entry to reflect the table choice if it came from the waitlist
             if (seatedEntry) {
                 const { error } = await (supabaseRef.current
@@ -344,7 +364,7 @@ export default function SeatMapViewer() {
                     .from("waitlist") as any)
                     .insert({
                         location_id: currentLocation.id,
-                        customer_name: "Walk-in Guest",
+                        customer_name: customerName,
                         status: 'seated',
                         table_id: selectedTable.id,
                         party_size: partySize,
