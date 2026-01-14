@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { AddWaitlistModal } from "@/components/waitlist/AddWaitlistModal";
-import { SeatWaitlistModal } from "@/components/waitlist/SeatWaitlistModal";
+import { SeatWaitlistModal, Table } from "@/components/waitlist/SeatWaitlistModal";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
 import { WaitlistEntry } from "@/types/database";
@@ -31,6 +31,8 @@ export default function WaitlistPage() {
     const currentLocation = useAppStore((state) => state.currentLocation);
     const [entries, setEntries] = useState<WaitlistEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [tables, setTables] = useState<Table[]>([]);
+    const [activeOrders, setActiveOrders] = useState<any[]>([]);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isSeatModalOpen, setIsSeatModalOpen] = useState(false);
     const [selectedEntry, setSelectedEntry] = useState<WaitlistEntry | null>(null);
@@ -58,8 +60,47 @@ export default function WaitlistPage() {
         }
     };
 
+    const fetchTablesAndOrders = async () => {
+        if (!currentLocation?.id) return;
+
+        try {
+            const supabase = createClient();
+
+            // Fetch Tables
+            const { data: maps } = await (supabase
+                .from("seating_maps") as any)
+                .select("id")
+                .eq("location_id", currentLocation.id)
+                .eq("is_active", true);
+
+            if (maps && maps.length > 0) {
+                const mapIds = maps.map((m: any) => m.id);
+                const { data: tablesData } = await (supabase
+                    .from("seating_tables") as any)
+                    .select("id, label, capacity, is_active, object_type")
+                    .in("map_id", mapIds)
+                    .eq("object_type", "table")
+                    .eq("is_active", true)
+                    .order("label", { ascending: true });
+                setTables(tablesData || []);
+            }
+
+            // Fetch Active Orders
+            const { data: ordersData } = await (supabase
+                .from("orders") as any)
+                .select("table_number")
+                .eq("location_id", currentLocation.id)
+                .in("status", ["pending", "in_progress", "ready", "served"]);
+            setActiveOrders(ordersData || []);
+
+        } catch (err) {
+            console.error("Error fetching tables/orders:", err);
+        }
+    };
+
     useEffect(() => {
         fetchWaitlist();
+        fetchTablesAndOrders();
 
         // Subscribe to real-time updates
         if (currentLocation?.id) {
@@ -78,8 +119,24 @@ export default function WaitlistPage() {
                 )
                 .subscribe();
 
+            // Also subscribe to orders to keep occupied status fresh
+            const orderChannel = supabase
+                .channel('waitlist-orders')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'orders',
+                        filter: `location_id=eq.${currentLocation.id}`
+                    },
+                    () => fetchTablesAndOrders()
+                )
+                .subscribe();
+
             return () => {
                 supabase.removeChannel(channel);
+                supabase.removeChannel(orderChannel);
             };
         }
     }, [currentLocation?.id]);
@@ -332,7 +389,12 @@ export default function WaitlistPage() {
                     setSelectedEntry(null);
                 }}
                 entry={selectedEntry}
-                onSuccess={fetchWaitlist}
+                onSuccess={() => {
+                    fetchWaitlist();
+                    fetchTablesAndOrders();
+                }}
+                tables={tables}
+                occupiedTableLabels={activeOrders.map((o) => o.table_number).filter(Boolean)}
             />
         </div>
     );

@@ -16,7 +16,7 @@ import {
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
-interface Table {
+export interface Table {
     id: string;
     label: string;
     capacity: number;
