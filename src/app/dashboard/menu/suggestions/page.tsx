@@ -341,8 +341,6 @@ function AddSuggestionModal({
 
             // 1. Create Recipe if checkbox is checked
             if (saveRecipe && hasRecipe) {
-                // Get category name for recipe
-                const selectedCategory = categories.find(c => c.id === categoryId);
 
                 const { data: newRecipe, error: recipeError } = await (supabase
                     .from("recipes") as any)
@@ -350,8 +348,7 @@ function AddSuggestionModal({
                         location_id: currentLocation.id,
                         name: formData.get("name") as string,
                         description: formData.get("description") as string,
-                        instructions: suggestion.recipe?.instructions?.join("\n") || "",
-                        category: selectedCategory?.name || null
+                        instructions: suggestion.recipe?.instructions?.join("\n") || ""
                     })
                     .select()
                     .single();
