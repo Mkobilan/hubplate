@@ -21,6 +21,7 @@ import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
 import { useEffect } from "react";
+import MapIngredientsModal, { MappedIngredient } from "@/components/dashboard/menu/MapIngredientsModal";
 
 // Type definition for AI menu suggestions
 type MenuSuggestion = {
@@ -306,6 +307,12 @@ function AddSuggestionModal({
     const currentLocation = useAppStore((state) => state.currentLocation);
     const supabase = createClient();
 
+    // Recipe saving state
+    const [saveRecipe, setSaveRecipe] = useState(false);
+    const [showIngredientMapper, setShowIngredientMapper] = useState(false);
+    const [mappedIngredients, setMappedIngredients] = useState<MappedIngredient[]>([]);
+    const hasRecipe = suggestion.recipe && suggestion.recipe.ingredients.length > 0;
+
     // Fetch categories on mount
     useEffect(() => {
         const fetchCategories = async () => {
@@ -326,22 +333,83 @@ function AddSuggestionModal({
 
         const form = e.target as HTMLFormElement;
         const formData = new FormData(form);
+        const categoryId = formData.get("category_id") as string;
 
         setLoading(true);
         try {
-            const { error } = await (supabase
+            let recipeId: string | null = null;
+
+            // 1. Create Recipe if checkbox is checked
+            if (saveRecipe && hasRecipe) {
+                // Get category name for recipe
+                const selectedCategory = categories.find(c => c.id === categoryId);
+
+                const { data: newRecipe, error: recipeError } = await (supabase
+                    .from("recipes") as any)
+                    .insert({
+                        location_id: currentLocation.id,
+                        name: formData.get("name") as string,
+                        description: formData.get("description") as string,
+                        instructions: suggestion.recipe?.instructions?.join("\n") || "",
+                        category: selectedCategory?.name || null
+                    })
+                    .select()
+                    .single();
+
+                if (recipeError) throw recipeError;
+                recipeId = newRecipe.id;
+
+                // 2. Create Recipe Ingredients
+                if (mappedIngredients.length > 0) {
+                    const ingredientData = mappedIngredients.map(ing => ({
+                        recipe_id: recipeId,
+                        inventory_item_id: ing.inventoryItemId,
+                        ingredient_name: ing.inventoryItemName || ing.originalText,
+                        quantity_used: ing.quantity,
+                        unit: ing.unit,
+                        quantity_raw: ing.originalText
+                    }));
+
+                    const { error: ingError } = await (supabase
+                        .from("recipe_ingredients") as any)
+                        .insert(ingredientData);
+
+                    if (ingError) throw ingError;
+                }
+            }
+
+            // 3. Create Menu Item
+            const { data: newMenuItem, error: menuError } = await (supabase
                 .from("menu_items") as any)
                 .insert({
                     location_id: currentLocation.id,
                     name: formData.get("name") as string,
                     description: formData.get("description") as string,
                     price: parseFloat(formData.get("price") as string),
-                    category_id: formData.get("category_id") as string
-                });
+                    category_id: categoryId
+                })
+                .select()
+                .single();
 
-            if (error) throw error;
+            if (menuError) throw menuError;
 
-            toast.success("Item added to menu successfully!");
+            // 4. Link Recipe to Menu Item if recipe was created
+            if (recipeId && newMenuItem) {
+                const { error: linkError } = await (supabase
+                    .from("recipe_menu_items") as any)
+                    .insert({
+                        recipe_id: recipeId,
+                        menu_item_id: newMenuItem.id
+                    });
+
+                if (linkError) throw linkError;
+            }
+
+            toast.success(
+                saveRecipe && recipeId
+                    ? "Item added to menu and recipe saved!"
+                    : "Item added to menu successfully!"
+            );
             onClose();
         } catch (error) {
             console.error("Error adding item:", JSON.stringify(error, null, 2));
@@ -352,74 +420,129 @@ function AddSuggestionModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-            <div className="relative card w-full max-w-md animate-in zoom-in-95 duration-200">
-                <h2 className="text-xl font-bold mb-4">Add to Menu</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="label">Item Name</label>
-                        <input
-                            name="name"
-                            type="text"
-                            className="input"
-                            defaultValue={suggestion.name}
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label className="label">Description</label>
-                        <textarea
-                            name="description"
-                            className="input"
-                            rows={3}
-                            defaultValue={suggestion.description}
-                        />
-                    </div>
-                    <div>
-                        <label className="label">Price ($)</label>
-                        <input
-                            name="price"
-                            type="number"
-                            step="0.01"
-                            className="input"
-                            defaultValue={suggestion.estimatedProfit}
-                            required
-                        />
-                        <p className="text-xs text-slate-500 mt-1">
-                            AI suggested price based on industry margins
-                        </p>
-                    </div>
-                    <div>
-                        <label className="label">Category</label>
-                        <select name="category_id" className="input" required>
-                            <option value="">Select a category</option>
-                            {categories.map((cat) => (
-                                <option key={cat.id} value={cat.id}>
-                                    {cat.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+        <>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+                <div className="relative card w-full max-w-md animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+                    <h2 className="text-xl font-bold mb-4">Add to Menu</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="label">Item Name</label>
+                            <input
+                                name="name"
+                                type="text"
+                                className="input"
+                                defaultValue={suggestion.name}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="label">Description</label>
+                            <textarea
+                                name="description"
+                                className="input"
+                                rows={3}
+                                defaultValue={suggestion.description}
+                            />
+                        </div>
+                        <div>
+                            <label className="label">Price ($)</label>
+                            <input
+                                name="price"
+                                type="number"
+                                step="0.01"
+                                className="input"
+                                defaultValue={suggestion.estimatedProfit}
+                                required
+                            />
+                            <p className="text-xs text-slate-500 mt-1">
+                                AI suggested price based on industry margins
+                            </p>
+                        </div>
+                        <div>
+                            <label className="label">Category</label>
+                            <select name="category_id" className="input" required>
+                                <option value="">Select a category</option>
+                                {categories.map((cat) => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
-                    <div className="flex gap-2 pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="btn btn-secondary flex-1"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="btn btn-primary flex-1"
-                        >
-                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save to Menu"}
-                        </button>
-                    </div>
-                </form>
+                        {/* Recipe Saving Option */}
+                        {hasRecipe && (
+                            <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl space-y-3">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={saveRecipe}
+                                        onChange={(e) => setSaveRecipe(e.target.checked)}
+                                        className="w-5 h-5 rounded border-slate-600 text-purple-500 focus:ring-purple-500 bg-slate-800"
+                                    />
+                                    <div>
+                                        <span className="font-medium text-purple-300">Save Recipe to Recipe Book</span>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            Creates a recipe with {suggestion.recipe?.ingredients.length} ingredients
+                                        </p>
+                                    </div>
+                                </label>
+
+                                {saveRecipe && (
+                                    <div className="pt-2 border-t border-purple-500/20">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowIngredientMapper(true)}
+                                            className="btn btn-secondary w-full !bg-purple-500/20 !border-purple-500/40 !text-purple-300 hover:!bg-purple-500/30"
+                                        >
+                                            <BookOpen className="h-4 w-4" />
+                                            {mappedIngredients.length > 0
+                                                ? `${mappedIngredients.filter(m => m.inventoryItemId).length}/${mappedIngredients.length} Ingredients Mapped`
+                                                : "Map Ingredients to Inventory"
+                                            }
+                                        </button>
+                                        <p className="text-[10px] text-slate-500 mt-2 text-center">
+                                            Mapping ingredients enables automatic inventory deduction
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 pt-4">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="btn btn-secondary flex-1"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={loading || (saveRecipe && mappedIngredients.length === 0)}
+                                className="btn btn-primary flex-1"
+                            >
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save to Menu"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
+
+            {/* Ingredient Mapper Modal */}
+            {showIngredientMapper && currentLocation && (
+                <MapIngredientsModal
+                    isOpen={showIngredientMapper}
+                    onClose={() => setShowIngredientMapper(false)}
+                    ingredients={suggestion.recipe?.ingredients || []}
+                    locationId={currentLocation.id}
+                    onConfirm={(mapped) => {
+                        setMappedIngredients(mapped);
+                        setShowIngredientMapper(false);
+                    }}
+                />
+            )}
+        </>
     );
 }
