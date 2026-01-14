@@ -313,14 +313,22 @@ export default function InventoryPage() {
     };
 
     const handleSyncAllRunningStock = async () => {
-        if (!confirm("Are you sure you want to update all Running Stock values based on your Stock Unit and Stock Meas.? This will overwrite any live deductions.")) return;
+        const targetItems = selectedAreaId === 'all'
+            ? inventory
+            : inventory.filter(i => i.storage_area_id === selectedAreaId);
+
+        const areaName = selectedAreaId === 'all'
+            ? "ALL Storage Areas"
+            : storageAreas.find(a => a.id === selectedAreaId)?.name || "Current Area";
+
+        if (!confirm(`Are you sure you want to update Running Stock for ${targetItems.length} items in ${areaName}? This will calculate stock based on Unit * Stock Meas. and overwrite current values.`)) return;
 
         setIsSyncingRunningStock(true);
         try {
             const supabase = createClient();
 
             // Process each item to calculate its theoretical stock
-            const updates = inventory.map(item => {
+            const updates = targetItems.map(item => {
                 const stock = Number(item.stock_quantity || 0);
                 let multiplier = Number(item.units_per_stock || 1);
                 let unitLabel = item.unit || '';
