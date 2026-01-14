@@ -73,6 +73,8 @@ export default function ProfilePage() {
 
     const fetchProfileData = async () => {
         try {
+            setStatus("idle");
+            setMessage("");
             setLoading(true);
             const supabase = createClient();
             const { data: { session } } = await supabase.auth.getSession();
