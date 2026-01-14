@@ -11,6 +11,7 @@ import {
     Loader2,
     Check,
     X,
+    Search,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -279,6 +280,7 @@ function AddOnModal({
     const [selectedItems, setSelectedItems] = useState<string[]>(
         addOn?.assigned_items || []
     );
+    const [itemSearch, setItemSearch] = useState("");
     const [loading, setLoading] = useState(false);
     const currentLocation = useAppStore((state) => state.currentLocation);
     const supabase = createClient();
@@ -425,25 +427,36 @@ function AddOnModal({
 
                     <div>
                         <label className="label mb-2">Assign to Individual Items</label>
+                        <div className="relative mb-2">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <input
+                                placeholder="Search items..."
+                                value={itemSearch}
+                                onChange={(e) => setItemSearch(e.target.value)}
+                                className="input !pl-9 py-1 text-sm"
+                            />
+                        </div>
                         <div className="grid grid-cols-1 gap-2 max-h-[150px] overflow-y-auto pr-2">
-                            {menuItems.map((item) => (
-                                <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => toggleItem(item.id)}
-                                    className={cn(
-                                        "flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-all text-left",
-                                        selectedItems.includes(item.id)
-                                            ? "bg-orange-500 border-orange-400 text-white"
-                                            : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
-                                    )}
-                                >
-                                    {item.name}
-                                    {selectedItems.includes(item.id) && (
-                                        <Check className="h-4 w-4" />
-                                    )}
-                                </button>
-                            ))}
+                            {menuItems
+                                .filter(item => item.name.toLowerCase().includes(itemSearch.toLowerCase()))
+                                .map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => toggleItem(item.id)}
+                                        className={cn(
+                                            "flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-all text-left",
+                                            selectedItems.includes(item.id)
+                                                ? "bg-orange-500 border-orange-400 text-white"
+                                                : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                                        )}
+                                    >
+                                        {item.name}
+                                        {selectedItems.includes(item.id) && (
+                                            <Check className="h-4 w-4" />
+                                        )}
+                                    </button>
+                                ))}
                         </div>
                     </div>
 

@@ -58,6 +58,7 @@ export default function MenuPage() {
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
     const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
     const [showKdsAssignModal, setShowKdsAssignModal] = useState(false);
+    const [managingAddOnsItem, setManagingAddOnsItem] = useState<MenuItemType | null>(null);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
@@ -319,6 +320,7 @@ export default function MenuPage() {
                                                 toast.error("Failed to update item status");
                                             }
                                         }}
+                                        onManageAddOns={() => setManagingAddOnsItem(item)}
                                         isEditing={isEditingMenu}
                                         isSelected={selectedItems.has(item.id)}
                                         onSelect={(id) => {
@@ -423,6 +425,14 @@ export default function MenuPage() {
                     }}
                 />
             )}
+
+            {/* Manage Add Ons Modal */}
+            {managingAddOnsItem && (
+                <ManageItemAddOnsModal
+                    item={managingAddOnsItem}
+                    onClose={() => setManagingAddOnsItem(null)}
+                />
+            )}
         </div>
     );
 }
@@ -441,6 +451,7 @@ function MenuItemCard({
     isEditing?: boolean;
     isSelected?: boolean;
     onSelect?: (id: string) => void;
+    onManageAddOns?: () => void;
 }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const supabase = createClient();
@@ -524,12 +535,15 @@ function MenuItemCard({
                         >
                             {item.is_86d ? "Mark Available" : "Mark 86'd"}
                         </button>
-                        <Link
-                            href={`/dashboard/menu/add-ons?itemId=${item.id}`}
-                            className="block w-full px-4 py-2 text-left text-sm hover:bg-slate-800"
+                        <button
+                            onClick={() => {
+                                onManageAddOns?.();
+                                setMenuOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-slate-800"
                         >
                             Manage Add Ons
-                        </Link>
+                        </button>
                         <button
                             onClick={async () => {
                                 if (!confirm("Are you sure you want to delete this item?")) return;
@@ -1371,6 +1385,172 @@ function ManageCategoryModal({
                         </div>
                     </div>
                 )}
+            </div>
+        </div>
+    );
+}
+
+function ManageItemAddOnsModal({
+    item,
+    onClose
+}: {
+    item: MenuItemType;
+    onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const [loading, setLoading] = useState(true);
+    const [addOns, setAddOns] = useState<any[]>([]);
+    const [localSearchQuery, setLocalSearchQuery] = useState("");
+    const currentLocation = useAppStore((state) => state.currentLocation);
+    const supabase = createClient();
+
+    useEffect(() => {
+        const fetchAddOns = async () => {
+            if (!currentLocation?.id) return;
+            try {
+                const { data: addOnsData, error: addOnsError } = await (supabase
+                    .from("add_ons") as any)
+                    .select(`
+                    id, 
+                    name, 
+                    price, 
+                    is_active,
+                    add_on_assignments(category_id, menu_item_id)
+                `)
+                    .eq("location_id", currentLocation.id)
+                    .order("name");
+
+                if (addOnsError) throw addOnsError;
+
+                const formattedAddOns = (addOnsData || []).map((ao: any) => ({
+                    id: ao.id,
+                    name: ao.name,
+                    price: parseFloat(ao.price),
+                    is_active: ao.is_active,
+                    assigned_categories: ao.add_on_assignments.filter((a: any) => a.category_id).map((a: any) => a.category_id),
+                    assigned_items: ao.add_on_assignments.filter((a: any) => a.menu_item_id).map((a: any) => a.menu_item_id),
+                }));
+                setAddOns(formattedAddOns);
+            } catch (error) {
+                console.error("Error fetching add-ons:", error);
+                toast.error("Failed to load add-ons");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchAddOns();
+    }, [currentLocation?.id, supabase]);
+
+    const handleToggle = async (addOn: any, isAssigned: boolean) => {
+        // Optimistic update
+        const originalAddOns = [...addOns];
+        setAddOns(prev => prev.map(ao => {
+            if (ao.id === addOn.id) {
+                return {
+                    ...ao,
+                    assigned_items: isAssigned
+                        ? ao.assigned_items.filter((id: string) => id !== item.id)
+                        : [...ao.assigned_items, item.id]
+                };
+            }
+            return ao;
+        }));
+
+        try {
+            if (isAssigned) {
+                // Remove assignment
+                const { error } = await (supabase.from("add_on_assignments") as any)
+                    .delete()
+                    .eq("add_on_id", addOn.id)
+                    .eq("menu_item_id", item.id);
+                if (error) throw error;
+            } else {
+                // Add assignment
+                const { error } = await (supabase.from("add_on_assignments") as any)
+                    .insert({
+                        add_on_id: addOn.id,
+                        menu_item_id: item.id,
+                        category_id: null
+                    });
+                if (error) throw error;
+            }
+        } catch (error) {
+            console.error("Error toggling assignment:", error);
+            toast.error("Failed to update assignment");
+            setAddOns(originalAddOns); // Revert
+        }
+    };
+
+    const filteredAddOns = addOns.filter(ao =>
+        ao.name.toLowerCase().includes(localSearchQuery.toLowerCase())
+    );
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+            <div className="relative card w-full max-w-lg max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                    <div>
+                        <h2 className="text-xl font-bold">Manage Add Ons</h2>
+                        <p className="text-sm text-slate-400">For {item.name}</p>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-100">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div className="mb-4 flex-shrink-0 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                        className="input !pl-9"
+                        placeholder="Search add-ons..."
+                        value={localSearchQuery}
+                        onChange={(e) => setLocalSearchQuery(e.target.value)}
+                    />
+                </div>
+
+                <div className="overflow-y-auto flex-1 space-y-2 pr-2">
+                    {loading ? (
+                        <div className="flex justify-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                        </div>
+                    ) : filteredAddOns.length > 0 ? (
+                        filteredAddOns.map(ao => {
+                            const isDirectlyAssigned = ao.assigned_items.includes(item.id);
+                            const isCategoryAssigned = item.category_id && ao.assigned_categories.includes(item.category_id);
+
+                            return (
+                                <div key={ao.id} className="flex items-center justify-between p-3 border border-slate-700 rounded-lg hover:border-slate-600 transition-colors">
+                                    <div>
+                                        <p className="font-medium">{ao.name}</p>
+                                        <p className="text-sm text-orange-400">+{formatCurrency(ao.price)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {isCategoryAssigned && (
+                                            <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700 cursor-help" title="Included via Category">
+                                                By Category
+                                            </span>
+                                        )}
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                className="sr-only peer"
+                                                checked={isDirectlyAssigned}
+                                                onChange={() => handleToggle(ao, isDirectlyAssigned)}
+                                            />
+                                            <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <p className="text-center text-slate-500 py-8">No add-ons found</p>
+                    )}
+                </div>
+                <div className="flex gap-2 pt-4 mt-auto border-t border-slate-800">
+                    <button onClick={onClose} className="btn btn-primary w-full">Done</button>
+                </div>
             </div>
         </div>
     );
