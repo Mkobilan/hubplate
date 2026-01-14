@@ -22,7 +22,8 @@ import {
     Square,
     X,
     MoreVertical,
-    Check
+    Check,
+    Layers
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
@@ -34,6 +35,7 @@ import CreateRecipeModal from "@/components/dashboard/recipes/CreateRecipeModal"
 import RecipeCSVUploadModal from "@/components/dashboard/recipes/RecipeCSVUploadModal";
 // PourTracker removed - moved to independent page
 import LinkMenuItemModal from "@/components/dashboard/recipes/LinkMenuItemModal";
+import LinkAddOnModal from "@/components/dashboard/recipes/LinkAddOnModal";
 import DeleteRecipeModal from "@/components/dashboard/recipes/DeleteRecipeModal";
 import type { Database } from "@/types/database";
 
@@ -49,6 +51,13 @@ type RecipeWithDetails = Recipe & {
             name: string;
             category_id: string | null;
             menu_categories?: { id: string; name: string } | null;
+        } | null;
+    }[];
+    add_on_recipe_links?: {
+        add_on_id: string;
+        add_ons?: {
+            id: string;
+            name: string;
         } | null;
     }[];
 };
@@ -83,6 +92,10 @@ export default function RecipesPage() {
     // Link Menu Item Modal
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [recipeToLink, setRecipeToLink] = useState<RecipeWithDetails | null>(null);
+
+    // Link Add-On Modal
+    const [showAddOnLinkModal, setShowAddOnLinkModal] = useState(false);
+    const [recipeToLinkAddOn, setRecipeToLinkAddOn] = useState<RecipeWithDetails | null>(null);
 
     // Sync ingredients state
     const [isSyncing, setIsSyncing] = useState(false);
@@ -137,6 +150,13 @@ export default function RecipesPage() {
                                 name
                             )
                         )
+                    ),
+                    add_on_recipe_links (
+                        add_on_id,
+                        add_ons (
+                            id,
+                            name
+                        )
                     )
                 `)
                 .eq("location_id", currentLocation.id)
@@ -176,6 +196,11 @@ export default function RecipesPage() {
         return null;
     };
 
+    // Helper to check if recipe is linked to an add-on
+    const isAddOnRecipe = (recipe: RecipeWithDetails): boolean => {
+        return (recipe.add_on_recipe_links?.length || 0) > 0;
+    };
+
     const filteredRecipes = recipes.filter(r => {
         const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
@@ -183,10 +208,15 @@ export default function RecipesPage() {
         // If no category selected, show all
         if (!selectedCategory) return true;
 
+        // Special "addons" filter - show recipes linked to add-ons
+        if (selectedCategory === "addons") {
+            return isAddOnRecipe(r);
+        }
+
         // Check if recipe belongs to the selected category
         const recipeCategory = getRecipeCategory(r);
         if (selectedCategory === "uncategorized") {
-            return recipeCategory === null;
+            return recipeCategory === null && !isAddOnRecipe(r);
         }
         return recipeCategory?.id === selectedCategory;
     });
@@ -622,6 +652,16 @@ export default function RecipesPage() {
                         </button>
                     ))}
                     <button
+                        onClick={() => setSelectedCategory("addons")}
+                        className={cn(
+                            "btn whitespace-nowrap",
+                            selectedCategory === "addons" ? "btn-primary bg-purple-600 hover:bg-purple-700" : "btn-secondary"
+                        )}
+                    >
+                        <Layers className="h-4 w-4 mr-1" />
+                        Add Ons
+                    </button>
+                    <button
                         onClick={() => setSelectedCategory("uncategorized")}
                         className={cn(
                             "btn whitespace-nowrap",
@@ -752,6 +792,18 @@ export default function RecipesPage() {
                                                                                 Link Menu Item
                                                                             </button>
                                                                             <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setRecipeToLinkAddOn(recipe);
+                                                                                    setShowAddOnLinkModal(true);
+                                                                                    setOpenDropdownId(null);
+                                                                                }}
+                                                                                className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-purple-400 hover:bg-slate-800 transition-colors"
+                                                                            >
+                                                                                <Layers className="h-4 w-4" />
+                                                                                Link Add-On
+                                                                            </button>
+                                                                            <button
                                                                                 onClick={() => handleDeleteRecipe(recipe)}
                                                                                 className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-red-400 hover:bg-red-500/10 transition-colors"
                                                                             >
@@ -804,9 +856,17 @@ export default function RecipesPage() {
                                                                     <div className="flex items-center gap-2">
                                                                         <Link2 className="h-3.5 w-3.5 text-blue-400" />
                                                                         <span className="text-xs text-slate-400">
-                                                                            {recipe.recipe_menu_items?.length || 0} Linked Menu Items
+                                                                            {recipe.recipe_menu_items?.length || 0} Menu Items
                                                                         </span>
                                                                     </div>
+                                                                    {(recipe.add_on_recipe_links?.length || 0) > 0 && (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Layers className="h-3.5 w-3.5 text-purple-400" />
+                                                                            <span className="text-xs text-slate-400">
+                                                                                {recipe.add_on_recipe_links?.length || 0} Add-Ons
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                                 <div className="flex gap-2">
                                                                     <Link href={`/dashboard/recipes/${recipe.id}`} className="btn btn-secondary w-full !py-2 text-xs">
@@ -861,6 +921,19 @@ export default function RecipesPage() {
                 }}
                 recipeId={recipeToLink?.id || null}
                 recipeName={recipeToLink?.name}
+                locationId={currentLocation.id}
+                onLinkComplete={fetchRecipes}
+            />
+
+            {/* Link Add-On Modal */}
+            <LinkAddOnModal
+                isOpen={showAddOnLinkModal}
+                onClose={() => {
+                    setShowAddOnLinkModal(false);
+                    setRecipeToLinkAddOn(null);
+                }}
+                recipeId={recipeToLinkAddOn?.id || null}
+                recipeName={recipeToLinkAddOn?.name}
                 locationId={currentLocation.id}
                 onLinkComplete={fetchRecipes}
             />

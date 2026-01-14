@@ -5,6 +5,7 @@ import { OrderItem } from "@/types/pos";
  * Automatically logs inventory usage for an order by looking up:
  * 1. Linked recipes (via recipe_menu_items → recipe_ingredients)
  * 2. Direct ingredient links (via ingredient_links table)
+ * 3. Add-on recipes (via add_on_recipe_links → recipe_ingredients)
  * Should be called after an order is successfully sent to the kitchen.
  */
 export async function processOrderPours(
@@ -76,7 +77,60 @@ export async function processOrderPours(
         const menuItemsWithRecipes = new Set((recipeLinks || []).map((l: any) => l.menu_item_id));
         const recipeIds = Array.from(new Set((recipeLinks || []).map((l: any) => l.recipe_id)));
 
-        // 4. Fetch full recipe details (ingredients) for the matched recipes
+        // 4. Collect all add-on names from all order items to look up add_on_recipe_links
+        const allAddOnNames = new Set<string>();
+        items.forEach(item => {
+            (item.modifiers || []).forEach(mod => {
+                if (mod.name && mod.type === 'add-on') {
+                    allAddOnNames.add(mod.name);
+                }
+            });
+        });
+
+        // 4b. Fetch add-ons by name for this location
+        let addOnsByName: Record<string, string> = {}; // name -> add_on_id
+        let addOnRecipeLinks: any[] = [];
+
+        if (allAddOnNames.size > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: addOnsData, error: addOnError } = await (supabase
+                .from('add_ons') as any)
+                .select('id, name')
+                .eq('location_id', locationId)
+                .in('name', Array.from(allAddOnNames));
+
+            if (addOnError) {
+                console.error("Error fetching add-ons:", addOnError);
+            } else {
+                (addOnsData || []).forEach((ao: any) => {
+                    addOnsByName[ao.name] = ao.id;
+                });
+
+                // Fetch add_on_recipe_links for these add-ons
+                const addOnIds = Object.values(addOnsByName);
+                if (addOnIds.length > 0) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const { data: addOnLinks, error: addOnLinkError } = await (supabase
+                        .from('add_on_recipe_links') as any)
+                        .select('add_on_id, recipe_id')
+                        .in('add_on_id', addOnIds);
+
+                    if (addOnLinkError) {
+                        console.error("Error fetching add-on recipe links:", addOnLinkError);
+                    } else {
+                        addOnRecipeLinks = addOnLinks || [];
+                        // Add these recipe IDs to the main recipe list to fetch
+                        addOnRecipeLinks.forEach((l: any) => {
+                            if (!recipeIds.includes(l.recipe_id)) {
+                                recipeIds.push(l.recipe_id);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        // 5. Fetch full recipe details (ingredients) for all matched recipes (menu items + add-ons)
         let recipes: any[] = [];
         if (recipeIds.length > 0) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,7 +154,7 @@ export async function processOrderPours(
             }
         }
 
-        // 5. Fetch inventory item categories to determine usage_type (pour vs food)
+        // 6. Fetch inventory item categories to determine usage_type (pour vs food)
         const allInventoryItemIds = new Set<string>();
         recipes.forEach((r: any) => {
             (r.recipe_ingredients || []).forEach((ing: any) => {
@@ -108,7 +162,7 @@ export async function processOrderPours(
             });
         });
 
-        // 6. Find direct ingredient_links for menu items WITHOUT recipes
+        // 7. Find direct ingredient_links for menu items WITHOUT recipes
         const menuItemsWithoutRecipes = menuItemIds.filter(id => !menuItemsWithRecipes.has(id));
         let directLinks: any[] = [];
 
@@ -129,7 +183,7 @@ export async function processOrderPours(
             }
         }
 
-        // 7. Fetch inventory item details to categorize usage type
+        // 8. Fetch inventory item details to categorize usage type
         let inventoryCategories: Record<string, string> = {};
         if (allInventoryItemIds.size > 0) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,7 +210,7 @@ export async function processOrderPours(
             return 'food';
         };
 
-        // 8. Construct inventory usage records
+        // 9. Construct inventory usage records
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const logsToInsert: any[] = [];
 
@@ -219,6 +273,46 @@ export async function processOrderPours(
                     }
                 });
             }
+
+            // 10. Process ADD-ON modifiers for this item
+            (item.modifiers || []).forEach(mod => {
+                if (mod.type !== 'add-on' || !mod.name) return;
+
+                const addOnId = addOnsByName[mod.name];
+                if (!addOnId) return;
+
+                // Find recipe links for this add-on
+                const addOnLinks = addOnRecipeLinks.filter((l: any) => l.add_on_id === addOnId);
+
+                addOnLinks.forEach((link: any) => {
+                    const recipe = recipes.find((r: any) => r.id === link.recipe_id);
+
+                    if (recipe && recipe.recipe_ingredients) {
+                        recipe.recipe_ingredients.forEach((ing: any) => {
+                            if (ing.inventory_item_id && ing.quantity_used) {
+                                logsToInsert.push({
+                                    location_id: locationId,
+                                    recipe_id: recipe.id,
+                                    inventory_item_id: ing.inventory_item_id,
+                                    employee_id: employeeId,
+                                    // Multiply by item quantity (if customer orders 2 burgers with extra bacon, deduct for both)
+                                    quantity: ing.quantity_used * item.quantity,
+                                    unit: ing.unit || 'each',
+                                    pour_type: 'standard',
+                                    usage_type: getUsageType(ing.inventory_item_id, false),
+                                    notes: `Auto-logged from Add-On: ${mod.name}`,
+                                    order_id: orderId,
+                                    order_item_ref: `${item.id}-addon-${addOnId}`,
+                                    menu_item_id: item.menuItemId,
+                                    add_on_id: addOnId,
+                                    add_on_name: mod.name,
+                                    parent_item_quantity: item.quantity
+                                });
+                            }
+                        });
+                    }
+                });
+            });
         });
 
         if (logsToInsert.length > 0) {
