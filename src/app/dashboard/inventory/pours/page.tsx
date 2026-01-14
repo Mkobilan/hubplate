@@ -26,6 +26,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { Lock } from "lucide-react";
+import ExportLogsModal from "@/components/dashboard/inventory/ExportLogsModal";
 
 type InventoryLog = {
     id: string;
@@ -76,11 +77,11 @@ export default function InventoryLogsPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [sortConfig, setSortConfig] = useState<{ key: keyof InventoryLog | 'inventory_items.name' | 'recipes.name' | 'employees.first_name', direction: 'asc' | 'desc' } | null>(null);
 
-    // Filter States
-    const [filterUsage, setFilterUsage] = useState<string>("all");
 
     // Pagination / Limiting
     const [limit, setLimit] = useState(50);
+
+    const [showExportModal, setShowExportModal] = useState(false);
 
     const fetchLogs = useCallback(async () => {
         if (!currentLocation) return;
@@ -128,11 +129,9 @@ export default function InventoryLogsPage() {
         const matchesSearch =
             p.inventory_items?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.recipes?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (p.order_id && p.order_id.includes(searchQuery));
+            (p.order_id && p.order_id.toString().includes(searchQuery));
 
-        const matchesUsage = filterUsage === "all" || p.usage_type === filterUsage;
-
-        return matchesSearch && matchesUsage;
+        return matchesSearch;
     });
 
     const sortedLogs = [...filteredLogs].sort((a, b) => {
@@ -194,7 +193,10 @@ export default function InventoryLogsPage() {
                         <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
                         Refresh
                     </button>
-                    <button className="btn btn-secondary">
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => setShowExportModal(true)}
+                    >
                         <Download className="h-4 w-4" />
                         Export
                     </button>
@@ -202,7 +204,7 @@ export default function InventoryLogsPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="card p-4 flex items-center gap-4">
                     <div className="p-3 bg-slate-900 rounded-xl">
                         <Activity className="h-6 w-6 text-pink-400" />
@@ -210,24 +212,6 @@ export default function InventoryLogsPage() {
                     <div>
                         <p className="text-xs text-slate-500 uppercase font-bold">Total Logs</p>
                         <p className="text-2xl font-bold">{filteredLogs.length}</p>
-                    </div>
-                </div>
-                <div className="card p-4 flex items-center gap-4">
-                    <div className="p-3 bg-slate-900 rounded-xl">
-                        <Wine className="h-6 w-6 text-orange-400" />
-                    </div>
-                    <div>
-                        <p className="text-xs text-slate-500 uppercase font-bold">Pours</p>
-                        <p className="text-2xl font-bold">{filteredLogs.filter(l => l.usage_type === 'pour').length}</p>
-                    </div>
-                </div>
-                <div className="card p-4 flex items-center gap-4">
-                    <div className="p-3 bg-slate-900 rounded-xl">
-                        <Utensils className="h-6 w-6 text-blue-400" />
-                    </div>
-                    <div>
-                        <p className="text-xs text-slate-500 uppercase font-bold">Food Usage</p>
-                        <p className="text-2xl font-bold">{filteredLogs.filter(l => l.usage_type === 'food').length}</p>
                     </div>
                 </div>
                 <div className="card p-4 flex items-center gap-4">
@@ -265,27 +249,15 @@ export default function InventoryLogsPage() {
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <select
-                            className="input !py-1.5"
-                            value={filterUsage}
-                            onChange={(e) => setFilterUsage(e.target.value)}
-                        >
-                            <option value="all">All Usage</option>
-                            <option value="pour">Pours / Alcohol</option>
-                            <option value="food">Food Recipes</option>
-                            <option value="ingredient">Direct Links</option>
-                        </select>
-                        <select
-                            className="input !py-1.5"
-                            value={limit}
-                            onChange={(e) => setLimit(Number(e.target.value))}
-                        >
-                            <option value={50}>Last 50</option>
-                            <option value={100}>Last 100</option>
-                            <option value={500}>Last 500</option>
-                        </select>
-                    </div>
+                    <select
+                        className="input !py-1.5"
+                        value={limit}
+                        onChange={(e) => setLimit(Number(e.target.value))}
+                    >
+                        <option value={50}>Last 50</option>
+                        <option value={100}>Last 100</option>
+                        <option value={500}>Last 500</option>
+                    </select>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -417,6 +389,14 @@ export default function InventoryLogsPage() {
                     </table>
                 </div>
             </div>
+            {currentLocation && (
+                <ExportLogsModal
+                    isOpen={showExportModal}
+                    onClose={() => setShowExportModal(false)}
+                    locationId={currentLocation.id}
+                    currentLogs={sortedLogs}
+                />
+            )}
         </div>
     );
 }
