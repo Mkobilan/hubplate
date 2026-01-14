@@ -778,8 +778,17 @@ export default function AnalyticsPage() {
                         icon={<Users className="h-5 w-5 text-orange-400" />}
                         accentColor="bg-orange-500/20"
                     >
-                        {/* Metrics Row */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <MetricBox
+                                label="Total Add-On Sales"
+                                value={formatCurrency(serverPerformanceData.totalAddOnRevenue)}
+                                color="text-green-400"
+                            />
+                            <MetricBox
+                                label="Total Reviews"
+                                value={serverPerformanceData.servers.reduce((sum: number, s: any) => sum + s.reviewsCount, 0)}
+                                color="text-blue-400"
+                            />
                             <MetricBox
                                 label="Top Add-On Seller"
                                 value={serverPerformanceData.topAddOnSeller}

@@ -239,7 +239,7 @@ export default function InventoryLogsPage() {
             {/* Main Content */}
             <div className="card overflow-hidden">
                 <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row gap-4 justify-between">
-                    <div className="relative flex-1 max-w-sm">
+                    <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                         <input
                             type="text"
@@ -250,7 +250,7 @@ export default function InventoryLogsPage() {
                         />
                     </div>
                     <select
-                        className="input !py-1.5"
+                        className="input !py-1.5 w-full sm:w-fit"
                         value={limit}
                         onChange={(e) => setLimit(Number(e.target.value))}
                     >
