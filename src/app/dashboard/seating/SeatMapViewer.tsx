@@ -42,6 +42,7 @@ interface TableConfig {
     rotation: number;
     capacity: number;
     assigned_server_id?: string | null;
+    is_active: boolean;
 }
 
 interface Server {
@@ -856,7 +857,7 @@ export default function SeatMapViewer() {
                                             })()}
                                             {/* Consolidated Label Rendering */}
                                             {(table.object_type !== 'structure' || table.shape === 'door') && (
-                                                <Group y={table.height / 2} listening={false} opacity={table.shape === 'door' ? 0.9 : 1}>
+                                                <Group y={table.height / 2 - 12} listening={false} opacity={table.shape === 'door' ? 0.9 : 1}>
                                                     <Text
                                                         text={(() => {
                                                             if (status === 'seated') {
@@ -926,6 +927,8 @@ export default function SeatMapViewer() {
                 <WaitlistSidebar
                     isOpen={isWaitlistOpen}
                     onClose={() => setIsWaitlistOpen(false)}
+                    tables={tables.filter(t => t.object_type === 'table' || !t.object_type)}
+                    occupiedTableLabels={activeOrders.map(o => o.table_number).filter(Boolean) as string[]}
                 />
 
                 {/* Add Section Modal */}

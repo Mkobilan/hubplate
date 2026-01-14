@@ -28,78 +28,14 @@ interface SeatWaitlistModalProps {
     onClose: () => void;
     entry: WaitlistEntry | null;
     onSuccess: () => void;
+    tables: Table[];
+    occupiedTableLabels: string[];
 }
 
-export function SeatWaitlistModal({ isOpen, onClose, entry, onSuccess }: SeatWaitlistModalProps) {
+export function SeatWaitlistModal({ isOpen, onClose, entry, onSuccess, tables, occupiedTableLabels }: SeatWaitlistModalProps) {
     const { t } = useTranslation();
-    const currentLocation = useAppStore((state) => state.currentLocation);
-    const [tables, setTables] = useState<Table[]>([]);
-    const [occupiedTableLabels, setOccupiedTableLabels] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
-    const [fetchingTables, setFetchingTables] = useState(false);
     const [selectedTable, setSelectedTable] = useState<Table | null>(null);
-
-    useEffect(() => {
-        if (isOpen && currentLocation?.id) {
-            fetchTables();
-            fetchOccupiedTables();
-        }
-    }, [isOpen, currentLocation?.id]);
-
-    const fetchTables = async () => {
-        if (!currentLocation?.id) return;
-        setFetchingTables(true);
-        try {
-            const supabase = createClient();
-            // Fetch all active maps for this location
-            const { data: maps, error: mapsError } = await (supabase
-                .from("seating_maps") as any)
-                .select("id")
-                .eq("location_id", currentLocation.id)
-                .eq("is_active", true);
-
-            if (mapsError) throw mapsError;
-
-            if (maps && maps.length > 0) {
-                const mapIds = maps.map((m: any) => m.id);
-                const { data, error } = await (supabase
-                    .from("seating_tables") as any)
-                    .select("id, label, capacity, is_active, object_type")
-                    .in("map_id", mapIds)
-                    .eq("object_type", "table")
-                    .eq("is_active", true)
-                    .order("label", { ascending: true });
-
-                if (error) throw error;
-                setTables(data || []);
-            } else {
-                setTables([]);
-            }
-        } catch (err) {
-            console.error("Error fetching tables:", err);
-            toast.error("Failed to load tables");
-        } finally {
-            setFetchingTables(false);
-        }
-    };
-
-    const fetchOccupiedTables = async () => {
-        if (!currentLocation?.id) return;
-        try {
-            const supabase = createClient();
-            const { data, error } = await (supabase
-                .from("orders") as any)
-                .select("table_number")
-                .eq("location_id", currentLocation.id)
-                .in("status", ["pending", "in_progress", "ready", "served"]);
-
-            if (error) throw error;
-            const labels = (data || []).map((o: any) => o.table_number).filter(Boolean) as string[];
-            setOccupiedTableLabels(labels);
-        } catch (err) {
-            console.error("Error fetching active orders:", err);
-        }
-    };
 
     const handleSeatGuest = async () => {
         if (!entry || !selectedTable) return;
@@ -132,8 +68,6 @@ export function SeatWaitlistModal({ isOpen, onClose, entry, onSuccess }: SeatWai
 
     if (!entry) return null;
 
-    const availableTables = tables.filter(t => !occupiedTableLabels.includes(t.label));
-
     return (
         <Modal
             isOpen={isOpen}
@@ -161,35 +95,44 @@ export function SeatWaitlistModal({ isOpen, onClose, entry, onSuccess }: SeatWai
                     <label className="text-sm font-medium text-slate-400 block px-1">
                         {t("waitlist.chooseTable")}
                     </label>
-                    {fetchingTables ? (
-                        <div className="flex justify-center py-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-                        </div>
-                    ) : availableTables.length === 0 ? (
+                    {tables.length === 0 ? (
                         <div className="text-center py-8 bg-slate-900/30 rounded-xl border border-dashed border-slate-800">
                             <Armchair className="h-8 w-8 text-slate-600 mx-auto mb-2" />
                             <p className="text-slate-500 text-sm">No tables available</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto p-1 custom-scrollbar">
-                            {availableTables.map((table) => (
-                                <button
-                                    key={table.id}
-                                    onClick={() => setSelectedTable(table)}
-                                    className={cn(
-                                        "p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1",
-                                        selectedTable?.id === table.id
-                                            ? "bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-600/20"
-                                            : "bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white"
-                                    )}
-                                >
-                                    <span className="font-bold text-sm">{table.label}</span>
-                                    <span className="text-[10px] opacity-70 flex items-center gap-0.5">
-                                        <Users className="h-2 w-2" />
-                                        {table.capacity}
-                                    </span>
-                                </button>
-                            ))}
+                            {tables.map((table) => {
+                                const isOccupied = occupiedTableLabels.includes(table.label);
+                                return (
+                                    <button
+                                        key={table.id}
+                                        onClick={() => !isOccupied && setSelectedTable(table)}
+                                        disabled={isOccupied}
+                                        className={cn(
+                                            "p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1 relative overflow-hidden",
+                                            selectedTable?.id === table.id
+                                                ? "bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-600/20"
+                                                : isOccupied
+                                                    ? "bg-red-500/10 border-red-500/30 text-red-400 cursor-not-allowed opacity-70"
+                                                    : "bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-white"
+                                        )}
+                                    >
+                                        <span className="font-bold text-sm">{table.label}</span>
+                                        <span className={cn(
+                                            "text-[10px] flex items-center gap-0.5",
+                                            isOccupied ? "text-red-400" : "opacity-70"
+                                        )}>
+                                            {isOccupied ? "Occupied" : (
+                                                <>
+                                                    <Users className="h-2 w-2" />
+                                                    {table.capacity}
+                                                </>
+                                            )}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
                 </div>

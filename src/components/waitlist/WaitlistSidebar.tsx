@@ -22,13 +22,22 @@ import { WaitlistEntry } from "@/types/database";
 import { AddWaitlistModal } from "./AddWaitlistModal";
 import { SeatWaitlistModal } from "./SeatWaitlistModal";
 
+interface Table {
+    id: string;
+    label: string;
+    capacity: number;
+    is_active: boolean;
+}
+
 
 interface WaitlistSidebarProps {
     isOpen: boolean;
     onClose: () => void;
+    tables: Table[];
+    occupiedTableLabels: string[];
 }
 
-export function WaitlistSidebar({ isOpen, onClose }: WaitlistSidebarProps) {
+export function WaitlistSidebar({ isOpen, onClose, tables, occupiedTableLabels }: WaitlistSidebarProps) {
     const { t } = useTranslation();
     const currentLocation = useAppStore((state) => state.currentLocation);
     const [entries, setEntries] = useState<WaitlistEntry[]>([]);
@@ -228,6 +237,8 @@ export function WaitlistSidebar({ isOpen, onClose }: WaitlistSidebarProps) {
                 }}
                 entry={selectedEntry}
                 onSuccess={fetchWaitlist}
+                tables={tables}
+                occupiedTableLabels={occupiedTableLabels}
             />
         </>
     );
