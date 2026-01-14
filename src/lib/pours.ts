@@ -77,56 +77,89 @@ export async function processOrderPours(
         const menuItemsWithRecipes = new Set((recipeLinks || []).map((l: any) => l.menu_item_id));
         const recipeIds = Array.from(new Set((recipeLinks || []).map((l: any) => l.recipe_id)));
 
-        // 4. Collect all add-on names from all order items to look up add_on_recipe_links
+        // 4. Collect names for Add-ons, Sides, and Dressings
         const allAddOnNames = new Set<string>();
+        const allSideNames = new Set<string>();
+        const allDressingNames = new Set<string>();
+
         items.forEach(item => {
             (item.modifiers || []).forEach(mod => {
-                if (mod.name && mod.type === 'add-on') {
-                    allAddOnNames.add(mod.name);
-                }
+                if (!mod.name) return;
+                if (mod.type === 'add-on') allAddOnNames.add(mod.name);
+                if (mod.type === 'side') allSideNames.add(mod.name);
+                if (mod.type === 'dressing') allDressingNames.add(mod.name);
             });
         });
 
-        // 4b. Fetch add-ons by name for this location
-        let addOnsByName: Record<string, string> = {}; // name -> add_on_id
+        // 4b. Fetch Add-ons
+        let addOnsByName: Record<string, string> = {};
         let addOnRecipeLinks: any[] = [];
-
         if (allAddOnNames.size > 0) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: addOnsData, error: addOnError } = await (supabase
+            const { data: addOnsData } = await (supabase
                 .from('add_ons') as any)
                 .select('id, name')
                 .eq('location_id', locationId)
                 .in('name', Array.from(allAddOnNames));
 
-            if (addOnError) {
-                console.error("Error fetching add-ons:", addOnError);
-            } else {
-                (addOnsData || []).forEach((ao: any) => {
-                    addOnsByName[ao.name] = ao.id;
-                });
+            (addOnsData || []).forEach((ao: any) => addOnsByName[ao.name] = ao.id);
+            const addOnIds = Object.values(addOnsByName);
+            if (addOnIds.length > 0) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: links } = await (supabase
+                    .from('add_on_recipe_links') as any)
+                    .select('add_on_id, recipe_id')
+                    .in('add_on_id', addOnIds);
+                addOnRecipeLinks = links || [];
+                addOnRecipeLinks.forEach((l: any) => { if (!recipeIds.includes(l.recipe_id)) recipeIds.push(l.recipe_id); });
+            }
+        }
 
-                // Fetch add_on_recipe_links for these add-ons
-                const addOnIds = Object.values(addOnsByName);
-                if (addOnIds.length > 0) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const { data: addOnLinks, error: addOnLinkError } = await (supabase
-                        .from('add_on_recipe_links') as any)
-                        .select('add_on_id, recipe_id')
-                        .in('add_on_id', addOnIds);
+        // 4c. Fetch Sides
+        let sidesByName: Record<string, string> = {};
+        let sideRecipeLinks: any[] = [];
+        if (allSideNames.size > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: sidesData } = await (supabase
+                .from('sides') as any)
+                .select('id, name')
+                .eq('location_id', locationId)
+                .in('name', Array.from(allSideNames));
 
-                    if (addOnLinkError) {
-                        console.error("Error fetching add-on recipe links:", addOnLinkError);
-                    } else {
-                        addOnRecipeLinks = addOnLinks || [];
-                        // Add these recipe IDs to the main recipe list to fetch
-                        addOnRecipeLinks.forEach((l: any) => {
-                            if (!recipeIds.includes(l.recipe_id)) {
-                                recipeIds.push(l.recipe_id);
-                            }
-                        });
-                    }
-                }
+            (sidesData || []).forEach((s: any) => sidesByName[s.name] = s.id);
+            const sideIds = Object.values(sidesByName);
+            if (sideIds.length > 0) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: links } = await (supabase
+                    .from('side_recipe_links') as any)
+                    .select('side_id, recipe_id')
+                    .in('side_id', sideIds);
+                sideRecipeLinks = links || [];
+                sideRecipeLinks.forEach((l: any) => { if (!recipeIds.includes(l.recipe_id)) recipeIds.push(l.recipe_id); });
+            }
+        }
+
+        // 4d. Fetch Dressings
+        let dressingsByName: Record<string, string> = {};
+        let dressingRecipeLinks: any[] = [];
+        if (allDressingNames.size > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: dressingsData } = await (supabase
+                .from('dressings') as any)
+                .select('id, name')
+                .eq('location_id', locationId)
+                .in('name', Array.from(allDressingNames));
+
+            (dressingsData || []).forEach((d: any) => dressingsByName[d.name] = d.id);
+            const dressingIds = Object.values(dressingsByName);
+            if (dressingIds.length > 0) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { data: links } = await (supabase
+                    .from('dressing_recipe_links') as any)
+                    .select('dressing_id, recipe_id')
+                    .in('dressing_id', dressingIds);
+                dressingRecipeLinks = links || [];
+                dressingRecipeLinks.forEach((l: any) => { if (!recipeIds.includes(l.recipe_id)) recipeIds.push(l.recipe_id); });
             }
         }
 
@@ -274,19 +307,40 @@ export async function processOrderPours(
                 });
             }
 
-            // 10. Process ADD-ON modifiers for this item
+            // 10. Process Modifiers (Add-ons, Sides, Dressings)
             (item.modifiers || []).forEach(mod => {
-                if (mod.type !== 'add-on' || !mod.name) return;
+                if (!mod.name) return;
 
-                const addOnId = addOnsByName[mod.name];
-                if (!addOnId) return;
+                let targetLinks: any[] = [];
+                let targetId: string | null = null;
+                let idField: string = '';
+                let nameField: string = '';
+                let logNotePrefix: string = '';
 
-                // Find recipe links for this add-on
-                const addOnLinks = addOnRecipeLinks.filter((l: any) => l.add_on_id === addOnId);
+                if (mod.type === 'add-on') {
+                    targetId = addOnsByName[mod.name];
+                    targetLinks = addOnRecipeLinks.filter(l => l.add_on_id === targetId);
+                    idField = 'add_on_id';
+                    nameField = 'add_on_name';
+                    logNotePrefix = 'Add-On';
+                } else if (mod.type === 'side') {
+                    targetId = sidesByName[mod.name];
+                    targetLinks = sideRecipeLinks.filter(l => l.side_id === targetId);
+                    idField = 'side_id';
+                    nameField = 'side_name';
+                    logNotePrefix = 'Side';
+                } else if (mod.type === 'dressing') {
+                    targetId = dressingsByName[mod.name];
+                    targetLinks = dressingRecipeLinks.filter(l => l.dressing_id === targetId);
+                    idField = 'dressing_id';
+                    nameField = 'dressing_name';
+                    logNotePrefix = 'Dressing';
+                }
 
-                addOnLinks.forEach((link: any) => {
+                if (!targetId || targetLinks.length === 0) return;
+
+                targetLinks.forEach((link: any) => {
                     const recipe = recipes.find((r: any) => r.id === link.recipe_id);
-
                     if (recipe && recipe.recipe_ingredients) {
                         recipe.recipe_ingredients.forEach((ing: any) => {
                             if (ing.inventory_item_id && ing.quantity_used) {
@@ -295,17 +349,16 @@ export async function processOrderPours(
                                     recipe_id: recipe.id,
                                     inventory_item_id: ing.inventory_item_id,
                                     employee_id: employeeId,
-                                    // Multiply by item quantity (if customer orders 2 burgers with extra bacon, deduct for both)
                                     quantity: ing.quantity_used * item.quantity,
                                     unit: ing.unit || 'each',
                                     pour_type: 'standard',
                                     usage_type: getUsageType(ing.inventory_item_id, false),
-                                    notes: `Auto-logged from Add-On: ${mod.name}`,
+                                    notes: `Auto-logged from ${logNotePrefix}: ${mod.name}`,
                                     order_id: orderId,
-                                    order_item_ref: `${item.id}-addon-${addOnId}`,
+                                    order_item_ref: `${item.id}-${mod.type}-${targetId}`,
                                     menu_item_id: item.menuItemId,
-                                    add_on_id: addOnId,
-                                    add_on_name: mod.name,
+                                    [idField]: targetId,
+                                    [nameField]: mod.name,
                                     parent_item_quantity: item.quantity
                                 });
                             }

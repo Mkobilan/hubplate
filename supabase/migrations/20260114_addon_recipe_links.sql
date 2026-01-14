@@ -15,20 +15,59 @@ ALTER TABLE public.add_on_recipe_links ENABLE ROW LEVEL SECURITY;
 
 -- 3. RLS Policies
 -- Select: Anyone who can view add-ons can view their recipe links
+DROP POLICY IF EXISTS "add_on_recipe_links_select_policy" ON public.add_on_recipe_links;
 CREATE POLICY "add_on_recipe_links_select_policy" ON public.add_on_recipe_links
     FOR SELECT USING (
         add_on_id IN (SELECT id FROM public.add_ons)
     );
 
--- All operations: Management can manage links
-CREATE POLICY "add_on_recipe_links_all_policy" ON public.add_on_recipe_links
-    FOR ALL USING (
+-- Modify operations: Management can manage links (Insert, Update, Delete)
+-- Excludes SELECT to avoid "Multiple permissive policies" warning
+DROP POLICY IF EXISTS "add_on_recipe_links_all_policy" ON public.add_on_recipe_links;
+DROP POLICY IF EXISTS "add_on_recipe_links_modify_policy" ON public.add_on_recipe_links;
+CREATE POLICY "add_on_recipe_links_modify_policy" ON public.add_on_recipe_links
+    FOR INSERT WITH CHECK (
         add_on_id IN (
             SELECT id FROM public.add_ons WHERE location_id IN (
-                SELECT location_id FROM public.employees WHERE user_id = auth.uid() 
+                SELECT location_id FROM public.employees WHERE user_id = (select auth.uid()) 
                 AND role IN ('manager', 'owner', 'gm', 'agm')
                 UNION
-                SELECT id FROM public.locations WHERE owner_id = auth.uid()
+                SELECT id FROM public.locations WHERE owner_id = (select auth.uid())
+            )
+        )
+    );
+
+DROP POLICY IF EXISTS "add_on_recipe_links_update_delete_policy" ON public.add_on_recipe_links;
+CREATE POLICY "add_on_recipe_links_update_delete_policy" ON public.add_on_recipe_links
+    FOR UPDATE USING (
+        add_on_id IN (
+            SELECT id FROM public.add_ons WHERE location_id IN (
+                SELECT location_id FROM public.employees WHERE user_id = (select auth.uid()) 
+                AND role IN ('manager', 'owner', 'gm', 'agm')
+                UNION
+                SELECT id FROM public.locations WHERE owner_id = (select auth.uid())
+            )
+        )
+    ) WITH CHECK (
+        add_on_id IN (
+            SELECT id FROM public.add_ons WHERE location_id IN (
+                SELECT location_id FROM public.employees WHERE user_id = (select auth.uid()) 
+                AND role IN ('manager', 'owner', 'gm', 'agm')
+                UNION
+                SELECT id FROM public.locations WHERE owner_id = (select auth.uid())
+            )
+        )
+    );
+
+DROP POLICY IF EXISTS "add_on_recipe_links_delete_policy" ON public.add_on_recipe_links;
+CREATE POLICY "add_on_recipe_links_delete_policy" ON public.add_on_recipe_links
+    FOR DELETE USING (
+        add_on_id IN (
+            SELECT id FROM public.add_ons WHERE location_id IN (
+                SELECT location_id FROM public.employees WHERE user_id = (select auth.uid()) 
+                AND role IN ('manager', 'owner', 'gm', 'agm')
+                UNION
+                SELECT id FROM public.locations WHERE owner_id = (select auth.uid())
             )
         )
     );

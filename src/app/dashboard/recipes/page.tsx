@@ -23,7 +23,9 @@ import {
     X,
     MoreVertical,
     Check,
-    Layers
+    Layers,
+    UtensilsCrossed,
+    Salad
 } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
@@ -36,6 +38,8 @@ import RecipeCSVUploadModal from "@/components/dashboard/recipes/RecipeCSVUpload
 // PourTracker removed - moved to independent page
 import LinkMenuItemModal from "@/components/dashboard/recipes/LinkMenuItemModal";
 import LinkAddOnModal from "@/components/dashboard/recipes/LinkAddOnModal";
+import LinkSideModal from "@/components/dashboard/recipes/LinkSideModal";
+import LinkDressingModal from "@/components/dashboard/recipes/LinkDressingModal";
 import DeleteRecipeModal from "@/components/dashboard/recipes/DeleteRecipeModal";
 import type { Database } from "@/types/database";
 
@@ -56,6 +60,20 @@ type RecipeWithDetails = Recipe & {
     add_on_recipe_links?: {
         add_on_id: string;
         add_ons?: {
+            id: string;
+            name: string;
+        } | null;
+    }[];
+    side_recipe_links?: {
+        side_id: string;
+        sides?: {
+            id: string;
+            name: string;
+        } | null;
+    }[];
+    dressing_recipe_links?: {
+        dressing_id: string;
+        dressings?: {
             id: string;
             name: string;
         } | null;
@@ -96,6 +114,14 @@ export default function RecipesPage() {
     // Link Add-On Modal
     const [showAddOnLinkModal, setShowAddOnLinkModal] = useState(false);
     const [recipeToLinkAddOn, setRecipeToLinkAddOn] = useState<RecipeWithDetails | null>(null);
+
+    // Link Side Modal
+    const [showSideLinkModal, setShowSideLinkModal] = useState(false);
+    const [recipeToLinkSide, setRecipeToLinkSide] = useState<RecipeWithDetails | null>(null);
+
+    // Link Dressing Modal
+    const [showDressingLinkModal, setShowDressingLinkModal] = useState(false);
+    const [recipeToLinkDressing, setRecipeToLinkDressing] = useState<RecipeWithDetails | null>(null);
 
     // Sync ingredients state
     const [isSyncing, setIsSyncing] = useState(false);
@@ -157,6 +183,20 @@ export default function RecipesPage() {
                             id,
                             name
                         )
+                    ),
+                    side_recipe_links (
+                        side_id,
+                        sides (
+                            id,
+                            name
+                        )
+                    ),
+                    dressing_recipe_links (
+                        dressing_id,
+                        dressings (
+                            id,
+                            name
+                        )
                     )
                 `)
                 .eq("location_id", currentLocation.id)
@@ -201,6 +241,16 @@ export default function RecipesPage() {
         return (recipe.add_on_recipe_links?.length || 0) > 0;
     };
 
+    // Helper to check if recipe is linked to a side
+    const isSideRecipe = (recipe: RecipeWithDetails): boolean => {
+        return (recipe.side_recipe_links?.length || 0) > 0;
+    };
+
+    // Helper to check if recipe is linked to a dressing
+    const isDressingRecipe = (recipe: RecipeWithDetails): boolean => {
+        return (recipe.dressing_recipe_links?.length || 0) > 0;
+    };
+
     const filteredRecipes = recipes.filter(r => {
         const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
@@ -213,10 +263,20 @@ export default function RecipesPage() {
             return isAddOnRecipe(r);
         }
 
+        // Special "sides" filter - show recipes linked to sides
+        if (selectedCategory === "sides") {
+            return isSideRecipe(r);
+        }
+
+        // Special "dressings" filter - show recipes linked to dressings
+        if (selectedCategory === "dressings") {
+            return isDressingRecipe(r);
+        }
+
         // Check if recipe belongs to the selected category
         const recipeCategory = getRecipeCategory(r);
         if (selectedCategory === "uncategorized") {
-            return recipeCategory === null && !isAddOnRecipe(r);
+            return recipeCategory === null && !isAddOnRecipe(r) && !isSideRecipe(r) && !isDressingRecipe(r);
         }
         return recipeCategory?.id === selectedCategory;
     });
@@ -662,6 +722,26 @@ export default function RecipesPage() {
                         Add Ons
                     </button>
                     <button
+                        onClick={() => setSelectedCategory("sides")}
+                        className={cn(
+                            "btn whitespace-nowrap",
+                            selectedCategory === "sides" ? "btn-primary bg-amber-600 hover:bg-amber-700" : "btn-secondary"
+                        )}
+                    >
+                        <UtensilsCrossed className="h-4 w-4 mr-1" />
+                        Sides
+                    </button>
+                    <button
+                        onClick={() => setSelectedCategory("dressings")}
+                        className={cn(
+                            "btn whitespace-nowrap",
+                            selectedCategory === "dressings" ? "btn-primary bg-green-600 hover:bg-green-700" : "btn-secondary"
+                        )}
+                    >
+                        <Salad className="h-4 w-4 mr-1" />
+                        Dressings
+                    </button>
+                    <button
                         onClick={() => setSelectedCategory("uncategorized")}
                         className={cn(
                             "btn whitespace-nowrap",
@@ -804,6 +884,30 @@ export default function RecipesPage() {
                                                                                 Link Add-On
                                                                             </button>
                                                                             <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setRecipeToLinkSide(recipe);
+                                                                                    setShowSideLinkModal(true);
+                                                                                    setOpenDropdownId(null);
+                                                                                }}
+                                                                                className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-amber-400 hover:bg-slate-800 transition-colors"
+                                                                            >
+                                                                                <UtensilsCrossed className="h-4 w-4" />
+                                                                                Link Side
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setRecipeToLinkDressing(recipe);
+                                                                                    setShowDressingLinkModal(true);
+                                                                                    setOpenDropdownId(null);
+                                                                                }}
+                                                                                className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-green-400 hover:bg-slate-800 transition-colors"
+                                                                            >
+                                                                                <Salad className="h-4 w-4" />
+                                                                                Link Dressing
+                                                                            </button>
+                                                                            <button
                                                                                 onClick={() => handleDeleteRecipe(recipe)}
                                                                                 className="flex items-center gap-2 px-4 py-2.5 text-sm w-full text-left text-red-400 hover:bg-red-500/10 transition-colors"
                                                                             >
@@ -864,6 +968,22 @@ export default function RecipesPage() {
                                                                             <Layers className="h-3.5 w-3.5 text-purple-400" />
                                                                             <span className="text-xs text-slate-400">
                                                                                 {recipe.add_on_recipe_links?.length || 0} Add-Ons
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {(recipe.side_recipe_links?.length || 0) > 0 && (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <UtensilsCrossed className="h-3.5 w-3.5 text-amber-400" />
+                                                                            <span className="text-xs text-slate-400">
+                                                                                {recipe.side_recipe_links?.length || 0} Sides
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {(recipe.dressing_recipe_links?.length || 0) > 0 && (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Salad className="h-3.5 w-3.5 text-green-400" />
+                                                                            <span className="text-xs text-slate-400">
+                                                                                {recipe.dressing_recipe_links?.length || 0} Dressings
                                                                             </span>
                                                                         </div>
                                                                     )}
@@ -934,6 +1054,32 @@ export default function RecipesPage() {
                 }}
                 recipeId={recipeToLinkAddOn?.id || null}
                 recipeName={recipeToLinkAddOn?.name}
+                locationId={currentLocation.id}
+                onLinkComplete={fetchRecipes}
+            />
+
+            {/* Link Side Modal */}
+            <LinkSideModal
+                isOpen={showSideLinkModal}
+                onClose={() => {
+                    setShowSideLinkModal(false);
+                    setRecipeToLinkSide(null);
+                }}
+                recipeId={recipeToLinkSide?.id || null}
+                recipeName={recipeToLinkSide?.name}
+                locationId={currentLocation.id}
+                onLinkComplete={fetchRecipes}
+            />
+
+            {/* Link Dressing Modal */}
+            <LinkDressingModal
+                isOpen={showDressingLinkModal}
+                onClose={() => {
+                    setShowDressingLinkModal(false);
+                    setRecipeToLinkDressing(null);
+                }}
+                recipeId={recipeToLinkDressing?.id || null}
+                recipeName={recipeToLinkDressing?.name}
                 locationId={currentLocation.id}
                 onLinkComplete={fetchRecipes}
             />
