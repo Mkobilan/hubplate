@@ -443,7 +443,8 @@ function MenuItemCard({
     onToggle86d,
     isEditing,
     isSelected,
-    onSelect
+    onSelect,
+    onManageAddOns
 }: {
     item: MenuItemType;
     onEdit?: () => void;
