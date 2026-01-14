@@ -336,7 +336,7 @@ export default function SeatMapViewer() {
                 console.log("Seating reservation:", reservation);
                 const { error: resError } = await (supabaseRef.current
                     .from("reservations") as any)
-                    .update({ status: 'seated', seated_at: new Date().toISOString() })
+                    .update({ status: 'seated' })
                     .eq('id', reservation.id);
 
                 if (resError) {
