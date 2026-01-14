@@ -258,7 +258,7 @@ export default function SeatMapViewer() {
         try {
             const { data, error } = await supabaseRef.current
                 .from("orders")
-                .select("*")
+                .select("*, customer:customers(*)")
                 .eq("location_id", loc.id)
                 .in("status", ["sent", "preparing", "ready", "served", "pending"]);
 
@@ -915,6 +915,7 @@ export default function SeatMapViewer() {
                         subtotal={payingOrder.subtotal || 0}
                         tax={payingOrder.tax || 0}
                         total={payingOrder.total}
+                        linkedCustomer={payingOrder.customer}
                         onClose={() => setPayingOrder(null)}
                         onPaymentComplete={() => {
                             fetchActiveOrders();
