@@ -107,6 +107,10 @@ export default function StaffPage() {
     // CSV Import State
     const [showCSVModal, setShowCSVModal] = useState(false);
 
+    // Labor Cost State
+    const [estLaborCost, setEstLaborCost] = useState(0);
+    const [actualLaborCost, setActualLaborCost] = useState(0);
+
     // Staff Detail & Timeclock State
     const [selectedStaff, setSelectedStaff] = useState<Employee | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -163,6 +167,60 @@ export default function StaffPage() {
                     active_hourly_rate: activeEntry?.hourly_rate
                 };
             }));
+
+            // 3. Calculate Labor Costs for Today
+            const today = new Date().toISOString().split('T')[0];
+            const startOfToday = `${today}T00:00:00`;
+            const endOfToday = `${today}T23:59:59`;
+
+            // A. Estimated Labor Cost (from Shifts)
+            const { data: todayShifts } = await supabase
+                .from("shifts")
+                .select("*, employees(hourly_rate)")
+                .eq("location_id", currentLocation.id)
+                .eq("date", today);
+
+            let totalEst = 0;
+            (todayShifts || []).forEach((shift: any) => {
+                if (shift.start_time && shift.end_time) {
+                    const start = new Date(`${today}T${shift.start_time}`);
+                    const end = new Date(`${today}T${shift.end_time}`);
+                    let hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+                    if (hours < 0) hours += 24; // Handle overnight shifts if any
+                    const rate = shift.employees?.hourly_rate || 0;
+                    totalEst += hours * rate;
+                }
+            });
+            setEstLaborCost(totalEst);
+
+            // B. Actual Labor Cost (from Time Entries)
+            // Completed entries today
+            const { data: completedToday } = await supabase
+                .from("time_entries")
+                .select("total_pay")
+                .eq("location_id", currentLocation.id)
+                .gte("clock_in", startOfToday)
+                .lte("clock_in", endOfToday)
+                .not("clock_out", "is", null);
+
+            let totalActual = (completedToday || []).reduce((sum, e) => sum + Number(e.total_pay || 0), 0);
+
+            // Active entries (accrued part)
+            const { data: activeEntriesToday } = await supabase
+                .from("time_entries")
+                .select("clock_in, hourly_rate, employee_id")
+                .eq("location_id", currentLocation.id)
+                .is("clock_out", null);
+
+            const now = new Date();
+            (activeEntriesToday || []).forEach((entry: any) => {
+                const clockIn = new Date(entry.clock_in);
+                const elapsedHours = Math.max(0, (now.getTime() - clockIn.getTime()) / (1000 * 60 * 60));
+                // Use entry hourly rate or fallback to employee's current rate
+                const rate = entry.hourly_rate || employees?.find((e: any) => e.id === entry.employee_id)?.hourly_rate || 0;
+                totalActual += elapsedHours * rate;
+            });
+            setActualLaborCost(totalActual);
         } catch (err) {
             console.error("Error fetching staff:", err);
         } finally {
@@ -293,7 +351,12 @@ export default function StaffPage() {
     useEffect(() => {
         fetchStaff();
 
-        if (!currentLocation) return;
+        // Refresh labor costs every minute if someone is clocked in
+        const interval = setInterval(() => {
+            fetchStaff();
+        }, 60000);
+
+        if (!currentLocation) return () => clearInterval(interval);
         const supabase = createClient();
         const subStaff = supabase.channel('staff_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => fetchStaff())
@@ -303,9 +366,15 @@ export default function StaffPage() {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'time_entries' }, () => fetchStaff())
             .subscribe();
 
+        const subShifts = supabase.channel('shift_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => fetchStaff())
+            .subscribe();
+
         return () => {
+            clearInterval(interval);
             supabase.removeChannel(subStaff);
             supabase.removeChannel(subTime);
+            supabase.removeChannel(subShifts);
         };
     }, [currentLocation?.id]);
 
@@ -596,7 +665,7 @@ export default function StaffPage() {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <QuickStat
                     label="Total Staff"
                     value={staff.length.toString()}
@@ -609,9 +678,17 @@ export default function StaffPage() {
                     variant="success"
                 />
                 <QuickStat
-                    label="Daily Labor Cost"
-                    value={formatCurrency(staff.reduce((sum, e) => sum + Number(e.hourly_rate || 0), 0))}
+                    label="Est Labor Cost"
+                    value={formatCurrency(estLaborCost)}
+                    icon={<Calendar className="h-4 w-4" />}
+                    title="Based on today's schedule"
+                />
+                <QuickStat
+                    label="Actual Labor Cost"
+                    value={formatCurrency(actualLaborCost)}
                     icon={<DollarSign className="h-4 w-4" />}
+                    variant={actualLaborCost > estLaborCost && estLaborCost > 0 ? "warning" : "default"}
+                    title="Completed shifts + active accrual"
                 />
                 <QuickStat
                     label="Active Locations"
