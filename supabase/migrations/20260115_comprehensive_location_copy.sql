@@ -1,4 +1,4 @@
--- Migration: Comprehensive Location Copy
+-- Migration: Comprehensive Location Copy (Fixed)
 -- Path: c/hubplate/supabase/migrations/20260115_comprehensive_location_copy.sql
 -- Description: Adds a comprehensive RPC clone_location_data to copy menu, recipes, and inventory with relational integrity.
 
@@ -29,8 +29,10 @@ BEGIN
     -- 1. Copy Inventory Storage Areas
     IF p_copy_inventory THEN
         FOR rec IN (SELECT * FROM public.inventory_storage_areas WHERE location_id = src_location_id) LOOP
-            INSERT INTO public.inventory_storage_areas (location_id, name, is_default, sort_order)
-            VALUES (dest_location_id, rec.name, rec.is_default, COALESCE(rec.sort_order, 0))
+            -- Try to insert, if exists by name (due to defaults), we still need the ID for mapping
+            INSERT INTO public.inventory_storage_areas (location_id, name)
+            VALUES (dest_location_id, rec.name)
+            ON CONFLICT (location_id, name) DO UPDATE SET name = EXCLUDED.name
             RETURNING id INTO v_new_id;
             
             INSERT INTO id_mappings (old_id, new_id, type) VALUES (rec.id, v_new_id, 'storage_area');
@@ -45,15 +47,15 @@ BEGIN
             
             INSERT INTO public.inventory_items (
                 location_id, name, category, unit, cost_per_unit, 
-                stock_quantity, min_stock, par_level, storage_area_id,
-                supplier, sku, recipe_unit, units_per_stock, conversion_factor,
-                running_stock, is_active, metadata
+                stock_quantity, par_level, reorder_quantity, storage_area_id, storage_area_name,
+                supplier, recipe_unit, units_per_stock, conversion_factor,
+                running_stock, metadata, avg_daily_usage
             )
             VALUES (
                 dest_location_id, rec.name, rec.category, rec.unit, rec.cost_per_unit,
-                rec.stock_quantity, rec.min_stock, rec.par_level, v_new_id,
-                rec.supplier, rec.sku, rec.recipe_unit, COALESCE(rec.units_per_stock, 1.0), COALESCE(rec.conversion_factor, 1.0),
-                rec.running_stock, rec.is_active, COALESCE(rec.metadata, '{}'::jsonb)
+                rec.stock_quantity, rec.par_level, rec.reorder_quantity, v_new_id, rec.storage_area_name,
+                rec.supplier, rec.recipe_unit, COALESCE(rec.units_per_stock, 1.0), COALESCE(rec.conversion_factor, 1.0),
+                rec.running_stock, COALESCE(rec.metadata, '{}'::jsonb), rec.avg_daily_usage
             )
             RETURNING id INTO v_new_id;
 
@@ -80,11 +82,13 @@ BEGIN
             
             INSERT INTO public.menu_items (
                 location_id, category_id, name, description, price, 
-                cost, image_url, available, is_86d, sort_order
+                cost, image_url, available, is_86d, sort_order,
+                prep_time_minutes, calories, allergens, modifiers
             )
             VALUES (
                 dest_location_id, v_new_cat_id, rec.name, rec.description, rec.price,
-                rec.cost, rec.image_url, COALESCE(rec.available, true), rec.is_86d, COALESCE(rec.sort_order, 0)
+                rec.cost, rec.image_url, COALESCE(rec.available, true), rec.is_86d, COALESCE(rec.sort_order, 0),
+                rec.prep_time_minutes, rec.calories, rec.allergens, rec.modifiers
             )
             RETURNING id INTO v_new_id;
 

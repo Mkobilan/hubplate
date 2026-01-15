@@ -30,12 +30,13 @@ export function AvailabilityCalendar() {
     const [startTime, setStartTime] = useState("09:00");
     const [endTime, setEndTime] = useState("17:00");
     const [isAvailable, setIsAvailable] = useState(true);
+    const [isOpenAvailability, setIsOpenAvailability] = useState(false);
     const [saving, setSaving] = useState(false);
     const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
     const [message, setMessage] = useState("");
 
     // Multi-day selection state
-    type MultiDayMode = "single" | "week" | "next7" | "recurring4weeks";
+    type MultiDayMode = "single" | "week" | "next7" | "recurring4weeks" | "next4weeks";
     const [multiDayMode, setMultiDayMode] = useState<MultiDayMode>("single");
     const [showMultiDay, setShowMultiDay] = useState(false);
 
@@ -64,6 +65,77 @@ export function AvailabilityCalendar() {
         fetchAvailability();
     }, [currentEmployee?.id]);
 
+    const fetchOperatingHours = async (date: Date) => {
+        if (!currentEmployee) return null;
+        try {
+            const supabase = createClient();
+            const dayOfWeek = date.getDay();
+
+            // 1. Get default template for location
+            const { data: template } = await (supabase as any)
+                .from("staffing_templates")
+                .select("id")
+                .eq("location_id", (currentEmployee as any).location_id)
+                .eq("is_default", true)
+                .maybeSingle();
+
+            let activeTemplateId: string | null = template?.id || null;
+
+            if (!activeTemplateId) {
+                // Fallback if no default template: check any template
+                const { data: anyTemplate } = await (supabase as any)
+                    .from("staffing_templates")
+                    .select("id")
+                    .eq("location_id", (currentEmployee as any).location_id)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (!anyTemplate) return null;
+                activeTemplateId = anyTemplate.id;
+            }
+
+            // 2. Get rules for this day
+            const { data: rules } = await (supabase as any)
+                .from("staffing_rules")
+                .select("start_time, end_time")
+                .eq("template_id", activeTemplateId)
+                .or(`day_of_week.eq.${dayOfWeek},day_of_week.is.null`);
+
+            if (!rules || rules.length === 0) return null;
+
+            // 3. Find bounds
+            let earliest = "23:59:59";
+            let latest = "00:00:00";
+
+            rules.forEach((r: any) => {
+                if (r.start_time < earliest) earliest = r.start_time;
+                if (r.end_time > latest) latest = r.end_time;
+            });
+
+            return { start: earliest.slice(0, 5), end: latest.slice(0, 5) };
+        } catch (err) {
+            console.error("Error fetching operating hours:", err);
+            return null;
+        }
+    };
+
+    const handleOpenAvailabilityToggle = async (checked: boolean) => {
+        setIsOpenAvailability(checked);
+        if (checked && selectedDate) {
+            setMultiDayMode("next4weeks");
+            setShowMultiDay(true);
+            const hours = await fetchOperatingHours(selectedDate);
+            if (hours) {
+                setStartTime(hours.start);
+                setEndTime(hours.end);
+            } else {
+                // Fallback to full day if no rules found
+                setStartTime("00:00");
+                setEndTime("23:59");
+            }
+        }
+    };
+
     const handleDateClick = (date: Date) => {
         setSelectedDate(date);
 
@@ -90,7 +162,8 @@ export function AvailabilityCalendar() {
             }
         }
 
-        // Reset multi-day selection
+        // Reset states
+        setIsOpenAvailability(false);
         setMultiDayMode("single");
         setShowMultiDay(false);
         setIsModalOpen(true);
@@ -120,6 +193,11 @@ export function AvailabilityCalendar() {
                 return Array.from({ length: 4 }, (_, i) => addDays(selectedDate, i * 7));
             }
 
+            case "next4weeks": {
+                // All days for the next 28 days
+                return Array.from({ length: 28 }, (_, i) => addDays(selectedDate, i));
+            }
+
             default:
                 return [selectedDate];
         }
@@ -132,16 +210,70 @@ export function AvailabilityCalendar() {
             const supabase = createClient();
             const targetDates = getTargetDates();
 
+            let dailyRules: any[] = [];
+            if (isOpenAvailability) {
+                // Fetch all rules for the template once
+                const { data: template } = await (supabase as any)
+                    .from("staffing_templates")
+                    .select("id")
+                    .eq("location_id", (currentEmployee as any).location_id)
+                    .eq("is_default", true)
+                    .maybeSingle();
+
+                let templateId = template?.id;
+                if (!templateId) {
+                    const { data: anyT } = await (supabase as any)
+                        .from("staffing_templates")
+                        .select("id")
+                        .eq("location_id", (currentEmployee as any).location_id)
+                        .limit(1)
+                        .maybeSingle();
+                    templateId = anyT?.id;
+                }
+
+                if (templateId) {
+                    const { data: rules } = await (supabase as any)
+                        .from("staffing_rules")
+                        .select("*")
+                        .eq("template_id", templateId);
+                    dailyRules = rules || [];
+                }
+            }
+
             // Build array of availability records to upsert
-            const records = targetDates.map(date => ({
-                employee_id: currentEmployee.id,
-                organization_id: (currentEmployee as any).organization_id,
-                date: format(date, "yyyy-MM-dd"),
-                day_of_week: date.getDay(),
-                is_available: isAvailable,
-                start_time: startTime + ":00",
-                end_time: endTime + ":00"
-            }));
+            const records = targetDates.map(date => {
+                let start = startTime;
+                let end = endTime;
+
+                if (isOpenAvailability && dailyRules.length > 0) {
+                    const dayOfWeek = date.getDay();
+                    const dayRules = dailyRules.filter(r => r.day_of_week === dayOfWeek || r.day_of_week === null);
+                    if (dayRules.length > 0) {
+                        let earliest = "23:59:59";
+                        let latest = "00:00:00";
+                        dayRules.forEach(r => {
+                            if (r.start_time < earliest) earliest = r.start_time;
+                            if (r.end_time > latest) latest = r.end_time;
+                        });
+                        start = earliest.slice(0, 5);
+                        end = latest.slice(0, 5);
+                    } else {
+                        // If no rules for this specific day, use the general values or full day
+                        start = "00:00";
+                        end = "23:59";
+                    }
+                }
+
+                return {
+                    employee_id: currentEmployee.id,
+                    organization_id: (currentEmployee as any).organization_id,
+                    date: format(date, "yyyy-MM-dd"),
+                    day_of_week: date.getDay(),
+                    is_available: isAvailable,
+                    start_time: start + ":00",
+                    end_time: end + ":00"
+                };
+            });
 
             const { error } = await (supabase as any)
                 .from("availability")
@@ -264,29 +396,54 @@ export function AvailabilityCalendar() {
                         </div>
 
                         {isAvailable && (
-                            <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Start Time</label>
-                                    <div className="relative">
-                                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                {/* Open Availability Checkbox */}
+                                <div className="flex items-center gap-3 p-4 bg-slate-900/50 rounded-2xl border border-slate-800">
+                                    <div className="relative flex items-center">
                                         <input
-                                            type="time"
-                                            className="input !pl-10"
-                                            value={startTime}
-                                            onChange={(e) => setStartTime(e.target.value)}
+                                            type="checkbox"
+                                            id="openAvailability"
+                                            className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-orange-500 focus:ring-orange-500 focus:ring-offset-slate-900"
+                                            checked={isOpenAvailability}
+                                            onChange={(e) => handleOpenAvailabilityToggle(e.target.checked)}
                                         />
                                     </div>
+                                    <label htmlFor="openAvailability" className="flex flex-col cursor-pointer">
+                                        <span className="text-sm font-bold text-white">Open Availability</span>
+                                        <span className="text-xs text-slate-400">Match restaurant operating hours</span>
+                                    </label>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">End Time</label>
-                                    <div className="relative">
-                                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                                        <input
-                                            type="time"
-                                            className="input !pl-10"
-                                            value={endTime}
-                                            onChange={(e) => setEndTime(e.target.value)}
-                                        />
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Start Time</label>
+                                        <div className="relative">
+                                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                                            <input
+                                                type="time"
+                                                className="input !pl-10"
+                                                value={startTime}
+                                                onChange={(e) => {
+                                                    setStartTime(e.target.value);
+                                                    setIsOpenAvailability(false);
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">End Time</label>
+                                        <div className="relative">
+                                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                                            <input
+                                                type="time"
+                                                className="input !pl-10"
+                                                value={endTime}
+                                                onChange={(e) => {
+                                                    setEndTime(e.target.value);
+                                                    setIsOpenAvailability(false);
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -308,6 +465,7 @@ export function AvailabilityCalendar() {
                                             {multiDayMode === "week" && "Entire week (Mon-Sun)"}
                                             {multiDayMode === "next7" && "Next 7 days"}
                                             {multiDayMode === "recurring4weeks" && selectedDate && `Every ${DAY_NAMES[getDay(selectedDate)]} for 4 weeks`}
+                                            {multiDayMode === "next4weeks" && "Next 4 weeks (all days)"}
                                         </p>
                                     </div>
                                 </div>
@@ -324,6 +482,7 @@ export function AvailabilityCalendar() {
                                         { value: "next7", label: "Next 7 Days", desc: "Starting from selected date" },
                                         { value: "week", label: "This Week", desc: "Monday through Sunday" },
                                         { value: "recurring4weeks", label: selectedDate ? `Every ${DAY_NAMES[getDay(selectedDate)]} for 4 Weeks` : "Same Day Weekly", desc: "Repeat for the next 4 weeks" },
+                                        { value: "next4weeks", label: "Next 4 Weeks", desc: "All days for the next 28 days" },
                                     ].map((option) => (
                                         <label
                                             key={option.value}
@@ -395,3 +554,4 @@ export function AvailabilityCalendar() {
         </div>
     );
 }
+
