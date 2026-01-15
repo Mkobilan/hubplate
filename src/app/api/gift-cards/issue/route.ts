@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
         // Check if card number already exists for this location
-        const { data: existing } = await supabase
-            .from("gift_cards")
+        const { data: existing } = await (supabase
+            .from("gift_cards") as any)
             .select("id")
             .eq("location_id", locationId)
             .eq("card_number", cardNumber)
@@ -41,11 +41,12 @@ export async function POST(request: NextRequest) {
             }
         };
 
-        const { data, error } = await supabase
-            .from("gift_cards")
+        const { data, error } = await (supabase
+            .from("gift_cards") as any)
             .insert(newCard)
             .select()
             .single();
+
 
         if (error) throw error;
 

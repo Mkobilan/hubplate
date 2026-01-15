@@ -48,9 +48,10 @@ export async function POST(request: NextRequest) {
             };
         }).filter(Boolean);
 
-        const { error } = await supabase
-            .from("gift_cards")
+        const { error } = await (supabase
+            .from("gift_cards") as any)
             .upsert(cardsToInsert, { onConflict: 'location_id, card_number' });
+
 
         if (error) throw error;
 
