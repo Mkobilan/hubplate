@@ -203,7 +203,7 @@ export default function StaffPage() {
                 .lte("clock_in", endOfToday)
                 .not("clock_out", "is", null);
 
-            let totalActual = (completedToday || []).reduce((sum, e) => sum + Number(e.total_pay || 0), 0);
+            let totalActual = (completedToday as any[] || []).reduce((sum, e) => sum + Number(e.total_pay || 0), 0);
 
             // Active entries (accrued part)
             const { data: activeEntriesToday } = await supabase
@@ -217,7 +217,8 @@ export default function StaffPage() {
                 const clockIn = new Date(entry.clock_in);
                 const elapsedHours = Math.max(0, (now.getTime() - clockIn.getTime()) / (1000 * 60 * 60));
                 // Use entry hourly rate or fallback to employee's current rate
-                const rate = entry.hourly_rate || employees?.find((e: any) => e.id === entry.employee_id)?.hourly_rate || 0;
+                const emp = (employees as any[])?.find((e: any) => e.id === entry.employee_id);
+                const rate = entry.hourly_rate || emp?.hourly_rate || 0;
                 totalActual += elapsedHours * rate;
             });
             setActualLaborCost(totalActual);
@@ -1793,12 +1794,13 @@ export default function StaffPage() {
     );
 }
 
-function QuickStat({ label, value, icon, variant = "default" }: { label: string, value: string, icon: React.ReactNode, variant?: "default" | "success" }) {
+function QuickStat({ label, value, icon, variant = "default", title }: { label: string, value: string, icon: React.ReactNode, variant?: "default" | "success" | "warning", title?: string }) {
     return (
-        <div className="card flex items-center gap-4">
+        <div className="card flex items-center gap-4" title={title}>
             <div className={cn(
                 "p-3 rounded-xl",
-                variant === "success" ? "bg-green-500/10 text-green-400" : "bg-orange-500/10 text-orange-400"
+                variant === "success" ? "bg-green-500/10 text-green-400" :
+                    variant === "warning" ? "bg-amber-500/10 text-amber-400" : "bg-orange-500/10 text-orange-400"
             )}>
                 {icon}
             </div>
