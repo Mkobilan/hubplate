@@ -51,12 +51,12 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
         setFetchingTables(true);
         try {
             // Fetch orders that are not paid to find active tables
-            const { data: orders, error } = await supabase
-                .from("orders")
+            const { data: orders, error } = await (supabase.from("orders") as any)
                 .select("table_number, id")
                 .eq("location_id", locationId)
                 .neq("payment_status", "paid")
                 .in("status", ["sent", "preparing", "ready", "served", "pending"]);
+
 
             if (error) throw error;
 
@@ -137,14 +137,15 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
     const pushToOrder = async (cardData: any) => {
         try {
             // 1. Fetch the active order for the selected table
-            const { data: order, error: fetchError } = await supabase
-                .from("orders")
+            const { data: order, error: fetchError } = await (supabase
+                .from("orders") as any)
                 .select("*")
                 .eq("location_id", locationId)
                 .eq("table_number", selectedTableNumber)
                 .neq("payment_status", "paid")
                 .in("status", ["sent", "preparing", "ready", "served", "pending"])
                 .maybeSingle();
+
 
             if (fetchError) throw fetchError;
             if (!order) {
