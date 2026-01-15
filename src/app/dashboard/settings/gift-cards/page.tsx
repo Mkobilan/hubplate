@@ -14,11 +14,15 @@ import {
     CheckCircle2,
     XCircle,
     FileUp,
-    Loader2
+    Loader2,
+    Smartphone
 } from "lucide-react";
+
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "react-hot-toast";
 import { GiftCardUploadModal } from "@/components/dashboard/settings/GiftCardUploadModal";
+import { IssueGiftCardModal } from "@/components/dashboard/settings/IssueGiftCardModal";
+
 
 export default function GiftCardsPage() {
     const currentLocation = useAppStore((state) => state.currentLocation);
@@ -26,6 +30,8 @@ export default function GiftCardsPage() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [showIssueModal, setShowIssueModal] = useState(false);
+
 
     const fetchGiftCards = async () => {
         if (!currentLocation) return;
@@ -75,10 +81,14 @@ export default function GiftCardsPage() {
                         <FileUp className="h-4 w-4" />
                         Migrate Existing
                     </button>
-                    <button className="btn btn-primary">
+                    <button
+                        onClick={() => setShowIssueModal(true)}
+                        className="btn btn-primary"
+                    >
                         <Plus className="h-4 w-4" />
                         Issue New Card
                     </button>
+
                 </div>
             </div>
 
@@ -129,6 +139,7 @@ export default function GiftCardsPage() {
                         <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-900/50">
                             <th className="px-4 py-3">Card Number</th>
                             <th className="px-4 py-3">Status</th>
+                            <th className="px-4 py-3">Type</th>
                             <th className="px-4 py-3">Balance</th>
                             <th className="px-4 py-3">Original</th>
                             <th className="px-4 py-3">Last Used</th>
@@ -162,6 +173,20 @@ export default function GiftCardsPage() {
                                             </span>
                                         )}
                                     </td>
+                                    <td className="px-4 py-3">
+                                        {card.metadata?.is_digital ? (
+                                            <span className="badge bg-purple-500/10 text-purple-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
+                                                <Smartphone className="h-3 w-3" />
+                                                Digital
+                                            </span>
+                                        ) : (
+                                            <span className="badge bg-slate-500/10 text-slate-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
+                                                <CreditCard className="h-3 w-3" />
+                                                Physical
+                                            </span>
+                                        )}
+                                    </td>
+
                                     <td className="px-4 py-3 font-bold">{formatCurrency(card.current_balance)}</td>
                                     <td className="px-4 py-3 text-slate-500">{formatCurrency(card.original_balance)}</td>
                                     <td className="px-4 py-3 text-sm text-slate-400">
@@ -197,6 +222,14 @@ export default function GiftCardsPage() {
                 locationId={currentLocation.id}
                 onComplete={fetchGiftCards}
             />
-        </div>
+
+            <IssueGiftCardModal
+                isOpen={showIssueModal}
+                onClose={() => setShowIssueModal(false)}
+                locationId={currentLocation.id}
+                onComplete={fetchGiftCards}
+            />
+
+        </div >
     );
 }

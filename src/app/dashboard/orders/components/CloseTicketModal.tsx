@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Printer, CreditCard, QrCode, Loader2, Copy, Check, Banknote, Smartphone, User, Gift } from "lucide-react";
+import { X, Printer, CreditCard, QrCode, Loader2, Copy, Check, Banknote, Smartphone, User, Gift, Camera } from "lucide-react";
+
 import { Capacitor } from '@capacitor/core';
 import { StripeTerminal, TerminalConnectTypes } from '@capacitor-community/stripe-terminal';
 import { formatCurrency } from "@/lib/utils";
@@ -490,13 +491,41 @@ export default function CloseTicketModal({
 
                 if (orderError) throw orderError;
 
-                toast.success("Payment successful!");
                 onPaymentComplete?.();
                 onClose();
             } else {
-                // Partial payment - for now we just show error as full partial support isn't implemented
-                toast.error(`Gift card only covers ${formatCurrency(amountToCharge)}. Partial payments coming soon.`);
+                // Partial payment support
+                const remainingDue = totalToPay - amountToCharge;
+
+                // Update Order to reflect partial payment in metadata and update the "total" for the UI
+                const { error: orderError } = await (supabase.from("orders") as any)
+                    .update({
+                        total: total - amountToCharge, // Reducing total as "balance due"
+                        metadata: {
+                            partial_payments: [
+                                ...(compMeta?.partial_payments || []),
+                                {
+                                    method: "gift_card",
+                                    amount: amountToCharge,
+                                    card_number: giftCardNumber,
+                                    at: new Date().toISOString()
+                                }
+                            ]
+                        }
+                    })
+                    .eq("id", orderId);
+
+                if (orderError) throw orderError;
+
+                toast.success(`Applied ${formatCurrency(amountToCharge)}. Remaining: ${formatCurrency(remainingDue)}`);
+
+                // Reset state for remaining balance
+                setGiftCardBalance(null);
+                setGiftCardNumber("");
+                // The parent component should ideally refresh the total, but we can simulate it by letting the user pick another method
+                onPaymentComplete?.(); // This might trigger a refresh in the parent POS page
             }
+
         } catch (err: any) {
             toast.error(err.message || "Gift card payment failed");
         } finally {
@@ -953,7 +982,16 @@ export default function CloseTicketModal({
                                         >
                                             {checkingGiftCard ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
                                         </button>
+                                        <button
+                                            onClick={() => toast("Camera scanning would open here (Camera API inhibited in this environment)")}
+                                            className="p-3 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition-colors text-slate-300"
+
+                                            title="Scan barcode"
+                                        >
+                                            <Camera className="h-5 w-5" />
+                                        </button>
                                     </div>
+
                                     {giftCardError && <p className="text-xs text-red-400 px-1 font-medium">{giftCardError}</p>}
                                 </div>
                             </div>
