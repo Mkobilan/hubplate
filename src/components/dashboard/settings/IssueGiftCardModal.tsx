@@ -61,7 +61,8 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
             if (error) throw error;
 
             // Get unique table numbers
-            const uniqueTables = Array.from(new Set(orders?.map(o => o.table_number).filter(Boolean)));
+            const uniqueTables = Array.from(new Set(orders?.map((o: any) => o.table_number).filter(Boolean)));
+
             setActiveTables(uniqueTables.sort());
         } catch (err) {
             console.error("Error fetching active tables:", err);
