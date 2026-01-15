@@ -20,10 +20,9 @@ import {
     Zap,
     TrendingUp,
     Star,
-    UserPlus,
-    Star,
     UserPlus
 } from "lucide-react";
+
 
 
 
