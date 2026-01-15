@@ -21,11 +21,13 @@ import {
     TrendingUp,
     Star,
     UserPlus,
-    Gift
+    Star,
+    UserPlus
 } from "lucide-react";
 
 
-import { IssueGiftCardModal } from "@/components/dashboard/settings/IssueGiftCardModal";
+
+
 
 import { processOrderPours } from "@/lib/pours";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -61,7 +63,7 @@ function OrdersPageContent() {
     const [showCloseTicket, setShowCloseTicket] = useState(false);
     const [showSplitCheck, setShowSplitCheck] = useState(false);
     const [showLoyaltyModal, setShowLoyaltyModal] = useState(false);
-    const [showIssueGiftCard, setShowIssueGiftCard] = useState(false);
+
     const [linkedCustomer, setLinkedCustomer] = useState<any | null>(null);
 
     const [discount, setDiscount] = useState(0);
@@ -791,15 +793,9 @@ function OrdersPageContent() {
                                 >
                                     My Tickets
                                 </button>
-                                <button
-                                    onClick={() => setShowIssueGiftCard(true)}
-                                    className="btn btn-primary bg-purple-600 hover:bg-purple-700 border-none text-xs py-0.5 px-2"
-                                    title="Sell a new gift card"
-                                >
-                                    <Gift className="h-3.5 w-3.5" />
-                                    Sell GC
-                                </button>
+
                                 <div className="flex items-center gap-1 text-xs text-slate-400">
+
 
                                     <Clock className="h-3 w-3" />
                                     <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -1034,76 +1030,84 @@ function OrdersPageContent() {
             </div>
 
             {/* Item Customization Modal */}
-            {customizingItem && (
-                <ItemCustomizationModal
-                    item={customizingItem}
-                    initialNotes={editingTicketItem?.notes}
-                    initialModifiers={editingTicketItem?.modifiers}
-                    onClose={() => {
-                        setCustomizingItem(null);
-                        setEditingTicketItem(null);
-                    }}
-                    onConfirm={(notes, modifiers) => handleAddToOrder(customizingItem, notes, modifiers as any)}
-                    canComp={isManagement}
-                    isComped={!!(editingTicketItem && compMeta?.comped_items?.[editingTicketItem.id])}
-                    onCompClick={() => {
-                        if (editingTicketItem) {
-                            setCompingItemId(editingTicketItem.id);
-                            setCompReasonTemp(compMeta?.comped_items?.[editingTicketItem.id] || "");
-                            setShowCompModal(true);
-                        } else {
-                            // If it's a new item, we need an ID to track the comp.
-                            // But handleAddToOrder generates a UUID.
-                            // The user specifically asked for comping when clicking on the PENCIL icon.
-                            // New items don't have a pencil icon until they are in the ticket.
-                            toast.error("Finish adding the item first, then edit it to comp.");
-                        }
-                    }}
-                />
-            )}
+            {
+                customizingItem && (
+                    <ItemCustomizationModal
+                        item={customizingItem}
+                        initialNotes={editingTicketItem?.notes}
+                        initialModifiers={editingTicketItem?.modifiers}
+                        onClose={() => {
+                            setCustomizingItem(null);
+                            setEditingTicketItem(null);
+                        }}
+                        onConfirm={(notes, modifiers) => handleAddToOrder(customizingItem, notes, modifiers as any)}
+                        canComp={isManagement}
+                        isComped={!!(editingTicketItem && compMeta?.comped_items?.[editingTicketItem.id])}
+                        onCompClick={() => {
+                            if (editingTicketItem) {
+                                setCompingItemId(editingTicketItem.id);
+                                setCompReasonTemp(compMeta?.comped_items?.[editingTicketItem.id] || "");
+                                setShowCompModal(true);
+                            } else {
+                                // If it's a new item, we need an ID to track the comp.
+                                // But handleAddToOrder generates a UUID.
+                                // The user specifically asked for comping when clicking on the PENCIL icon.
+                                // New items don't have a pencil icon until they are in the ticket.
+                                toast.error("Finish adding the item first, then edit it to comp.");
+                            }
+                        }}
+                    />
+                )
+            }
 
             {/* My Tickets Modal */}
-            {showMyTickets && (
-                <MyTicketsModal
-                    onClose={() => setShowMyTickets(false)}
-                    onSelectOrder={loadOrder}
-                />
-            )}
+            {
+                showMyTickets && (
+                    <MyTicketsModal
+                        onClose={() => setShowMyTickets(false)}
+                        onSelectOrder={loadOrder}
+                    />
+                )
+            }
 
             {/* Close Ticket Modal */}
-            {showCloseTicket && activeOrderId && (
-                <CloseTicketModal
-                    orderId={activeOrderId}
-                    tableNumber={tableNumber}
-                    orderType={orderType}
-                    subtotal={subtotal}
-                    tax={tax}
-                    total={total}
-                    onClose={() => setShowCloseTicket(false)}
-                    linkedCustomer={linkedCustomer}
-                    isOrderComped={isOrderComped}
-                    compMeta={compMeta}
-                    compReason={compReason}
-                />
-            )}
+            {
+                showCloseTicket && activeOrderId && (
+                    <CloseTicketModal
+                        orderId={activeOrderId}
+                        tableNumber={tableNumber}
+                        orderType={orderType}
+                        subtotal={subtotal}
+                        tax={tax}
+                        total={total}
+                        onClose={() => setShowCloseTicket(false)}
+                        linkedCustomer={linkedCustomer}
+                        isOrderComped={isOrderComped}
+                        compMeta={compMeta}
+                        compReason={compReason}
+                    />
+                )
+            }
 
-            {showSplitCheck && activeOrderId && (
-                <SplitCheckModal
-                    orderId={activeOrderId}
-                    items={orderItems}
-                    locationId={currentLocation?.id || ""}
-                    taxRate={taxRate}
-                    serverId={currentEmployee?.id}
-                    tableNumber={tableNumber}
-                    orderType={orderType}
-                    onClose={() => setShowSplitCheck(false)}
-                    onSuccess={() => {
-                        setOrderItems([]);
-                        setActiveOrderId(null);
-                        setTableNumber("5");
-                    }}
-                />
-            )}
+            {
+                showSplitCheck && activeOrderId && (
+                    <SplitCheckModal
+                        orderId={activeOrderId}
+                        items={orderItems}
+                        locationId={currentLocation?.id || ""}
+                        taxRate={taxRate}
+                        serverId={currentEmployee?.id}
+                        tableNumber={tableNumber}
+                        orderType={orderType}
+                        onClose={() => setShowSplitCheck(false)}
+                        onSuccess={() => {
+                            setOrderItems([]);
+                            setActiveOrderId(null);
+                            setTableNumber("5");
+                        }}
+                    />
+                )
+            }
 
             <LoyaltyModal
                 isOpen={showLoyaltyModal}
@@ -1118,30 +1122,8 @@ function OrdersPageContent() {
                 currentCustomer={linkedCustomer}
             />
 
-            <IssueGiftCardModal
-                isOpen={showIssueGiftCard}
-                onClose={() => setShowIssueGiftCard(false)}
-                locationId={currentLocation?.id || ""}
-                onComplete={(cardData: any) => {
-                    if (cardData) {
-                        setOrderItems([
-                            ...orderItems,
-                            {
-                                id: crypto.randomUUID(),
-                                menuItemId: "gift_card_issuance", // Not a real menu item ID, but used for tracking
-                                name: `Gift Card: ${cardData.card_number}`,
-                                price: cardData.original_balance,
-                                quantity: 1,
-                                notes: `Issued: ${cardData.card_number}`,
-                                modifiers: [],
-                                seatNumber: selectedSeat,
-                                status: 'sent',
-                                category_name: "Gift Cards"
-                            }
-                        ]);
-                    }
-                }}
-            />
+
+
 
 
             {/* Comp Confirmation Modal */}
@@ -1203,7 +1185,7 @@ function OrdersPageContent() {
                     </div>
                 </div>
             </Modal>
-        </div>
+        </div >
     );
 }
 
