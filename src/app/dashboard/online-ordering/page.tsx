@@ -4,9 +4,19 @@ import { useState, useEffect } from "react";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
-import { Loader2, Globe, QrCode, Copy, ExternalLink, Save, Upload, Palette, Truck } from "lucide-react";
+import { Loader2, Globe, QrCode, Copy, ExternalLink, Save, Upload, Palette, Truck, CalendarClock, Clock } from "lucide-react";
 import { ImageUpload } from "@/components/ui/image-upload";
 import QRCode from "react-qr-code";
+
+// Day labels for operating hours
+const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+interface OperatingHour {
+    day_of_week: number;
+    is_open: boolean;
+    open_time: string;
+    close_time: string;
+}
 
 export default function OnlineOrderingPage() {
     const { currentEmployee: profile, currentLocation } = useAppStore();
@@ -33,6 +43,17 @@ export default function OnlineOrderingPage() {
     // Validation
     const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
     const [slugError, setSlugError] = useState("");
+
+    // Online Reservations Settings
+    const [onlineReservationsEnabled, setOnlineReservationsEnabled] = useState(false);
+    const [minAdvanceHours, setMinAdvanceHours] = useState(1);
+    const [maxAdvanceDays, setMaxAdvanceDays] = useState(30);
+    const [timeSlotInterval, setTimeSlotInterval] = useState(15);
+    const [maxPartySizeOnline, setMaxPartySizeOnline] = useState(8);
+    const [pacingLimit, setPacingLimit] = useState<number | null>(null);
+    const [confirmationMessage, setConfirmationMessage] = useState('Thank you for your reservation! We look forward to seeing you.');
+    const [operatingHours, setOperatingHours] = useState<OperatingHour[]>([]);
+    const [savingReservations, setSavingReservations] = useState(false);
 
     useEffect(() => {
         if (!currentLocation?.id) return;
@@ -63,6 +84,47 @@ export default function OnlineOrderingPage() {
                 setDeliveryEnabled(data.delivery_enabled ?? false);
                 setDeliveryRadius(data.delivery_radius || 5.0);
                 setUberOrgId(data.uber_organization_id || "");
+            }
+
+            // Fetch reservation settings
+            const { data: resSettings } = await (supabase as any)
+                .from("reservation_settings")
+                .select("*")
+                .eq("location_id", currentLocation.id)
+                .single();
+
+            if (resSettings) {
+                setOnlineReservationsEnabled(resSettings.online_reservations_enabled ?? false);
+                setMinAdvanceHours(resSettings.min_advance_hours ?? 1);
+                setMaxAdvanceDays(resSettings.max_advance_days ?? 30);
+                setTimeSlotInterval(resSettings.time_slot_interval ?? 15);
+                setMaxPartySizeOnline(resSettings.max_party_size_online ?? 8);
+                setPacingLimit(resSettings.pacing_limit ?? null);
+                setConfirmationMessage(resSettings.confirmation_message ?? 'Thank you for your reservation!');
+            }
+
+            // Fetch operating hours
+            const { data: hours } = await (supabase as any)
+                .from("operating_hours")
+                .select("*")
+                .eq("location_id", currentLocation.id)
+                .order("day_of_week", { ascending: true });
+
+            if (hours && hours.length > 0) {
+                setOperatingHours(hours.map((h: any) => ({
+                    day_of_week: h.day_of_week,
+                    is_open: h.is_open,
+                    open_time: h.open_time?.substring(0, 5) || '11:00',
+                    close_time: h.close_time?.substring(0, 5) || '22:00'
+                })));
+            } else {
+                // Initialize default hours
+                setOperatingHours(DAYS_OF_WEEK.map((_, i) => ({
+                    day_of_week: i,
+                    is_open: true,
+                    open_time: '11:00',
+                    close_time: '22:00'
+                })));
             }
         } catch (error) {
             console.error("Error fetching settings:", error);
@@ -193,6 +255,62 @@ export default function OnlineOrderingPage() {
         };
 
         img.src = "data:image/svg+xml;base64," + btoa(svgData);
+    };
+
+    const handleSaveReservationSettings = async () => {
+        if (!currentLocation?.id) {
+            toast.error("No location selected");
+            return;
+        }
+
+        setSavingReservations(true);
+        try {
+            const supabase = createClient();
+
+            // Upsert reservation settings
+            const { error: resError } = await (supabase as any)
+                .from("reservation_settings")
+                .upsert({
+                    location_id: currentLocation.id,
+                    online_reservations_enabled: onlineReservationsEnabled,
+                    min_advance_hours: minAdvanceHours,
+                    max_advance_days: maxAdvanceDays,
+                    time_slot_interval: timeSlotInterval,
+                    max_party_size_online: maxPartySizeOnline,
+                    pacing_limit: pacingLimit,
+                    confirmation_message: confirmationMessage
+                }, { onConflict: 'location_id' });
+
+            if (resError) throw resError;
+
+            // Upsert operating hours
+            for (const hour of operatingHours) {
+                const { error: hourError } = await (supabase as any)
+                    .from("operating_hours")
+                    .upsert({
+                        location_id: currentLocation.id,
+                        day_of_week: hour.day_of_week,
+                        is_open: hour.is_open,
+                        open_time: hour.open_time + ':00',
+                        close_time: hour.close_time + ':00'
+                    }, { onConflict: 'location_id,day_of_week' });
+
+                if (hourError) throw hourError;
+            }
+
+            toast.success("Reservation settings saved!");
+        } catch (error) {
+            console.error("Error saving reservation settings:", error);
+            toast.error("Failed to save reservation settings");
+        } finally {
+            setSavingReservations(false);
+        }
+    };
+
+    const updateOperatingHour = (dayIndex: number, field: keyof OperatingHour, value: any) => {
+        setOperatingHours(prev => prev.map(h =>
+            h.day_of_week === dayIndex ? { ...h, [field]: value } : h
+        ));
     };
 
     const publicUrl = slug ? `https://hubplate.app/m/${slug}` : "";
@@ -343,6 +461,165 @@ export default function OnlineOrderingPage() {
                                 label="Upload Banner"
                             />
                         </div>
+                    </div>
+
+                    {/* Online Reservations Settings Card */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-500/10 rounded-lg">
+                                    <CalendarClock className="h-5 w-5 text-blue-500" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-100">Online Reservations</h2>
+                                    <p className="text-xs text-slate-500">Allow customers to book tables online</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setOnlineReservationsEnabled(!onlineReservationsEnabled)}
+                                className={`w-12 h-6 rounded-full transition-colors relative ${onlineReservationsEnabled ? 'bg-blue-500' : 'bg-slate-700'}`}
+                            >
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${onlineReservationsEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                        </div>
+
+                        {onlineReservationsEnabled && (
+                            <div className="space-y-6">
+                                {/* Operating Hours */}
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Clock className="h-4 w-4 text-slate-400" />
+                                        <label className="text-sm font-medium text-slate-300">Operating Hours</label>
+                                    </div>
+                                    <div className="space-y-2 bg-slate-950 rounded-lg p-3 border border-slate-800">
+                                        {operatingHours.map((hour) => (
+                                            <div key={hour.day_of_week} className="flex items-center gap-3">
+                                                <div className="w-20 text-sm text-slate-400">{DAYS_OF_WEEK[hour.day_of_week]}</div>
+                                                <button
+                                                    onClick={() => updateOperatingHour(hour.day_of_week, 'is_open', !hour.is_open)}
+                                                    className={`px-2 py-1 text-xs rounded ${hour.is_open ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}
+                                                >
+                                                    {hour.is_open ? 'Open' : 'Closed'}
+                                                </button>
+                                                {hour.is_open && (
+                                                    <>
+                                                        <input
+                                                            type="time"
+                                                            value={hour.open_time}
+                                                            onChange={(e) => updateOperatingHour(hour.day_of_week, 'open_time', e.target.value)}
+                                                            className="input text-xs py-1 px-2 w-24"
+                                                        />
+                                                        <span className="text-slate-500">to</span>
+                                                        <input
+                                                            type="time"
+                                                            value={hour.close_time}
+                                                            onChange={(e) => updateOperatingHour(hour.day_of_week, 'close_time', e.target.value)}
+                                                            className="input text-xs py-1 px-2 w-24"
+                                                        />
+                                                    </>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Reservation Settings */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-400 mb-2">Time Slot Interval</label>
+                                        <select
+                                            value={timeSlotInterval}
+                                            onChange={(e) => setTimeSlotInterval(parseInt(e.target.value))}
+                                            className="input w-full"
+                                        >
+                                            <option value={15}>15 minutes</option>
+                                            <option value={30}>30 minutes</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-400 mb-2">Max Party Size (Online)</label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={20}
+                                            value={maxPartySizeOnline}
+                                            onChange={(e) => setMaxPartySizeOnline(parseInt(e.target.value))}
+                                            className="input w-full"
+                                        />
+                                        <p className="text-xs text-slate-500 mt-1">Larger parties will see &quot;Call to Reserve&quot;</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-400 mb-2">Min Advance (Hours)</label>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={72}
+                                            value={minAdvanceHours}
+                                            onChange={(e) => setMinAdvanceHours(parseInt(e.target.value))}
+                                            className="input w-full"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-400 mb-2">Max Advance (Days)</label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={90}
+                                            value={maxAdvanceDays}
+                                            onChange={(e) => setMaxAdvanceDays(parseInt(e.target.value))}
+                                            className="input w-full"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-2">Pacing Limit (per time slot)</label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={50}
+                                            value={pacingLimit || ''}
+                                            onChange={(e) => setPacingLimit(e.target.value ? parseInt(e.target.value) : null)}
+                                            placeholder="No limit"
+                                            className="input w-32"
+                                        />
+                                        <span className="text-xs text-slate-500">Max new reservations per time slot (leave empty for no limit)</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-2">Confirmation Message</label>
+                                    <textarea
+                                        value={confirmationMessage}
+                                        onChange={(e) => setConfirmationMessage(e.target.value)}
+                                        rows={2}
+                                        className="input w-full"
+                                        placeholder="Thank you for your reservation!"
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={handleSaveReservationSettings}
+                                    disabled={savingReservations}
+                                    className="btn btn-primary w-full py-2.5 flex items-center justify-center gap-2"
+                                >
+                                    {savingReservations ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                    Save Reservation Settings
+                                </button>
+                            </div>
+                        )}
+
+                        {!onlineReservationsEnabled && (
+                            <div className="text-center py-6 bg-slate-950 rounded-lg border border-dashed border-slate-800">
+                                <CalendarClock className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+                                <p className="text-sm text-slate-400">Enable to allow customers to book tables online.</p>
+                                <p className="text-xs text-slate-600 mt-1">Integrates with your existing reservations system.</p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Delivery Settings Card */}

@@ -25,6 +25,8 @@ import {
     MapPin,
     Armchair,
     Pencil,
+    Globe,
+    UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -58,6 +60,8 @@ interface Reservation {
     party_size: number;
     special_accommodations: Record<string, any>;
     status: "pending" | "confirmed" | "seated" | "completed" | "cancelled" | "no_show";
+    source?: "phone" | "online" | "walk_in";
+    confirmation_code?: string | null;
     created_by: string | null;
     created_at: string;
     updated_at: string;
@@ -100,6 +104,28 @@ const StatusBadge = ({ status }: { status: string }) => {
     return (
         <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border capitalize", colors[status] || colors.pending)}>
             {status.replace("_", " ")}
+        </span>
+    );
+};
+
+// Source badge component
+const SourceBadge = ({ source }: { source?: string }) => {
+    if (!source || source === "phone") return null;
+
+    const colors: Record<string, string> = {
+        online: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+        walk_in: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    };
+
+    const icons: Record<string, React.ReactNode> = {
+        online: <Globe className="h-3 w-3" />,
+        walk_in: <UserPlus className="h-3 w-3" />,
+    };
+
+    return (
+        <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border capitalize flex items-center gap-1", colors[source] || "bg-slate-500/10 text-slate-400")}>
+            {icons[source]}
+            {source === "walk_in" ? "Walk-in" : source}
         </span>
     );
 };
@@ -832,6 +858,7 @@ export default function ReservationsPage() {
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-semibold">{res.customer_name}</span>
                                                     <StatusBadge status={res.status} />
+                                                    <SourceBadge source={res.source} />
                                                     {res.wants_loyalty_enrollment && (
                                                         <span title="Wants loyalty enrollment">
                                                             <Star className="h-3 w-3 text-yellow-400" />
@@ -852,6 +879,11 @@ export default function ReservationsPage() {
                                                         <span className="flex items-center gap-1">
                                                             <Table2 className="h-3 w-3" />
                                                             {res.tables.map((t) => t.label).join(", ")}
+                                                        </span>
+                                                    )}
+                                                    {res.confirmation_code && (
+                                                        <span className="flex items-center gap-1 text-purple-400 font-mono">
+                                                            #{res.confirmation_code}
                                                         </span>
                                                     )}
                                                 </div>

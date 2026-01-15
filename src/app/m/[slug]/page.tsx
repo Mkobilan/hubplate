@@ -86,6 +86,15 @@ export default async function GuestMenuPage({
     const { data: pricingRules } = await (supabase as any)
         .rpc("get_active_pricing_rules", { p_location_id: location.id });
 
+    // 5. Get Reservation Settings (for "Reserve a Table" button)
+    const { data: reservationSettings } = await (supabase as any)
+        .from("reservation_settings")
+        .select("online_reservations_enabled")
+        .eq("location_id", location.id)
+        .single();
+
+    const onlineReservationsEnabled = reservationSettings?.online_reservations_enabled ?? false;
+
     return (
         <PublicMenu
             items={finalItems}
@@ -97,6 +106,8 @@ export default async function GuestMenuPage({
             tableNumber={tableNumber}
             taxRate={location.tax_rate ?? 8.75}
             pricingRules={pricingRules || []}
+            onlineReservationsEnabled={onlineReservationsEnabled}
+            slug={slug}
         />
     );
 }

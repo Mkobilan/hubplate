@@ -11,7 +11,8 @@ import {
     Search,
     Loader2,
     Truck,
-    ShoppingBag
+    ShoppingBag,
+    CalendarClock
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { toast } from "react-hot-toast";
@@ -51,6 +52,8 @@ interface PublicMenuProps {
     deliveryEnabled?: boolean;
     locationAddress?: string | null;
     pricingRules?: PricingRule[];
+    onlineReservationsEnabled?: boolean;
+    slug?: string;
 }
 
 export default function PublicMenu({
@@ -62,7 +65,9 @@ export default function PublicMenu({
     taxRate,
     deliveryEnabled = false,
     locationAddress = "",
-    pricingRules = []
+    pricingRules = [],
+    onlineReservationsEnabled = false,
+    slug = ""
 }: PublicMenuProps) {
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [cartOpen, setCartOpen] = useState(false);
@@ -275,7 +280,7 @@ export default function PublicMenu({
             </div>
 
             {/* Happy Hour Banner */}
-            <div className="px-4 mb-8">
+            <div className="px-4 mb-4">
                 <div className="bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-2xl p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-orange-500/20 rounded-xl">
@@ -289,6 +294,32 @@ export default function PublicMenu({
                     <ChevronRight className="w-4 h-4 text-orange-500/50" />
                 </div>
             </div>
+
+            {/* Reserve a Table Button - Only show when not dining in and reservations enabled */}
+            {onlineReservationsEnabled && !tableNumber && slug && (
+                <div className="px-4 mb-8">
+                    <a
+                        href={`/m/${slug}/reserve`}
+                        className="w-full bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 rounded-2xl p-4 flex items-center justify-between hover:border-blue-500/40 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-500/20 rounded-xl">
+                                <CalendarClock className="w-5 h-5 text-blue-400" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-blue-100 text-sm">Reserve a Table</p>
+                                <p className="text-[10px] text-blue-200/60">Book your table online</p>
+                            </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-blue-500/50" />
+                    </a>
+                </div>
+            )}
+
+            {/* No Reserve Button spacing - only loyalty banner */}
+            {(!onlineReservationsEnabled || tableNumber || !slug) && (
+                <div className="mb-4" />
+            )}
 
             {/* Menu Items */}
             <div className="px-4 space-y-4">
