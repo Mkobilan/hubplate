@@ -72,7 +72,7 @@ interface AvailabilityRecord {
     end_time: string;
 }
 
-import { format, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import { Modal } from "@/components/ui/modal";
 import { useAppStore } from "@/stores";
 import { createClient } from "@/lib/supabase/client";
@@ -1752,58 +1752,68 @@ export default function StaffPage() {
                                 ) : availability.length > 0 ? (
                                     <div className="space-y-4">
                                         {(() => {
-                                            const recurring = availability.filter(a => !a.date);
-                                            const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-                                            const availableDays = recurring.filter(a => a.is_available);
+                                            const weekStart = startOfWeek(new Date());
+                                            const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-                                            // Check if "Open" - all 7 days available
-                                            const isOpen = [0, 1, 2, 3, 4, 5, 6].every(d =>
-                                                availableDays.some(a => a.day_of_week === d)
-                                            );
+                                            const effectiveAvailability = weekDays.map(date => {
+                                                const dateStr = format(date, "yyyy-MM-dd");
+                                                const dayOfWeek = date.getDay();
+
+                                                // 1. Check for specific date override
+                                                const override = availability.find(a => a.date === dateStr);
+                                                if (override) return { date, status: override };
+
+                                                // 2. Fall back to recurring pattern
+                                                const recurring = availability.find(a => !a.date && a.day_of_week === dayOfWeek);
+                                                return { date, status: recurring };
+                                            });
+
+                                            // Check if "Open" - all 7 days in effective week are available and have full coverage (simplified check)
+                                            const isOpen = effectiveAvailability.every(d => d.status?.is_available);
 
                                             if (isOpen) {
                                                 return (
                                                     <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-2xl text-center">
                                                         <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
                                                         <h3 className="text-xl font-bold text-white mb-1">Open Availability</h3>
-                                                        <p className="text-sm text-green-400/80">This employee is available all days</p>
+                                                        <p className="text-sm text-green-400/80">This employee has open availability this week</p>
                                                     </div>
                                                 );
                                             }
 
                                             return (
                                                 <div className="grid grid-cols-1 gap-2">
-                                                    {days.map((day, idx) => {
-                                                        const avail = recurring.find(a => a.day_of_week === idx);
-                                                        return (
-                                                            <div key={day} className={cn(
-                                                                "flex items-center justify-between p-3 rounded-xl border",
-                                                                avail?.is_available
-                                                                    ? "bg-slate-900/50 border-slate-800"
-                                                                    : "bg-red-500/5 border-red-500/10 opacity-50"
-                                                            )}>
-                                                                <span className="font-medium text-sm">{day}</span>
-                                                                {avail?.is_available ? (
-                                                                    <div className="flex items-center gap-2 text-xs font-mono text-orange-400">
-                                                                        <Clock className="h-3 w-3" />
-                                                                        <span>{avail.start_time.slice(0, 5)} - {avail.end_time.slice(0, 5)}</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-[10px] uppercase font-bold text-red-500">Unavailable</span>
-                                                                )}
+                                                    {effectiveAvailability.map(({ date, status }) => (
+                                                        <div key={date.toISOString()} className={cn(
+                                                            "flex items-center justify-between p-3 rounded-xl border",
+                                                            status?.is_available
+                                                                ? "bg-slate-900/50 border-slate-800"
+                                                                : "bg-red-500/5 border-red-500/10 opacity-50"
+                                                        )}>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium text-sm">{format(date, "EEEE")}</span>
+                                                                <span className="text-[10px] text-slate-500">{format(date, "MMM d")}</span>
                                                             </div>
-                                                        );
-                                                    })}
+                                                            {status?.is_available ? (
+                                                                <div className="flex items-center gap-2 text-xs font-mono text-orange-400">
+                                                                    <Clock className="h-3 w-3" />
+                                                                    <span>{status.start_time.slice(0, 5)} - {status.end_time.slice(0, 5)}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-[10px] uppercase font-bold text-red-500">Unavailable</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             );
                                         })()}
 
-                                        {availability.some(a => a.date) && (
+                                        {availability.some(a => a.date && new Date(a.date) > addDays(startOfWeek(new Date()), 6)) && (
                                             <div className="mt-6 pt-6 border-t border-slate-800">
-                                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-3 tracking-wider">Upcoming Overrides</p>
+                                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-3 tracking-wider">Future Overrides</p>
                                                 <div className="space-y-2">
                                                     {availability
-                                                        .filter(a => a.date && new Date(a.date!) >= new Date(new Date().setHours(0, 0, 0, 0)))
+                                                        .filter(a => a.date && new Date(a.date!) > addDays(startOfWeek(new Date()), 6))
                                                         .sort((a, b) => a.date!.localeCompare(b.date!))
                                                         .slice(0, 5)
                                                         .map(avail => (
