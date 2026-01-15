@@ -124,8 +124,8 @@ export async function POST(request: NextRequest) {
                 seating_maps!inner(location_id, is_active)
             `)
             .eq('seating_maps.location_id', locationId)
-            .eq('seating_maps.is_active', true)
-            .eq('is_active', true)
+            .filter('seating_maps.is_active', 'not.is', false) // Allow true or null
+            .filter('is_active', 'not.is', false) // Allow true or null
             .gte('capacity', parsedPartySize)
             .order('capacity', { ascending: true }); // Prefer smallest fitting table
 

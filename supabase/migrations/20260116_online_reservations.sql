@@ -305,8 +305,8 @@ DECLARE
     v_slot TIME;
     v_slot_end TIME;
     v_duration INTEGER;
+    v_interval INTEGER;
     v_available_count INTEGER;
-    v_min_time TIMESTAMPTZ;
     v_timezone TEXT;
 BEGIN
     -- Get reservation settings
@@ -318,7 +318,8 @@ BEGIN
         RETURN;
     END IF;
     
-    v_duration := v_settings.default_duration_minutes;
+    v_duration := COALESCE(v_settings.default_duration_minutes, 120);
+    v_interval := COALESCE(v_settings.time_slot_interval, 15);
     v_day_of_week := EXTRACT(DOW FROM p_date)::INTEGER;
     
     -- Get location timezone
@@ -339,27 +340,27 @@ BEGIN
     END IF;
     
     -- Generate slots from open_time to close_time
-    v_slot := v_operating_hours.open_time;
+    v_slot := COALESCE(v_operating_hours.open_time, '11:00:00'::TIME);
     
-    WHILE v_slot <= v_operating_hours.close_time - (v_duration || ' minutes')::INTERVAL LOOP
-        -- Skip slots in the past
-        -- We compare against the location's local time
-        IF (p_date + v_slot) < (NOW() AT TIME ZONE v_timezone + (v_settings.min_advance_hours || ' hours')::INTERVAL) THEN
-            v_slot := v_slot + (v_settings.time_slot_interval || ' minutes')::INTERVAL;
+    WHILE v_slot <= COALESCE(v_operating_hours.close_time, '22:00:00'::TIME) - (v_duration || ' minutes')::INTERVAL LOOP
+        -- Skip slots in the past (using location's local time)
+        IF (p_date + v_slot) < (NOW() AT TIME ZONE v_timezone + (COALESCE(v_settings.min_advance_hours, 1) || ' hours')::INTERVAL) THEN
+            v_slot := v_slot + (v_interval || ' minutes')::INTERVAL;
             CONTINUE;
         END IF;
         
         v_slot_end := v_slot + (v_duration || ' minutes')::INTERVAL;
         
         -- Count available tables for this slot
+        -- We relax the is_active check on the map to allow maps that haven't been explicitly deactivated
         SELECT COUNT(*) INTO v_available_count
         FROM public.seating_tables st
         JOIN public.seating_maps sm ON sm.id = st.map_id
         WHERE sm.location_id = p_location_id
-        AND sm.is_active = true
-        AND st.is_active = true
+        AND (sm.is_active IS NOT FALSE) -- Include maps that are true or NULL
+        AND (st.is_active IS NOT FALSE) -- Include tables that are true or NULL
         -- Broaden search to include anything with enough capacity
-        AND st.capacity >= p_party_size
+        AND (st.capacity >= p_party_size OR st.capacity IS NULL)
         AND NOT EXISTS (
             SELECT 1 FROM public.reservation_tables rt
             JOIN public.reservations r ON r.id = rt.reservation_id
@@ -367,14 +368,14 @@ BEGIN
             AND r.reservation_date = p_date
             AND r.status NOT IN ('cancelled', 'no_show', 'completed')
             AND (
-                (r.reservation_time, r.reservation_time + (r.duration_minutes || ' minutes')::INTERVAL)
+                (r.reservation_time, r.reservation_time + (COALESCE(r.duration_minutes, v_duration) || ' minutes')::INTERVAL)
                 OVERLAPS
                 (v_slot, v_slot_end)
             )
         );
         
         -- Check pacing limit
-        IF v_settings.pacing_limit IS NOT NULL THEN
+        IF v_settings.pacing_limit IS NOT NULL AND v_settings.pacing_limit > 0 THEN
             DECLARE
                 v_slot_count INTEGER;
             BEGIN
@@ -397,7 +398,7 @@ BEGIN
             RETURN NEXT;
         END IF;
         
-        v_slot := v_slot + (v_settings.time_slot_interval || ' minutes')::INTERVAL;
+        v_slot := v_slot + (v_interval || ' minutes')::INTERVAL;
     END LOOP;
     
     RETURN;
