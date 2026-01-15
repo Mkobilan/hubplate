@@ -1,6 +1,6 @@
-// API route for creating a public reservation
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getResendClient, RESEND_FROM_EMAIL } from '@/lib/resend';
 
 // Use service role to bypass RLS
 const supabaseAdmin = createClient(
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         // Verify location and settings
         const { data: location, error: locationError } = await supabaseAdmin
             .from('locations')
-            .select('id, name, ordering_enabled')
+            .select('id, name, address, ordering_enabled')
             .eq('id', locationId)
             .single();
 
@@ -301,6 +301,91 @@ export async function POST(request: NextRequest) {
                 }
             } catch (loyaltyErr) {
                 console.error('Loyalty enrollment error (non-blocking):', loyaltyErr);
+            }
+        }
+
+        // --- SEND CONFIRMATION EMAIL ---
+        if (customerEmail?.trim()) {
+            try {
+                const resend = getResendClient();
+                if (resend) {
+                    const restaurantName = location.name || 'HubPlate Restaurant';
+                    const subject = `Reservation Confirmed: ${restaurantName}`;
+                    const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+
+                    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; }
+    .header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #f97316; }
+    .content { padding: 20px 0; }
+    .conf-code { font-size: 24px; font-weight: bold; color: #f97316; text-align: center; margin: 20px 0; padding: 10px; background: #fff7ed; border: 1px dashed #f97316; }
+    .footer { font-size: 12px; color: #666; text-align: center; padding-top: 20px; }
+    .details { background: #f9fafb; padding: 15px; border-radius: 8px; margin: 15px 0; }
+    .label { font-weight: bold; color: #666; width: 100px; display: inline-block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Reservation Confirmed</h1>
+      <p>at ${restaurantName}</p>
+    </div>
+    <div class="content">
+      <p>Hi ${customerName},</p>
+      <p>Your table is all set! We look forward to serving you.</p>
+      
+      <div class="conf-code">
+        CONFIRMATION: ${confirmationCode}
+      </div>
+      
+      <div class="details">
+        <div><span class="label">Date:</span> ${formattedDate}</div>
+        <div><span class="label">Time:</span> ${time.substring(0, 5)}</div>
+        <div><span class="label">Guests:</span> ${parsedPartySize}</div>
+        ${location.address ? `<div><span class="label">Location:</span> ${location.address}</div>` : ''}
+        ${specialRequests?.occasion ? `<div><span class="label">Occasion:</span> ${specialRequests.occasion}</div>` : ''}
+        ${specialRequests?.allergies ? `<div><span class="label">Allergies:</span> ${specialRequests.allergies}</div>` : ''}
+        ${specialRequests?.highChair ? `<div><span class="label">Requests:</span> High Chair Needed</div>` : ''}
+        ${specialRequests?.wheelchair ? `<div><span class="label">Requests:</span> Wheelchair Access</div>` : ''}
+      </div>
+      
+      <p>${settings.confirmation_message || 'Thank you for your reservation!'}</p>
+    </div>
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} ${restaurantName} • Powered by HubPlate</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+                    const { error: emailError } = await resend.emails.send({
+                        from: `${restaurantName} <${RESEND_FROM_EMAIL}>`,
+                        to: customerEmail.trim(),
+                        subject: subject,
+                        html: htmlContent,
+                    });
+
+                    if (emailError) {
+                        console.error('Resend error:', emailError);
+                    } else {
+                        // Mark as sent
+                        await supabaseAdmin
+                            .from('reservations')
+                            .update({ confirmation_sent_at: new Date().toISOString() })
+                            .eq('id', reservation.id);
+                    }
+                }
+            } catch (emailErr) {
+                console.error('Non-blocking email error:', emailErr);
             }
         }
 
