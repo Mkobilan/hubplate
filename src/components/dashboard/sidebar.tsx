@@ -31,8 +31,10 @@ import {
     Hourglass,
     Coins,
     Globe,
-    History
+    History,
+    Gift
 } from "lucide-react";
+
 import { useAppStore } from "@/stores";
 import { ClockInOut } from "./clock-in";
 import { NotificationBell } from "./notifications/NotificationBell";
@@ -195,10 +197,17 @@ export function DashboardSidebar() {
             requiresManager: true,
         },
         {
+            href: "/dashboard/settings/gift-cards",
+            icon: <Gift className="h-5 w-5" />,
+            label: "Gift Cards",
+            requiresManager: true,
+        },
+        {
             href: "/dashboard/settings",
             icon: <Settings className="h-5 w-5" />,
             label: t("nav.settings"),
         },
+
     ];
 
 

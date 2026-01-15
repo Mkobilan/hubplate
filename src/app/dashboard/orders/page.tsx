@@ -20,8 +20,13 @@ import {
     Zap,
     TrendingUp,
     Star,
-    UserPlus
+    UserPlus,
+    Gift
 } from "lucide-react";
+
+
+import { IssueGiftCardModal } from "@/components/dashboard/settings/IssueGiftCardModal";
+
 import { processOrderPours } from "@/lib/pours";
 import { cn, formatCurrency } from "@/lib/utils";
 import { MenuItemType, OrderItem, PricingRule } from "@/types/pos";
@@ -56,7 +61,9 @@ function OrdersPageContent() {
     const [showCloseTicket, setShowCloseTicket] = useState(false);
     const [showSplitCheck, setShowSplitCheck] = useState(false);
     const [showLoyaltyModal, setShowLoyaltyModal] = useState(false);
+    const [showIssueGiftCard, setShowIssueGiftCard] = useState(false);
     const [linkedCustomer, setLinkedCustomer] = useState<any | null>(null);
+
     const [discount, setDiscount] = useState(0);
     const [pointsRedeemed, setPointsRedeemed] = useState(0);
     const [selectedSeat, setSelectedSeat] = useState(1);
@@ -784,7 +791,16 @@ function OrdersPageContent() {
                                 >
                                     My Tickets
                                 </button>
+                                <button
+                                    onClick={() => setShowIssueGiftCard(true)}
+                                    className="btn btn-primary bg-purple-600 hover:bg-purple-700 border-none text-xs py-0.5 px-2"
+                                    title="Sell a new gift card"
+                                >
+                                    <Gift className="h-3.5 w-3.5" />
+                                    Sell GC
+                                </button>
                                 <div className="flex items-center gap-1 text-xs text-slate-400">
+
                                     <Clock className="h-3 w-3" />
                                     <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
@@ -1101,6 +1117,32 @@ function OrdersPageContent() {
                 }}
                 currentCustomer={linkedCustomer}
             />
+
+            <IssueGiftCardModal
+                isOpen={showIssueGiftCard}
+                onClose={() => setShowIssueGiftCard(false)}
+                locationId={currentLocation?.id || ""}
+                onComplete={(cardData: any) => {
+                    if (cardData) {
+                        setOrderItems([
+                            ...orderItems,
+                            {
+                                id: crypto.randomUUID(),
+                                menuItemId: "gift_card_issuance", // Not a real menu item ID, but used for tracking
+                                name: `Gift Card: ${cardData.card_number}`,
+                                price: cardData.original_balance,
+                                quantity: 1,
+                                notes: `Issued: ${cardData.card_number}`,
+                                modifiers: [],
+                                seatNumber: selectedSeat,
+                                status: 'sent',
+                                category_name: "Gift Cards"
+                            }
+                        ]);
+                    }
+                }}
+            />
+
 
             {/* Comp Confirmation Modal */}
             <Modal

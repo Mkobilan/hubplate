@@ -18,8 +18,9 @@ interface IssueGiftCardModalProps {
     isOpen: boolean;
     onClose: () => void;
     locationId: string;
-    onComplete: () => void;
+    onComplete: (data?: any) => void;
 }
+
 
 export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: IssueGiftCardModalProps) {
     const [loading, setLoading] = useState(false);
@@ -67,8 +68,10 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
             }
 
             toast.success(`${type === "physical" ? "Gift card" : "Digital code"} issued successfully`);
-            onComplete();
+            const responseData = await response.json();
+            onComplete(responseData.data);
             onClose();
+
             // Reset form
             setCardNumber("");
             setAmount("");
@@ -95,8 +98,8 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
                             setCardNumber("");
                         }}
                         className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${type === "physical"
-                                ? "border-orange-500 bg-orange-500/10 text-orange-500"
-                                : "border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700"
+                            ? "border-orange-500 bg-orange-500/10 text-orange-500"
+                            : "border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700"
                             }`}
                     >
                         <CreditCard className="h-6 w-6" />
@@ -108,8 +111,8 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
                             if (!cardNumber) generateRandomCode();
                         }}
                         className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${type === "digital"
-                                ? "border-orange-500 bg-orange-500/10 text-orange-500"
-                                : "border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700"
+                            ? "border-orange-500 bg-orange-500/10 text-orange-500"
+                            : "border-slate-800 bg-slate-900/50 text-slate-500 hover:border-slate-700"
                             }`}
                     >
                         <Smartphone className="h-6 w-6" />
