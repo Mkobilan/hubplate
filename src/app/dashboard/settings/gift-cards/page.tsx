@@ -18,6 +18,7 @@ import {
     Smartphone
 } from "lucide-react";
 
+import { formatCurrency } from "@/lib/utils";
 import { toast } from "react-hot-toast";
 import { GiftCardUploadModal } from "@/components/dashboard/settings/GiftCardUploadModal";
 import { IssueGiftCardModal } from "@/components/dashboard/settings/IssueGiftCardModal";
