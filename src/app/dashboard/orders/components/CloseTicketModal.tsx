@@ -378,6 +378,7 @@ export default function CloseTicketModal({
                     total: finalTotal,
                     status: "completed",
                     completed_at: new Date().toISOString(),
+                    paid_at: new Date().toISOString(),
                     is_comped: isOrderComped,
                     comp_meta: compMeta,
                     comp_reason: compReason
@@ -408,6 +409,7 @@ export default function CloseTicketModal({
                     total: total + tip,
                     status: "completed",
                     completed_at: new Date().toISOString(),
+                    paid_at: new Date().toISOString(),
                     is_comped: isOrderComped,
                     comp_meta: compMeta,
                     comp_reason: compReason
@@ -479,6 +481,7 @@ export default function CloseTicketModal({
                         total: totalToPay,
                         status: "completed",
                         completed_at: new Date().toISOString(),
+                        paid_at: new Date().toISOString(),
                         is_comped: isOrderComped,
                         comp_meta: compMeta,
                         comp_reason: compReason

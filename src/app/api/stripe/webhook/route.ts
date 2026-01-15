@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
                             status: newStatus,
                             items: updatedItems,
                             stripe_payment_intent_id: paymentIntent.id,
-                            completed_at: new Date().toISOString()
+                            completed_at: new Date().toISOString(),
+                            paid_at: new Date().toISOString()
                         })
                         .eq('id', orderId)
                         .select()
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
                     if (customerId || customerPhone || customerEmail) {
                         // Standardize phone
                         if (customerPhone) customerPhone = customerPhone.replace(/\D/g, '');
-                        
+
                         // 1. Get Earning Rate
                         const { data: program } = await (supabaseAdmin
                             .from('loyalty_programs') as any)
@@ -185,7 +186,7 @@ export async function POST(request: NextRequest) {
 
                         // 2. Find Customer (Try ID first, then phone, then email)
                         let customer: any = null;
-                        
+
                         if (customerId) {
                             const { data } = await supabaseAdmin.from('customers').select('*').eq('id', customerId).maybeSingle();
                             customer = data;
@@ -195,7 +196,7 @@ export async function POST(request: NextRequest) {
                             // Search by phone - try location first, then global fallback
                             const { data: locMatch } = await (supabaseAdmin.from('customers') as any)
                                 .select('*').eq('location_id', currentOrder.location_id).eq('phone', customerPhone).maybeSingle();
-                            
+
                             if (locMatch) {
                                 customer = locMatch;
                             } else {
@@ -208,7 +209,7 @@ export async function POST(request: NextRequest) {
                         if (!customer && customerEmail) {
                             const { data: locMatch } = await (supabaseAdmin.from('customers') as any)
                                 .select('*').eq('location_id', currentOrder.location_id).eq('email', customerEmail).maybeSingle();
-                            
+
                             if (locMatch) {
                                 customer = locMatch;
                             } else {
@@ -240,7 +241,7 @@ export async function POST(request: NextRequest) {
                             } else {
                                 console.log(`SUCCESS: Updated loyalty for customer ${customer.id}: +${pointsEarned} earned, -${pointsRedeemed} redeemed. New Balance: ${newPointBalance}`);
                             }
-                            
+
                             // Also ensure the order is definitely linked to this customer ID if it wasn't already
                             if (!currentOrder.customer_id) {
                                 await supabaseAdmin.from('orders').update({ customer_id: customer.id }).eq('id', orderId);

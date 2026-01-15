@@ -395,7 +395,8 @@ export default function SeatMapViewer() {
                 .update({
                     status: 'completed',
                     payment_status: 'paid',
-                    completed_at: new Date().toISOString()
+                    completed_at: new Date().toISOString(),
+                    paid_at: new Date().toISOString()
                 })
                 .eq('id', orderId);
 

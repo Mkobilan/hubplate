@@ -101,7 +101,8 @@ export async function POST(request: NextRequest) {
                             payment_status: 'paid',
                             status: 'completed',
                             payment_method: 'card',
-                            completed_at: new Date().toISOString()
+                            completed_at: new Date().toISOString(),
+                            paid_at: new Date().toISOString()
                         })
                         .eq('id', orderId);
                     return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
