@@ -23,6 +23,7 @@ import {
     Users,
     Copy,
     ExternalLink,
+    CheckCircle2,
     Loader2,
     AlertCircle,
     UserX,
@@ -59,6 +60,17 @@ type Employee = {
 };
 
 const ROLES = ["server", "bartender", "cook", "host", "busser", "dishwasher", "driver", "expo", "agm", "manager", "owner"];
+
+interface AvailabilityRecord {
+    id: string;
+    employee_id: string;
+    organization_id: string;
+    date: string | null;
+    day_of_week: number | null;
+    is_available: boolean;
+    start_time: string;
+    end_time: string;
+}
 
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { Modal } from "@/components/ui/modal";
@@ -114,7 +126,9 @@ export default function StaffPage() {
     // Staff Detail & Timeclock State
     const [selectedStaff, setSelectedStaff] = useState<Employee | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<"info" | "timeclock">("info");
+    const [activeTab, setActiveTab] = useState<"info" | "timeclock" | "availability">("info");
+    const [availability, setAvailability] = useState<AvailabilityRecord[]>([]);
+    const [availabilityLoading, setAvailabilityLoading] = useState(false);
     const [timeEntries, setTimeEntries] = useState<any[]>([]);
     const [timeLoading, setTimeLoading] = useState(false);
     const [timeFilter, setTimeFilter] = useState({
@@ -429,9 +443,29 @@ export default function StaffPage() {
         }
     };
 
+    const fetchAvailability = async (employeeId: string) => {
+        try {
+            setAvailabilityLoading(true);
+            const supabase = createClient();
+
+            const { data, error } = await supabase
+                .from("availability")
+                .select("*")
+                .eq("employee_id", employeeId);
+
+            if (error) throw error;
+            setAvailability(data || []);
+        } catch (err) {
+            console.error("Error fetching availability:", err);
+        } finally {
+            setAvailabilityLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (isDetailModalOpen && selectedStaff) {
             fetchTimeEntries(selectedStaff.id);
+            fetchAvailability(selectedStaff.id);
         }
     }, [isDetailModalOpen, selectedStaff?.id, timeFilter]);
 
@@ -849,7 +883,7 @@ export default function StaffPage() {
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-lg">Generate Invite Link</h3>
-                                        <p className="text-slate-400 text-sm">Send a signup link to the employee's email</p>
+                                        <p className="text-slate-400 text-sm">Send a signup link to the employee&apos;s email</p>
                                     </div>
                                     <ChevronRight className="h-5 w-5 text-slate-600 ml-auto" />
                                 </button>
@@ -1132,7 +1166,7 @@ export default function StaffPage() {
                             <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-2xl flex gap-3">
                                 <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
                                 <p className="text-xs text-slate-400 leading-relaxed">
-                                    This will discontinue the user's access to the app immediately. All employee data, wages, and history will remain intact for tax and reporting purposes.
+                                    This will discontinue the user&apos;s access to the app immediately. All employee data, wages, and history will remain intact for tax and reporting purposes.
                                 </p>
                             </div>
 
@@ -1186,6 +1220,15 @@ export default function StaffPage() {
                                 )}
                             >
                                 Timeclock
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("availability")}
+                                className={cn(
+                                    "px-4 py-2 text-sm font-medium transition-colors border-b-2",
+                                    activeTab === "availability" ? "border-orange-500 text-orange-400" : "border-transparent text-slate-400 hover:text-slate-200"
+                                )}
+                            >
+                                Availability
                             </button>
                         </div>
 
@@ -1581,7 +1624,7 @@ export default function StaffPage() {
                                     </div>
                                 </div>
                             </div>
-                        ) : (
+                        ) : activeTab === "timeclock" ? (
                             <div className="space-y-4">
                                 <div className="flex flex-col sm:flex-row justify-between gap-4">
                                     <div className="flex gap-2">
@@ -1699,6 +1742,88 @@ export default function StaffPage() {
                                     </table>
                                 </div>
                             </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {availabilityLoading ? (
+                                    <div className="py-12 text-center text-slate-500">
+                                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 opacity-20" />
+                                        <p>Fetching availability...</p>
+                                    </div>
+                                ) : availability.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {(() => {
+                                            const recurring = availability.filter(a => !a.date);
+                                            const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                                            const availableDays = recurring.filter(a => a.is_available);
+
+                                            // Check if "Open" - all 7 days available
+                                            const isOpen = [0, 1, 2, 3, 4, 5, 6].every(d =>
+                                                availableDays.some(a => a.day_of_week === d)
+                                            );
+
+                                            if (isOpen) {
+                                                return (
+                                                    <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-2xl text-center">
+                                                        <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                                                        <h3 className="text-xl font-bold text-white mb-1">Open Availability</h3>
+                                                        <p className="text-sm text-green-400/80">This employee is available all days</p>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {days.map((day, idx) => {
+                                                        const avail = recurring.find(a => a.day_of_week === idx);
+                                                        return (
+                                                            <div key={day} className={cn(
+                                                                "flex items-center justify-between p-3 rounded-xl border",
+                                                                avail?.is_available
+                                                                    ? "bg-slate-900/50 border-slate-800"
+                                                                    : "bg-red-500/5 border-red-500/10 opacity-50"
+                                                            )}>
+                                                                <span className="font-medium text-sm">{day}</span>
+                                                                {avail?.is_available ? (
+                                                                    <div className="flex items-center gap-2 text-xs font-mono text-orange-400">
+                                                                        <Clock className="h-3 w-3" />
+                                                                        <span>{avail.start_time.slice(0, 5)} - {avail.end_time.slice(0, 5)}</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-[10px] uppercase font-bold text-red-500">Unavailable</span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        })()}
+
+                                        {availability.some(a => a.date) && (
+                                            <div className="mt-6 pt-6 border-t border-slate-800">
+                                                <p className="text-[10px] uppercase font-bold text-slate-500 mb-3 tracking-wider">Upcoming Overrides</p>
+                                                <div className="space-y-2">
+                                                    {availability
+                                                        .filter(a => a.date && new Date(a.date!) >= new Date(new Date().setHours(0, 0, 0, 0)))
+                                                        .sort((a, b) => a.date!.localeCompare(b.date!))
+                                                        .slice(0, 5)
+                                                        .map(avail => (
+                                                            <div key={avail.id} className="flex items-center justify-between p-2 rounded-lg bg-orange-500/5 border border-orange-500/10 text-xs text-orange-400">
+                                                                <span>{format(new Date(avail.date!), "MMM d, yyyy")}</span>
+                                                                <span>{avail.is_available ? `${avail.start_time.slice(0, 5)} - ${avail.end_time.slice(0, 5)}` : "Unavailable"}</span>
+                                                            </div>
+                                                        ))
+                                                    }
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="py-12 text-center text-slate-500">
+                                        <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                                        <p>No availability rules set for this employee.</p>
+                                    </div>
+                                )}
+                            </div>
                         )}
 
                         <div className="pt-4 flex gap-3">
@@ -1711,10 +1836,10 @@ export default function StaffPage() {
                         </div>
                     </div>
                 )}
-            </Modal>
+            </Modal >
 
             {/* Time Entry Edit Modal */}
-            <Modal
+            < Modal
                 isOpen={isEditEntryModalOpen}
                 onClose={() => setIsEditEntryModalOpen(false)}
                 title={editingEntry ? "Edit Time Entry" : "Add Manual Time Entry"}
@@ -1783,7 +1908,7 @@ export default function StaffPage() {
             </Modal >
 
             {/* CSV Upload Modal */}
-            <CSVUploadModal
+            < CSVUploadModal
                 isOpen={showCSVModal}
                 onClose={() => setShowCSVModal(false)}
                 locationId={currentLocation.id}
