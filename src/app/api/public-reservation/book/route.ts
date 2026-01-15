@@ -121,11 +121,11 @@ export async function POST(request: NextRequest) {
                 id,
                 label,
                 capacity,
-                seating_maps!inner(location_id)
+                seating_maps!inner(location_id, is_active)
             `)
             .eq('seating_maps.location_id', locationId)
+            .eq('seating_maps.is_active', true)
             .eq('is_active', true)
-            .or('object_type.is.null,object_type.eq.table')
             .gte('capacity', parsedPartySize)
             .order('capacity', { ascending: true }); // Prefer smallest fitting table
 

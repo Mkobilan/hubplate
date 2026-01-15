@@ -172,6 +172,19 @@ CREATE INDEX IF NOT EXISTS idx_reservations_source ON public.reservations(source
 -- PUBLIC ACCESS POLICIES FOR ONLINE RESERVATIONS
 -- ============================================
 
+-- Public can view seating_maps (needed for tables join)
+DROP POLICY IF EXISTS "Public can view seating maps for enabled locations" ON public.seating_maps;
+CREATE POLICY "Public can view seating maps for enabled locations"
+ON public.seating_maps FOR SELECT
+TO anon
+USING (
+    EXISTS (
+        SELECT 1 FROM public.locations
+        WHERE locations.id = seating_maps.location_id
+        AND locations.ordering_enabled = true
+    )
+);
+
 -- Public can view reservation_settings for enabled locations (for the widget)
 DROP POLICY IF EXISTS "Public can view reservation settings for enabled locations" ON public.reservation_settings;
 CREATE POLICY "Public can view reservation settings for enabled locations"
@@ -227,6 +240,33 @@ USING (
     )
 );
 
+-- Public can make reservations
+DROP POLICY IF EXISTS "Public can create reservations" ON public.reservations;
+CREATE POLICY "Public can create reservations"
+ON public.reservations FOR INSERT
+TO anon
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.locations
+        WHERE locations.id = reservations.location_id
+        AND locations.ordering_enabled = true
+    )
+);
+
+-- Public can link tables to their reservations
+DROP POLICY IF EXISTS "Public can assign tables to reservations" ON public.reservation_tables;
+CREATE POLICY "Public can assign tables to reservations"
+ON public.reservation_tables FOR INSERT
+TO anon
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.reservations r
+        JOIN public.locations l ON l.id = r.location_id
+        WHERE r.id = reservation_tables.reservation_id
+        AND l.ordering_enabled = true
+    )
+);
+
 -- ============================================
 -- HELPER FUNCTION: Generate Confirmation Code
 -- ============================================
@@ -267,6 +307,7 @@ DECLARE
     v_duration INTEGER;
     v_available_count INTEGER;
     v_min_time TIMESTAMPTZ;
+    v_timezone TEXT;
 BEGIN
     -- Get reservation settings
     SELECT * INTO v_settings
@@ -280,6 +321,13 @@ BEGIN
     v_duration := v_settings.default_duration_minutes;
     v_day_of_week := EXTRACT(DOW FROM p_date)::INTEGER;
     
+    -- Get location timezone
+    SELECT timezone INTO v_timezone
+    FROM public.locations
+    WHERE id = p_location_id;
+    
+    v_timezone := COALESCE(v_timezone, 'UTC');
+    
     -- Get operating hours for this day
     SELECT * INTO v_operating_hours
     FROM public.operating_hours
@@ -290,15 +338,13 @@ BEGIN
         RETURN;
     END IF;
     
-    -- Calculate minimum booking time (now + min_advance_hours)
-    v_min_time := NOW() + (v_settings.min_advance_hours || ' hours')::INTERVAL;
-    
     -- Generate slots from open_time to close_time
     v_slot := v_operating_hours.open_time;
     
     WHILE v_slot <= v_operating_hours.close_time - (v_duration || ' minutes')::INTERVAL LOOP
         -- Skip slots in the past
-        IF p_date = CURRENT_DATE AND (p_date + v_slot) < v_min_time THEN
+        -- We compare against the location's local time
+        IF (p_date + v_slot) < (NOW() AT TIME ZONE v_timezone + (v_settings.min_advance_hours || ' hours')::INTERVAL) THEN
             v_slot := v_slot + (v_settings.time_slot_interval || ' minutes')::INTERVAL;
             CONTINUE;
         END IF;
@@ -310,8 +356,9 @@ BEGIN
         FROM public.seating_tables st
         JOIN public.seating_maps sm ON sm.id = st.map_id
         WHERE sm.location_id = p_location_id
+        AND sm.is_active = true
         AND st.is_active = true
-        AND (st.object_type IS NULL OR st.object_type = 'table')
+        -- Broaden search to include anything with enough capacity
         AND st.capacity >= p_party_size
         AND NOT EXISTS (
             SELECT 1 FROM public.reservation_tables rt
