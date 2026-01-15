@@ -18,10 +18,11 @@ import {
     Smartphone
 } from "lucide-react";
 
-import { formatCurrency } from "@/lib/utils";
 import { toast } from "react-hot-toast";
 import { GiftCardUploadModal } from "@/components/dashboard/settings/GiftCardUploadModal";
 import { IssueGiftCardModal } from "@/components/dashboard/settings/IssueGiftCardModal";
+import { EmailGiftCardModal } from "@/components/dashboard/settings/EmailGiftCardModal";
+import { Mail, Trash2 } from "lucide-react";
 
 
 export default function GiftCardsPage() {
@@ -31,6 +32,9 @@ export default function GiftCardsPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showIssueModal, setShowIssueModal] = useState(false);
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [selectedCard, setSelectedCard] = useState<any>(null);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
 
     const fetchGiftCards = async () => {
@@ -57,8 +61,14 @@ export default function GiftCardsPage() {
         fetchGiftCards();
     }, [currentLocation?.id]);
 
+    useEffect(() => {
+        const handleClickOutside = () => setOpenMenuId(null);
+        window.addEventListener("click", handleClickOutside);
+        return () => window.removeEventListener("click", handleClickOutside);
+    }, []);
+
     const filteredCards = giftCards.filter(card =>
-        card.card_number.includes(searchQuery)
+        card.card_number.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (!currentLocation) return null;
@@ -126,7 +136,29 @@ export default function GiftCardsPage() {
                     <Filter className="h-4 w-4" />
                     Filters
                 </button>
-                <button className="btn btn-secondary">
+                <button className="btn btn-secondary" onClick={() => {
+                    // Export to CSV
+                    const headers = ["Card Number", "Status", "Balance", "Original Balance", "Created At"];
+                    const csv = [
+                        headers.join(","),
+                        ...giftCards.map(c => [
+                            c.card_number,
+                            c.is_active ? "Active" : "Inactive",
+                            c.current_balance,
+                            c.original_balance,
+                            c.created_at
+                        ].join(","))
+                    ].join("\n");
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('hidden', '');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', 'gift_cards.csv');
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }}>
                     <Download className="h-4 w-4" />
                     Export
                 </button>
@@ -134,86 +166,133 @@ export default function GiftCardsPage() {
 
             {/* Table */}
             <div className="card overflow-hidden">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-900/50">
-                            <th className="px-4 py-3">Card Number</th>
-                            <th className="px-4 py-3">Status</th>
-                            <th className="px-4 py-3">Type</th>
-                            <th className="px-4 py-3">Balance</th>
-                            <th className="px-4 py-3">Original</th>
-                            <th className="px-4 py-3">Last Used</th>
-                            <th className="px-4 py-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800">
-                        {loading ? (
-                            <tr>
-                                <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
-                                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                                    Loading gift cards...
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-900/50">
+                                <th className="px-4 py-3">Card Number</th>
+                                <th className="px-4 py-3">Status</th>
+                                <th className="px-4 py-3">Type</th>
+                                <th className="px-4 py-3">Balance</th>
+                                <th className="px-4 py-3 text-slate-600">Original</th>
+                                <th className="px-4 py-3">Last Used</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
                             </tr>
-                        ) : filteredCards.length > 0 ? (
-                            filteredCards.map((card) => (
-                                <tr key={card.id} className="hover:bg-slate-900/40 transition-colors group">
-                                    <td className="px-4 py-3 font-mono font-bold tracking-widest text-orange-400">
-                                        **** **** **** {card.card_number.slice(-4)}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {card.is_active ? (
-                                            <span className="badge bg-green-500/10 text-green-500 border-none flex items-center gap-1 w-fit">
-                                                <CheckCircle2 className="h-3 w-3" />
-                                                Active
-                                            </span>
-                                        ) : (
-                                            <span className="badge bg-red-500/10 text-red-500 border-none flex items-center gap-1 w-fit">
-                                                <XCircle className="h-3 w-3" />
-                                                Inactive
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {card.metadata?.is_digital ? (
-                                            <span className="badge bg-purple-500/10 text-purple-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
-                                                <Smartphone className="h-3 w-3" />
-                                                Digital
-                                            </span>
-                                        ) : (
-                                            <span className="badge bg-slate-500/10 text-slate-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
-                                                <CreditCard className="h-3 w-3" />
-                                                Physical
-                                            </span>
-                                        )}
-                                    </td>
-
-                                    <td className="px-4 py-3 font-bold">{formatCurrency(card.current_balance)}</td>
-                                    <td className="px-4 py-3 text-slate-500">{formatCurrency(card.original_balance)}</td>
-                                    <td className="px-4 py-3 text-sm text-slate-400">
-                                        {card.last_used_at ? new Date(card.last_used_at).toLocaleDateString() : "Never"}
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                        <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors">
-                                            <MoreVertical className="h-4 w-4" />
-                                        </button>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                                        Loading gift cards...
                                     </td>
                                 </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan={6} className="px-4 py-20 text-center">
-                                    <div className="max-w-xs mx-auto space-y-4">
-                                        <CreditCard className="h-12 w-12 text-slate-700 mx-auto" />
-                                        <div>
-                                            <h3 className="font-bold">No gift cards found</h3>
-                                            <p className="text-sm text-slate-500">Issue a new card or migrate existing ones to get started.</p>
+                            ) : filteredCards.length > 0 ? (
+                                filteredCards.map((card) => (
+                                    <tr key={card.id} className="hover:bg-slate-900/40 transition-colors group">
+                                        <td className="px-4 py-3 font-mono font-bold tracking-widest text-orange-400">
+                                            **** **** **** {card.card_number.slice(-4)}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {card.is_active ? (
+                                                <span className="badge bg-green-500/10 text-green-500 border-none flex items-center gap-1 w-fit">
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    Active
+                                                </span>
+                                            ) : (
+                                                <span className="badge bg-red-500/10 text-red-500 border-none flex items-center gap-1 w-fit">
+                                                    <XCircle className="h-3 w-3" />
+                                                    Inactive
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {card.metadata?.is_digital ? (
+                                                <span className="badge bg-purple-500/10 text-purple-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
+                                                    <Smartphone className="h-3 w-3" />
+                                                    Digital
+                                                </span>
+                                            ) : (
+                                                <span className="badge bg-slate-500/10 text-slate-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
+                                                    <CreditCard className="h-3 w-3" />
+                                                    Physical
+                                                </span>
+                                            )}
+                                        </td>
+
+                                        <td className="px-4 py-3 font-bold">{formatCurrency(card.current_balance)}</td>
+                                        <td className="px-4 py-3 text-slate-500">{formatCurrency(card.original_balance)}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-400">
+                                            {card.last_used_at ? new Date(card.last_used_at).toLocaleDateString() : "Never"}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="relative inline-block text-left">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenMenuId(openMenuId === card.id ? null : card.id);
+                                                    }}
+                                                    className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors"
+                                                >
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </button>
+
+                                                {openMenuId === card.id && (
+                                                    <div className="absolute right-0 mt-2 w-48 rounded-xl bg-slate-900 border border-slate-800 shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedCard(card);
+                                                                setShowEmailModal(true);
+                                                                setOpenMenuId(null);
+                                                            }}
+                                                            className="flex items-center w-full px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                                                        >
+                                                            <Mail className="h-4 w-4 mr-3 text-orange-500" />
+                                                            Email Customer
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                // Future implementation
+                                                                toast("Feature coming soon");
+                                                                setOpenMenuId(null);
+                                                            }}
+                                                            className="flex items-center w-full px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                                                        >
+                                                            <History className="h-4 w-4 mr-3 text-slate-500" />
+                                                            View History
+                                                        </button>
+                                                        <div className="h-px bg-slate-800 mx-2 my-1" />
+                                                        <button
+                                                            disabled
+                                                            className="flex items-center w-full px-4 py-2.5 text-sm text-red-500/50 cursor-not-allowed transition-colors"
+                                                        >
+                                                            <Trash2 className="h-4 w-4 mr-3" />
+                                                            Deactivate Card
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={7} className="px-4 py-20 text-center">
+                                        <div className="max-w-xs mx-auto space-y-4">
+                                            <CreditCard className="h-12 w-12 text-slate-700 mx-auto" />
+                                            <div>
+                                                <h3 className="font-bold text-slate-300">No gift cards found</h3>
+                                                <p className="text-sm text-slate-500">Issue a new card or migrate existing ones to get started.</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <GiftCardUploadModal
@@ -229,6 +308,18 @@ export default function GiftCardsPage() {
                 locationId={currentLocation.id}
                 onComplete={fetchGiftCards}
             />
+
+            {selectedCard && (
+                <EmailGiftCardModal
+                    isOpen={showEmailModal}
+                    onClose={() => {
+                        setShowEmailModal(false);
+                        setSelectedCard(null);
+                    }}
+                    card={selectedCard}
+                    locationId={currentLocation.id}
+                />
+            )}
 
         </div >
     );
