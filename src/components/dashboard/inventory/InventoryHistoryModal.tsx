@@ -14,7 +14,8 @@ import {
     Minus,
     Download,
     Package,
-    AlertTriangle
+    AlertTriangle,
+    User
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
@@ -320,6 +321,12 @@ export default function InventoryHistoryModal({ isOpen, onClose, locationId }: I
                                                                     <span className="text-xs text-slate-500">
                                                                         {format(new Date(session.created_at), "h:mm a")}
                                                                     </span>
+                                                                    {session.recorded_by_name && (
+                                                                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                                                                            <User size={10} />
+                                                                            {session.recorded_by_name.split('@')[0]}
+                                                                        </span>
+                                                                    )}
 
                                                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 border border-slate-700 px-2 py-0.5 rounded">
                                                                         {session.status}

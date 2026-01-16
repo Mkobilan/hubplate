@@ -79,6 +79,7 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
                     location_id: locationId,
                     storage_area_id: selectedArea?.id === 'none' ? null : selectedArea?.id,
                     recorded_by: user?.id || null,
+                    recorded_by_name: user?.email || 'System',
                     status: 'completed'
                 })
                 .select()
