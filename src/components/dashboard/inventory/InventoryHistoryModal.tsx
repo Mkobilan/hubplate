@@ -324,7 +324,9 @@ export default function InventoryHistoryModal({ isOpen, onClose, locationId }: I
                                                                     {session.recorded_by_name && (
                                                                         <span className="flex items-center gap-1 text-xs text-slate-500">
                                                                             <User size={10} />
-                                                                            {session.recorded_by_name.split('@')[0]}
+                                                                            {session.recorded_by_name.includes('@')
+                                                                                ? session.recorded_by_name.split('@')[0]
+                                                                                : session.recorded_by_name}
                                                                         </span>
                                                                     )}
 

@@ -13,6 +13,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import { useAppStore } from "@/stores";
 
 interface TakeInventoryModalProps {
     isOpen: boolean;
@@ -22,6 +23,7 @@ interface TakeInventoryModalProps {
 }
 
 export default function TakeInventoryModal({ isOpen, onClose, locationId, storageAreas }: TakeInventoryModalProps) {
+    const currentEmployee = useAppStore((state) => state.currentEmployee);
     const [step, setStep] = useState<'area' | 'counts' | 'confirm'>('area');
     const [selectedArea, setSelectedArea] = useState<any>(null);
     const [items, setItems] = useState<any[]>([]);
@@ -73,13 +75,17 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
             const { data: { user } } = await supabase.auth.getUser();
 
             // 1. Create Session
+            const recorderName = currentEmployee
+                ? `${currentEmployee.first_name} ${currentEmployee.last_name}`.trim()
+                : (user?.email || 'System');
+
             const { data: session, error: sessionError } = await (supabase
                 .from("physical_inventory_sessions") as any)
                 .insert({
                     location_id: locationId,
                     storage_area_id: selectedArea?.id === 'none' ? null : selectedArea?.id,
-                    recorded_by: user?.id || null,
-                    recorded_by_name: user?.email || 'System',
+                    recorded_by: currentEmployee?.id || user?.id || null,
+                    recorded_by_name: recorderName,
                     status: 'completed'
                 })
                 .select()
