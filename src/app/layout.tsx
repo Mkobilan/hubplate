@@ -25,17 +25,20 @@ export const metadata: Metadata = {
   },
   title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
   description:
-    "HubPlate is the all-in-one AI-powered restaurant management platform. Featuring advanced POS, smart scheduling, automated inventory tracking, and QR code ordering with true offline mode. Scale your restaurant efficiency by 80% with HubPlate's next-gen intelligence.",
+    "HubPlate is the all-in-one AI-powered restaurant management platform. Featuring advanced POS, online table reservations, digital gift cards, smart scheduling, automated inventory logs, and QR code ordering with true offline mode. Scale your restaurant efficiency by 80% with HubPlate's next-gen intelligence.",
   keywords: [
     "AI restaurant POS system",
     "cloud-based restaurant management software",
+    "online restaurant reservations",
+    "digital gift cards for restaurants",
+    "restaurant recipe management",
     "QR code ordering for restaurants",
-    "smart restaurant inventory management",
+    "smart restaurant inventory logs",
     "AI staff scheduling software",
     "next-gen kitchen display system",
     "KDS",
     "restaurant CRM and loyalty programs",
-    "best restaurant management app 2025",
+    "best restaurant management app 2026",
     "offline mode POS system",
     "hubplate.app",
     "restaurant cost control intelligence",
@@ -49,7 +52,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
-    description: "Scale your restaurant with AI-powered POS, smart scheduling, and true offline ordering. The only platform you'll ever need.",
+    description: "Scale your restaurant with AI-powered POS, online reservations, digital gift cards, and smart inventory logs. The only platform you'll ever need.",
     url: "https://hubplate.app",
     siteName: "HubPlate",
     images: [
@@ -66,7 +69,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
-    description: "AI-powered restaurant POS with offline mode and smart scheduling. Built for the modern hospitality industry.",
+    description: "AI-powered restaurant POS with online reservations, digital gift cards, and smart inventory logs. Built for the modern hospitality industry.",
     images: ["/logo.png"],
   },
   manifest: "/manifest.json",

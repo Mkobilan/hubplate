@@ -12,12 +12,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .eq('is_active', true)
         .not('slug', 'is', null) as { data: { slug: string; updated_at: string | null }[] | null };
 
-    const restaurantUrls = (locations || []).map((loc) => ({
-        url: `${baseUrl}/m/${loc.slug}`,
-        lastModified: loc.updated_at ? new Date(loc.updated_at) : new Date(),
-        changeFrequency: 'daily' as const,
-        priority: 0.9,
-    }))
+    const restaurantUrls = (locations || []).flatMap((loc) => [
+        {
+            url: `${baseUrl}/m/${loc.slug}`,
+            lastModified: loc.updated_at ? new Date(loc.updated_at) : new Date(),
+            changeFrequency: 'daily' as const,
+            priority: 0.9,
+        },
+        {
+            url: `${baseUrl}/m/${loc.slug}/reserve`,
+            lastModified: loc.updated_at ? new Date(loc.updated_at) : new Date(),
+            changeFrequency: 'daily' as const,
+            priority: 0.8,
+        }
+    ])
 
     const staticUrls = [
         {
