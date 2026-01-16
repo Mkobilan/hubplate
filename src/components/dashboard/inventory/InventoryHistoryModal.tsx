@@ -14,8 +14,7 @@ import {
     Minus,
     Download,
     Package,
-    AlertTriangle,
-    User
+    AlertTriangle
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
@@ -58,7 +57,7 @@ export default function InventoryHistoryModal({ isOpen, onClose, locationId }: I
             const supabase = createClient();
             const { data, error } = await (supabase
                 .from("physical_inventory_sessions") as any)
-                .select("*, storage_area:inventory_storage_areas(name), recorded_by_user:recorded_by(email)")
+                .select("*, storage_area:inventory_storage_areas(name)")
                 .eq("location_id", locationId)
                 .order("created_at", { ascending: false });
 
@@ -321,12 +320,7 @@ export default function InventoryHistoryModal({ isOpen, onClose, locationId }: I
                                                                     <span className="text-xs text-slate-500">
                                                                         {format(new Date(session.created_at), "h:mm a")}
                                                                     </span>
-                                                                    {session.recorded_by_user?.email && (
-                                                                        <span className="flex items-center gap-1 text-xs text-slate-500">
-                                                                            <User size={10} />
-                                                                            {session.recorded_by_user.email.split('@')[0]}
-                                                                        </span>
-                                                                    )}
+
                                                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-900 border border-slate-700 px-2 py-0.5 rounded">
                                                                         {session.status}
                                                                     </span>
