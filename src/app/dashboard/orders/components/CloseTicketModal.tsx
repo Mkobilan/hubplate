@@ -75,6 +75,60 @@ export default function CloseTicketModal({
         }
     }, [linkedCustomer]);
 
+    const processLoyaltyPoints = async (amountPaid: number) => {
+        try {
+            const supabase = createClient();
+
+            // 1. Get Order and check for customer_id
+            const { data: orderData } = await (supabase
+                .from("orders") as any)
+                .select("location_id, customer_id")
+                .eq("id", orderId)
+                .single();
+
+            const effectiveCustomerId = linkedCustomer?.id || orderData?.customer_id;
+            if (!effectiveCustomerId || !orderData?.location_id) return;
+
+            // 2. Get Earning Rate for this location
+            const { data: program } = await (supabase
+                .from('loyalty_programs') as any)
+                .select('points_per_dollar')
+                .eq('location_id', orderData.location_id)
+                .maybeSingle();
+
+            const rate = (program as any)?.points_per_dollar || 1;
+            const pointsEarned = Math.floor(amountPaid * rate);
+
+            if (pointsEarned <= 0) return;
+
+            // 3. Update Customer
+            const { data: customer } = await (supabase
+                .from('customers') as any)
+                .select('loyalty_points, total_visits, total_spent')
+                .eq('id', effectiveCustomerId)
+                .single();
+
+            if (customer) {
+                const newPointBalance = (customer.loyalty_points || 0) + pointsEarned;
+                const newVisitCount = (customer.total_visits || 0) + 1;
+                const newTotalSpent = Number((Number(customer.total_spent || 0) + amountPaid).toFixed(2));
+
+                await (supabase.from('customers') as any)
+                    .update({
+                        loyalty_points: newPointBalance,
+                        total_visits: newVisitCount,
+                        total_spent: newTotalSpent,
+                        last_visit_at: new Date().toISOString()
+                    })
+                    .eq('id', effectiveCustomerId);
+
+                console.log(`Loyalty: Awarded ${pointsEarned} points for payment of ${amountPaid}. New balance: ${newPointBalance}`);
+            }
+        } catch (err) {
+            console.error("Error processing loyalty points:", err);
+        }
+    };
+
     const handleCheckIn = async () => {
         if (!loyaltyPhone) return;
         setJoiningLoyalty(true);
@@ -386,6 +440,9 @@ export default function CloseTicketModal({
                 })
                 .eq("id", orderId);
 
+            // Process Loyalty Points
+            await processLoyaltyPoints(finalTotal);
+
             setTimeout(() => {
                 onPaymentComplete?.();
                 onClose();
@@ -418,6 +475,9 @@ export default function CloseTicketModal({
                 .eq("id", orderId);
 
             if (error) throw error;
+
+            // Process Loyalty Points
+            await processLoyaltyPoints(total + tip);
 
             onPaymentComplete?.();
             onClose();
@@ -491,6 +551,9 @@ export default function CloseTicketModal({
 
                 if (orderError) throw orderError;
 
+                // Process Loyalty Points
+                await processLoyaltyPoints(amountToCharge);
+
                 onPaymentComplete?.();
                 onClose();
             } else {
@@ -516,6 +579,9 @@ export default function CloseTicketModal({
                     .eq("id", orderId);
 
                 if (orderError) throw orderError;
+
+                // Process Loyalty Points for partial payment
+                await processLoyaltyPoints(amountToCharge);
 
                 toast.success(`Applied ${formatCurrency(amountToCharge)}. Remaining: ${formatCurrency(remainingDue)}`);
 
