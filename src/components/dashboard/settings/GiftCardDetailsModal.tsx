@@ -11,10 +11,7 @@ import {
     History,
     CheckCircle2,
     XCircle,
-    Loader2,
-    ExternalLink,
-    ArrowUpRight,
-    ArrowDownRight
+    Loader2
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { createClient } from "@/lib/supabase/client";
@@ -79,12 +76,12 @@ export function GiftCardDetailsModal({ isOpen, onClose, card, locationId }: Gift
                         type: "issuance",
                         amount: issuedItem.price,
                         date: order.created_at,
-                        description: `Card Issued (Table ${order.table_number})`
+                        description: `Card Issued (Table ${order.table_number || 'N/A'})`
                     });
                 }
 
                 // Check if card was used for FULL payment
-                if (order.payment_method === "gift_card" && order.metadata?.gift_card_number === card.card_number) {
+                if (order.payment_method === "gift_card" && (order.metadata?.gift_card_number === card.card_number || order.metadata?.card_number === card.card_number)) {
                     usageLogs.push({
                         id: `${order.id}-payment`,
                         orderId: order.id,
@@ -98,7 +95,8 @@ export function GiftCardDetailsModal({ isOpen, onClose, card, locationId }: Gift
                 // Check for PARTIAL payments
                 const partials = (order.metadata as any)?.partial_payments || [];
                 partials.forEach((p: any, idx: number) => {
-                    if (p.method === "gift_card" && p.card_number === card.card_number) {
+                    // Supporting both gift_card_number and card_number in partial payment objects
+                    if (p.method === "gift_card" && (p.card_number === card.card_number || p.gift_card_number === card.card_number)) {
                         usageLogs.push({
                             id: `${order.id}-partial-${idx}`,
                             orderId: order.id,
@@ -215,7 +213,7 @@ export function GiftCardDetailsModal({ isOpen, onClose, card, locationId }: Gift
                                                 "p-2 rounded-lg",
                                                 log.type === 'issuance' ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-500"
                                             )}>
-                                                {log.type === 'issuance' ? <Plus className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
+                                                {log.type === 'issuance' ? <Smartphone className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-slate-200">{log.description}</p>
@@ -229,15 +227,6 @@ export function GiftCardDetailsModal({ isOpen, onClose, card, locationId }: Gift
                                             )}>
                                                 {log.amount > 0 ? "+" : ""}{formatCurrency(log.amount)}
                                             </p>
-                                            <button
-                                                className="text-[10px] text-orange-500 hover:text-orange-400 flex items-center gap-1 ml-auto mt-1 font-bold"
-                                                onClick={() => {
-                                                    // In a real app, this would route to the order page or open an order detail modal
-                                                    toast.success(`Opening order ${log.orderId.slice(0, 8)}`);
-                                                }}
-                                            >
-                                                Order Details <ArrowUpRight className="h-2 w-2" />
-                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -272,7 +261,3 @@ export function GiftCardDetailsModal({ isOpen, onClose, card, locationId }: Gift
     );
 }
 
-// Plus icon was missing from lucide-react imports above, adding it conceptually
-const Plus = ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-);

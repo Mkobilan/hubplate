@@ -529,7 +529,11 @@ export default function CloseTicketModal({
                         paid_at: new Date().toISOString(),
                         is_comped: isOrderComped,
                         comp_meta: compMeta,
-                        comp_reason: compReason
+                        comp_reason: compReason,
+                        metadata: {
+                            ...(compMeta as any || {}),
+                            gift_card_number: giftCardNumber
+                        }
                     })
                     .eq("id", orderId);
 
