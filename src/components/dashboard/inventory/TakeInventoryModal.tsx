@@ -63,10 +63,14 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
         }
     };
 
+
     const handleSave = async () => {
         setSaving(true);
         try {
             const supabase = createClient();
+
+            // Get current user for recorded_by attribution
+            const { data: { user } } = await supabase.auth.getUser();
 
             // 1. Create Session
             const { data: session, error: sessionError } = await (supabase
@@ -74,12 +78,14 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
                 .insert({
                     location_id: locationId,
                     storage_area_id: selectedArea?.id === 'none' ? null : selectedArea?.id,
+                    recorded_by: user?.id || null,
                     status: 'completed'
                 })
                 .select()
                 .single();
 
             if (sessionError) throw sessionError;
+
 
             // 2. Prepare Counts
             const countsToInsert = items.map(item => {
