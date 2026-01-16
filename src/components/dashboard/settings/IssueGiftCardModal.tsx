@@ -15,7 +15,10 @@ import {
     DollarSign,
     User,
     Table as TableIcon,
-    Check
+    Check,
+    Mail,
+    Phone,
+    Heart
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -35,6 +38,9 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
     const [cardNumber, setCardNumber] = useState("");
     const [amount, setAmount] = useState("");
     const [customerName, setCustomerName] = useState("");
+    const [customerEmail, setCustomerEmail] = useState("");
+    const [customerPhone, setCustomerPhone] = useState("");
+    const [joinLoyalty, setJoinLoyalty] = useState(false);
     const [addToTable, setAddToTable] = useState(false);
     const [selectedTableNumber, setSelectedTableNumber] = useState("");
     const [activeTables, setActiveTables] = useState<any[]>([]);
@@ -115,7 +121,60 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
             const { data } = await response.json();
             const issuedCard = data;
 
-            // Handle Add to Table
+            // 1. Handle Loyalty Enrollment
+            if (joinLoyalty) {
+                try {
+                    const { error: loyaltyError } = await (supabase
+                        .from("customers") as any)
+                        .upsert({
+                            location_id: locationId,
+                            first_name: customerName.split(' ')[0] || "Guest",
+                            last_name: customerName.split(' ').slice(1).join(' ') || "Customer",
+                            email: customerEmail || null,
+                            phone: customerPhone.replace(/\D/g, '') || null,
+                            is_loyalty_member: true,
+                            loyalty_tier: 'bronze',
+                            loyalty_points: 0
+                        });
+
+                    if (loyaltyError) {
+                        console.error("Error creating loyalty member:", loyaltyError);
+                        toast.error("Gift card issued, but failed to create loyalty profile");
+                    } else {
+                        toast.success("Customer enrolled in loyalty program!");
+                    }
+                } catch (e) {
+                    console.error("Loyalty upsert error:", e);
+                }
+            }
+
+            // 2. Handle Email Notification
+            if (customerEmail) {
+                try {
+                    toast.loading("Sending email...", { id: "sending-email" });
+                    const emailResponse = await fetch("/api/gift-cards/email", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            cardId: issuedCard.id,
+                            email: customerEmail,
+                            locationId
+                        })
+                    });
+
+                    if (emailResponse.ok) {
+                        toast.success("Gift card details emailed!", { id: "sending-email" });
+                    } else {
+                        const emailErr = await emailResponse.json();
+                        toast.error(emailErr.error || "Failed to send email", { id: "sending-email" });
+                    }
+                } catch (e) {
+                    console.error("Email API error:", e);
+                    toast.error("Failed to send email", { id: "sending-email" });
+                }
+            }
+
+            // 3. Handle Add to Table
             if (addToTable && selectedTableNumber) {
                 await pushToOrder(issuedCard);
             }
@@ -127,6 +186,9 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
             setCardNumber("");
             setAmount("");
             setCustomerName("");
+            setCustomerEmail("");
+            setCustomerPhone("");
+            setJoinLoyalty(false);
             setAddToTable(false);
             setSelectedTableNumber("");
         } catch (err: any) {
@@ -316,25 +378,82 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
                     </div>
 
                     {/* Customer Info (Optional) */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase px-1">Customer Name (Optional)</label>
-                        <div className="relative">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                                <User className="h-4 w-4" />
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase px-1">Customer Name (Optional)</label>
+                            <div className="relative">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                                    <User className="h-4 w-4" />
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="For record keeping"
+                                    className="input pl-10"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                />
                             </div>
-                            <input
-                                type="text"
-                                placeholder="For record keeping"
-                                className="input pl-10"
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
-                            />
+                        </div>
+
+                        {/* Email & Phone */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase px-1">Customer Email</label>
+                                <div className="relative">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                                        <Mail className="h-4 w-4" />
+                                    </div>
+                                    <input
+                                        type="email"
+                                        placeholder="Enter email address"
+                                        className="input pl-10"
+                                        value={customerEmail}
+                                        onChange={(e) => setCustomerEmail(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase px-1">Customer Phone</label>
+                                <div className="relative">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                                        <Phone className="h-4 w-4" />
+                                    </div>
+                                    <input
+                                        type="tel"
+                                        placeholder="Enter phone number"
+                                        className="input pl-10"
+                                        value={customerPhone}
+                                        onChange={(e) => setCustomerPhone(e.target.value)}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Add to Table Option */}
+                {/* Options */}
                 <div className="space-y-4 pt-4 border-t border-slate-800">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/50 border border-slate-800 transition-colors hover:bg-slate-900">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${joinLoyalty ? 'bg-orange-500/10 text-orange-500' : 'bg-slate-800 text-slate-500'}`}>
+                                <Heart className="h-4 w-4" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold">Join Loyalty Program</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Register customer for rewards</p>
+                            </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={joinLoyalty}
+                                onChange={(e) => setJoinLoyalty(e.target.checked)}
+                            />
+                            <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600 peer-checked:after:bg-white peer-checked:after:border-white"></div>
+                        </label>
+                    </div>
+
                     <button
                         onClick={() => setAddToTable(!addToTable)}
                         className="flex items-center gap-3 w-full group"
