@@ -33,6 +33,7 @@ import {
     exportMenuPerformanceCSV,
     exportKitchenPerformanceCSV
 } from "@/lib/utils/csvExport";
+import { KitchenTimeline, BottleneckItem } from "@/components/dashboard/analytics/KitchenTimeline";
 
 // Color palette for charts
 const COLORS = {
@@ -106,6 +107,7 @@ export default function AnalyticsPage() {
     });
 
     const [kitchenData, setKitchenData] = useState<any>({
+        avgWaitTime: 0,
         avgPrepTime: 0,
         avgWindowTime: 0,
         avgTotalTime: 0,
@@ -441,20 +443,29 @@ export default function AnalyticsPage() {
                         if (item.sent_at && item.served_at) {
                             const name = item.name || "Unknown";
                             if (!acc[name]) {
-                                acc[name] = { name, prepTimes: [], windowTimes: [], totalTimes: [] };
+                                acc[name] = { name, waitTimes: [], prepTimes: [], windowTimes: [], totalTimes: [] };
                             }
 
                             // Calculate times in minutes
+                            // Wait time: sent_at to started_at (ticket sitting before cooking starts)
+                            if (item.sent_at && item.started_at) {
+                                const wait = (new Date(item.started_at).getTime() - new Date(item.sent_at).getTime()) / 60000;
+                                acc[name].waitTimes.push(wait);
+                            }
+
+                            // Prep time: started_at to ready_at (active cooking time)
                             if (item.started_at && item.ready_at) {
                                 const prep = (new Date(item.ready_at).getTime() - new Date(item.started_at).getTime()) / 60000;
                                 acc[name].prepTimes.push(prep);
                             }
 
+                            // Window time: ready_at to served_at (sitting in window)
                             if (item.ready_at && item.served_at) {
                                 const window = (new Date(item.served_at).getTime() - new Date(item.ready_at).getTime()) / 60000;
                                 acc[name].windowTimes.push(window);
                             }
 
+                            // Total time: sent_at to served_at
                             const total = (new Date(item.served_at).getTime() - new Date(item.sent_at).getTime()) / 60000;
                             acc[name].totalTimes.push(total);
                         }
@@ -465,16 +476,19 @@ export default function AnalyticsPage() {
 
             const itemPerformance = Object.values(kitchenStats).map((item: any) => ({
                 item_name: item.name,
+                wait_time: item.waitTimes.length > 0 ? item.waitTimes.reduce((a: number, b: number) => a + b, 0) / item.waitTimes.length : 0,
                 prep_time: item.prepTimes.length > 0 ? item.prepTimes.reduce((a: number, b: number) => a + b, 0) / item.prepTimes.length : 0,
                 window_time: item.windowTimes.length > 0 ? item.windowTimes.reduce((a: number, b: number) => a + b, 0) / item.windowTimes.length : 0,
                 total_time: item.totalTimes.length > 0 ? item.totalTimes.reduce((a: number, b: number) => a + b, 0) / item.totalTimes.length : 0
             })).sort((a, b) => b.total_time - a.total_time);
 
+            const allWait = itemPerformance.flatMap(i => kitchenStats[i.item_name].waitTimes);
             const allPrep = itemPerformance.flatMap(i => kitchenStats[i.item_name].prepTimes);
             const allWindow = itemPerformance.flatMap(i => kitchenStats[i.item_name].windowTimes);
             const allTotal = itemPerformance.flatMap(i => kitchenStats[i.item_name].totalTimes);
 
             setKitchenData({
+                avgWaitTime: allWait.length > 0 ? allWait.reduce((a, b) => a + b, 0) / allWait.length : 0,
                 avgPrepTime: allPrep.length > 0 ? allPrep.reduce((a, b) => a + b, 0) / allPrep.length : 0,
                 avgWindowTime: allWindow.length > 0 ? allWindow.reduce((a, b) => a + b, 0) / allWindow.length : 0,
                 avgTotalTime: allTotal.length > 0 ? allTotal.reduce((a, b) => a + b, 0) / allTotal.length : 0,
@@ -1061,67 +1075,72 @@ export default function AnalyticsPage() {
                         onExportCSV={() => exportKitchenPerformanceCSV(kitchenData.itemPerformance, dateRange)}
                     >
                         {/* Metrics Row */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <MetricBox
+                                label="Avg Wait Time"
+                                value={`${kitchenData.avgWaitTime.toFixed(1)}m`}
+                                color="text-yellow-400"
+                                subtext="Before Started"
+                                status={kitchenData.avgWaitTime < 2 ? 'good' : kitchenData.avgWaitTime < 5 ? 'ok' : 'bad'}
+                            />
                             <MetricBox
                                 label="Avg Prep Time"
                                 value={`${kitchenData.avgPrepTime.toFixed(1)}m`}
-                                color="text-amber-400"
+                                color="text-orange-400"
                                 subtext="Cooking Time"
+                                status={kitchenData.avgPrepTime < 10 ? 'good' : kitchenData.avgPrepTime < 15 ? 'ok' : 'bad'}
                             />
                             <MetricBox
                                 label="Avg Window Time"
                                 value={`${kitchenData.avgWindowTime.toFixed(1)}m`}
                                 color="text-blue-400"
                                 subtext="Ready to Served"
+                                status={kitchenData.avgWindowTime < 2 ? 'good' : kitchenData.avgWindowTime < 5 ? 'ok' : 'bad'}
                             />
                             <MetricBox
                                 label="Avg Total Ticket"
                                 value={`${kitchenData.avgTotalTime.toFixed(1)}m`}
                                 color="text-red-400"
                                 subtext="Order to Served"
+                                status={kitchenData.avgTotalTime < 15 ? 'good' : kitchenData.avgTotalTime < 20 ? 'ok' : 'bad'}
                             />
                         </div>
 
-                        {/* Bottleneck Analysis */}
-                        <div className="bg-slate-800/30 rounded-xl p-4">
-                            <h4 className="font-semibold text-sm text-slate-400 mb-4 flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4 text-red-400" />
-                                Station Bottleneck Analysis (Longest Items)
-                            </h4>
-                            {kitchenData.itemPerformance.length > 0 ? (
-                                <div className="space-y-4">
-                                    {kitchenData.itemPerformance.slice(0, 5).map((item: any, i: number) => (
-                                        <div key={i} className="group">
-                                            <div className="flex justify-between text-sm mb-1">
-                                                <span className="font-medium text-slate-200">{item.item_name}</span>
-                                                <span className="font-bold text-red-400">
-                                                    {item.total_time.toFixed(1)}m total
-                                                </span>
-                                            </div>
-                                            <div className="flex h-2 bg-slate-800 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-amber-500 transition-all duration-500"
-                                                    style={{ width: `${(item.prep_time / item.total_time) * 100}%` }}
-                                                    title={`Prep: ${item.prep_time.toFixed(1)}m`}
-                                                />
-                                                <div
-                                                    className="h-full bg-blue-500 transition-all duration-500"
-                                                    style={{ width: `${(item.window_time / item.total_time) * 100}%` }}
-                                                    title={`Window: ${item.window_time.toFixed(1)}m`}
-                                                />
-                                            </div>
-                                            <div className="flex justify-between text-[10px] mt-1 text-slate-500 px-1">
-                                                <span>Prep: {item.prep_time.toFixed(1)}m</span>
-                                                <span>Window: {item.window_time.toFixed(1)}m</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-slate-500 text-sm text-center py-4">
-                                    No served orders in this period to analyze
-                                </p>
-                            )}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Timeline Flow */}
+                            <KitchenTimeline
+                                waitTime={kitchenData.avgWaitTime}
+                                prepTime={kitchenData.avgPrepTime}
+                                windowTime={kitchenData.avgWindowTime}
+                                totalTime={kitchenData.avgTotalTime}
+                            />
+
+                            {/* Bottleneck Analysis */}
+                            <div className="bg-slate-800/30 rounded-xl p-4">
+                                <h4 className="font-semibold text-sm text-slate-400 mb-4 flex items-center gap-2">
+                                    <TrendingUp className="h-4 w-4 text-red-400" />
+                                    Station Bottleneck Analysis (Longest Items)
+                                </h4>
+                                {kitchenData.itemPerformance.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {kitchenData.itemPerformance.slice(0, 5).map((item: any, i: number) => (
+                                            <BottleneckItem
+                                                key={i}
+                                                name={item.item_name}
+                                                waitTime={item.wait_time}
+                                                prepTime={item.prep_time}
+                                                windowTime={item.window_time}
+                                                totalTime={item.total_time}
+                                                maxTime={Math.max(...kitchenData.itemPerformance.map((p: any) => p.total_time))}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-500 text-sm text-center py-4">
+                                        No served orders in this period to analyze
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </CollapsibleCard>
 

@@ -228,6 +228,7 @@ export function exportMenuPerformanceCSV(
 export function exportKitchenPerformanceCSV(
     data: {
         item_name: string;
+        wait_time: number;
         prep_time: number;
         window_time: number;
         total_time: number;
@@ -235,9 +236,10 @@ export function exportKitchenPerformanceCSV(
     dateRange: { start: string; end: string }
 ) {
     const filename = `kitchen_performance_${dateRange.start}_to_${dateRange.end}`;
-    const headers = ['Item Name', 'Avg Prep Time (min)', 'Avg Window Time (min)', 'Avg Total Time (min)'];
+    const headers = ['Item Name', 'Avg Wait Time (min)', 'Avg Prep Time (min)', 'Avg Window Time (min)', 'Avg Total Time (min)'];
     const rows = data.map(item => [
         item.item_name,
+        item.wait_time.toFixed(1),
         item.prep_time.toFixed(1),
         item.window_time.toFixed(1),
         item.total_time.toFixed(1)

@@ -93,14 +93,27 @@ interface MetricBoxProps {
     value: string | number;
     color?: string;
     subtext?: string;
+    status?: 'good' | 'ok' | 'bad';
 }
 
-export function MetricBox({ label, value, color = "text-white", subtext }: MetricBoxProps) {
+export function MetricBox({ label, value, color = "text-white", subtext, status }: MetricBoxProps) {
+    const statusConfig = {
+        good: { color: 'bg-green-500', label: 'Good' },
+        ok: { color: 'bg-yellow-500', label: 'OK' },
+        bad: { color: 'bg-red-500', label: 'Needs attention' }
+    };
+
     return (
         <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">{label}</p>
             <p className={cn("text-2xl font-bold", color)}>{value}</p>
             {subtext && <p className="text-xs text-slate-500 mt-1">{subtext}</p>}
+            {status && (
+                <div className="flex items-center gap-1.5 mt-2">
+                    <span className={cn("w-2 h-2 rounded-full", statusConfig[status].color)} />
+                    <span className="text-[10px] text-slate-400">{statusConfig[status].label}</span>
+                </div>
+            )}
         </div>
     );
 }
