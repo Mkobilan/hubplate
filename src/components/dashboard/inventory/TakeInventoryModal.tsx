@@ -99,7 +99,7 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
                 .insert({
                     location_id: locationId,
                     storage_area_id: selectedArea?.id === 'none' ? null : selectedArea?.id,
-                    recorded_by: currentEmployee?.id || user?.id || null,
+                    recorded_by: user?.id || null, // Must be an auth.users ID
                     recorded_by_name: recorderName,
                     status: 'completed'
                 })
