@@ -89,41 +89,25 @@ export default function CloseTicketModal({
             const effectiveCustomerId = linkedCustomer?.id || orderData?.customer_id;
             if (!effectiveCustomerId || !orderData?.location_id) return;
 
-            // 2. Get Earning Rate for this location
-            const { data: program } = await (supabase
-                .from('loyalty_programs') as any)
-                .select('points_per_dollar')
-                .eq('location_id', orderData.location_id)
-                .maybeSingle();
+            // 2. Call the secure API to award points
+            const response = await fetch("/api/loyalty/award-points", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    customerId: effectiveCustomerId,
+                    locationId: orderData.location_id,
+                    amountPaid
+                })
+            });
 
-            const rate = (program as any)?.points_per_dollar || 1;
-            const pointsEarned = Math.floor(amountPaid * rate);
-
-            if (pointsEarned <= 0) return;
-
-            // 3. Update Customer
-            const { data: customer } = await (supabase
-                .from('customers') as any)
-                .select('loyalty_points, total_visits, total_spent')
-                .eq('id', effectiveCustomerId)
-                .single();
-
-            if (customer) {
-                const newPointBalance = (customer.loyalty_points || 0) + pointsEarned;
-                const newVisitCount = (customer.total_visits || 0) + 1;
-                const newTotalSpent = Number((Number(customer.total_spent || 0) + amountPaid).toFixed(2));
-
-                await (supabase.from('customers') as any)
-                    .update({
-                        loyalty_points: newPointBalance,
-                        total_visits: newVisitCount,
-                        total_spent: newTotalSpent,
-                        last_visit_at: new Date().toISOString()
-                    })
-                    .eq('id', effectiveCustomerId);
-
-                console.log(`Loyalty: Awarded ${pointsEarned} points for payment of ${amountPaid}. New balance: ${newPointBalance}`);
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || "Failed to award points via API");
             }
+
+            const result = await response.json();
+            console.log(`Loyalty API Success: Awarded ${result.pointsEarned} points. New balance: ${result.newBalance}`);
+
         } catch (err) {
             console.error("Error processing loyalty points:", err);
         }
