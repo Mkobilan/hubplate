@@ -14,12 +14,14 @@ export async function POST(request: NextRequest) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+        const cleanCardNumber = cardNumber.toString().replace(/[^a-zA-Z0-9]/g, '');
+
         // Check if card number already exists for this location
         const { data: existing } = await (supabase
             .from("gift_cards") as any)
             .select("id")
             .eq("location_id", locationId)
-            .eq("card_number", cardNumber)
+            .eq("card_number", cleanCardNumber)
             .maybeSingle();
 
         if (existing) {
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
 
         const newCard = {
             location_id: locationId,
-            card_number: cardNumber,
+            card_number: cleanCardNumber,
             current_balance: amount,
             original_balance: amount,
             is_active: true,

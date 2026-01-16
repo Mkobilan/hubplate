@@ -109,6 +109,18 @@ export function GiftCardDetailsModal({ isOpen, onClose, card, locationId }: Gift
                 });
             });
 
+            // Add synthetic migration record if no issuance order found
+            const hasIssuance = usageLogs.some(log => log.type === 'issuance');
+            if (!hasIssuance) {
+                usageLogs.push({
+                    id: `migration-${card.id}`,
+                    type: "issuance",
+                    amount: card.original_balance,
+                    date: card.created_at,
+                    description: "System Migration / Opening Balance"
+                });
+            }
+
             // Sort by date descending
             usageLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             setHistory(usageLogs);
@@ -142,7 +154,7 @@ export function GiftCardDetailsModal({ isOpen, onClose, card, locationId }: Gift
                     <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Card Number</p>
                         <h3 className="text-2xl font-mono font-bold text-orange-400 tracking-tighter">
-                            {card.card_number.replace(/(.{4})/g, "$1 ").trim()}
+                            {card.card_number.replace(/[^a-zA-Z0-9]/g, '').replace(/(.{4})/g, "$1 ").trim()}
                         </h3>
                     </div>
 

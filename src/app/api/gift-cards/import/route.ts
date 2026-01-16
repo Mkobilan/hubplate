@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
                 return mapping ? row[mapping.csvColumn] : null;
             };
 
-            const cardNumber = getMappedValue("card_number");
+            const cleanCardNumber = getMappedValue("card_number")?.toString().replace(/[^a-zA-Z0-9]/g, '');
             const currentBalanceVal = getMappedValue("current_balance");
             const currentBalance = parseFloat(currentBalanceVal?.toString().replace(/[^0-9.]/g, '') || "0");
             const originalBalanceVal = getMappedValue("original_balance");
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
             const activeVal = getMappedValue("is_active")?.toString().toLowerCase();
             const isActive = activeVal === "true" || activeVal === "1" || activeVal === "active" || activeVal === "yes" || activeVal === undefined;
 
-            if (!cardNumber) return null;
+            if (!cleanCardNumber) return null;
 
             // Extract custom fields
             const custom_fields: Record<string, any> = {};
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
             return {
                 location_id: locationId,
-                card_number: cardNumber,
+                card_number: cleanCardNumber,
                 current_balance: currentBalance,
                 original_balance: originalBalance,
                 is_active: isActive,

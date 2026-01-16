@@ -478,10 +478,11 @@ export default function CloseTicketModal({
         setGiftCardError(null);
         try {
             const supabase = createClient();
+            const cleanNumber = giftCardNumber.replace(/[^a-zA-Z0-9]/g, '');
             const { data, error } = await (supabase as any)
                 .from("gift_cards")
                 .select("current_balance, is_active")
-                .eq("card_number", giftCardNumber)
+                .eq("card_number", cleanNumber)
                 .single();
 
             if (error || !data) throw new Error("Gift card not found");
