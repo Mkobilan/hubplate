@@ -23,7 +23,8 @@ export function AddWaitlistModal({ isOpen, onClose, onSuccess }: AddWaitlistModa
         customer_phone: "",
         party_size: "2",
         estimated_wait_minutes: "15",
-        notes: ""
+        notes: "",
+        customer_email: ""
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -40,6 +41,7 @@ export function AddWaitlistModal({ isOpen, onClose, onSuccess }: AddWaitlistModa
                 party_size: parseInt(formData.party_size),
                 estimated_wait_minutes: parseInt(formData.estimated_wait_minutes),
                 notes: formData.notes,
+                customer_email: formData.customer_email,
                 status: 'waiting'
             });
 
@@ -53,7 +55,8 @@ export function AddWaitlistModal({ isOpen, onClose, onSuccess }: AddWaitlistModa
                 customer_phone: "",
                 party_size: "2",
                 estimated_wait_minutes: "15",
-                notes: ""
+                notes: "",
+                customer_email: ""
             });
         } catch (err: any) {
             console.error("Error adding to waitlist:", err);
@@ -119,6 +122,17 @@ export function AddWaitlistModal({ isOpen, onClose, onSuccess }: AddWaitlistModa
                         className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px]"
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-300">Email (Optional)</label>
+                    <input
+                        type="email"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        value={formData.customer_email}
+                        onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
+                        placeholder="john@example.com"
                     />
                 </div>
 

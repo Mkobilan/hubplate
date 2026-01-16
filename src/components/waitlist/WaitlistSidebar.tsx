@@ -13,7 +13,8 @@ import {
     Check,
     ChevronRight,
     Plus,
-    Minus
+    Minus,
+    Mail
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
@@ -196,16 +197,47 @@ export function WaitlistSidebar({ isOpen, onClose, tables, occupiedTableLabels }
                                             <p className="text-[10px] text-slate-500 font-mono">
                                                 {formatDistanceToNow(new Date(entry.created_at), { addSuffix: false })}
                                             </p>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedEntry(entry);
-                                                    setIsSeatModalOpen(true);
-                                                }}
-                                                className="mt-2 bg-slate-800 hover:bg-orange-600 text-slate-300 hover:text-white px-3 py-1 rounded text-[10px] font-black transition-all flex items-center gap-1"
-                                            >
-                                                SEAT <ChevronRight className="h-2 w-2" />
-                                            </button>
+                                            <div className="flex items-center justify-end gap-2 mt-2">
+                                                {entry.customer_email && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const handleSendEmail = async () => {
+                                                                const toastId = toast.loading("Sending email...");
+                                                                try {
+                                                                    const response = await fetch("/api/waitlist/email", {
+                                                                        method: "POST",
+                                                                        headers: { "Content-Type": "application/json" },
+                                                                        body: JSON.stringify({ waitlistId: entry.id }),
+                                                                    });
+
+                                                                    if (!response.ok) throw new Error("Failed to send email");
+
+                                                                    toast.success("Email sent successfully", { id: toastId });
+                                                                } catch (err) {
+                                                                    console.error("Error sending email:", err);
+                                                                    toast.error("Failed to send email", { id: toastId });
+                                                                }
+                                                            };
+                                                            handleSendEmail();
+                                                        }}
+                                                        className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white p-1 rounded transition-colors"
+                                                        title="Send Table Ready Email"
+                                                    >
+                                                        <Mail className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedEntry(entry);
+                                                        setIsSeatModalOpen(true);
+                                                    }}
+                                                    className="bg-slate-800 hover:bg-orange-600 text-slate-300 hover:text-white px-3 py-1 rounded text-[10px] font-black transition-all flex items-center gap-1"
+                                                >
+                                                    SEAT <ChevronRight className="h-2 w-2" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -214,7 +246,6 @@ export function WaitlistSidebar({ isOpen, onClose, tables, occupiedTableLabels }
                     )}
                 </div>
             </div>
-
             {/* Backdrop */}
             {isOpen && (
                 <div

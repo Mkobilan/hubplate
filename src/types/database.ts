@@ -1142,14 +1142,15 @@ export type Database = {
                 Row: {
                     id: string;
                     location_id: string;
-                    customer_name: string;
-                    customer_phone: string | null;
-                    party_size: number;
-                    status: "waiting" | "seated" | "cancelled" | "no_show" | "completed";
-                    notes: string | null;
-                    estimated_wait_minutes: number;
                     table_id: string | null;
                     table_label: string | null;
+                    customer_name: string;
+                    customer_phone: string | null;
+                    customer_email: string | null;
+                    party_size: number;
+                    status: "waiting" | "seated" | "cancelled" | "no_show";
+                    notes: string | null;
+                    estimated_wait_minutes: number;
                     created_at: string;
                     updated_at: string;
                     seated_at: string | null;
@@ -1157,14 +1158,15 @@ export type Database = {
                 Insert: {
                     id?: string;
                     location_id: string;
-                    customer_name: string;
-                    customer_phone?: string | null;
-                    party_size: number;
-                    status?: "waiting" | "seated" | "cancelled" | "no_show" | "completed";
-                    notes?: string | null;
-                    estimated_wait_minutes?: number;
                     table_id?: string | null;
                     table_label?: string | null;
+                    customer_name: string;
+                    customer_phone?: string | null;
+                    customer_email?: string | null;
+                    party_size?: number;
+                    status?: "waiting" | "seated" | "cancelled" | "no_show";
+                    notes?: string | null;
+                    estimated_wait_minutes?: number;
                     created_at?: string;
                     updated_at?: string;
                     seated_at?: string | null;
@@ -1174,8 +1176,9 @@ export type Database = {
                     location_id?: string;
                     customer_name?: string;
                     customer_phone?: string | null;
+                    customer_email?: string | null;
                     party_size?: number;
-                    status?: "waiting" | "seated" | "cancelled" | "no_show" | "completed";
+                    status?: "waiting" | "seated" | "cancelled" | "no_show";
                     notes?: string | null;
                     estimated_wait_minutes?: number;
                     table_id?: string | null;
