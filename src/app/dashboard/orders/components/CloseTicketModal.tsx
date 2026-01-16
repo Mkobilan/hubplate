@@ -478,14 +478,26 @@ export default function CloseTicketModal({
         setGiftCardError(null);
         try {
             const supabase = createClient();
+
+            // 1. Get Location ID from Order
+            const { data: orderData } = await (supabase
+                .from("orders") as any)
+                .select("location_id")
+                .eq("id", orderId)
+                .single();
+
+            if (!orderData?.location_id) throw new Error("Could not find location");
+
             const cleanNumber = giftCardNumber.replace(/[^a-zA-Z0-9]/g, '');
             const { data, error } = await (supabase as any)
                 .from("gift_cards")
                 .select("current_balance, is_active")
+                .eq("location_id", orderData.location_id)
                 .eq("card_number", cleanNumber)
-                .single();
+                .maybeSingle();
 
-            if (error || !data) throw new Error("Gift card not found");
+            if (error) throw error;
+            if (!data) throw new Error("Gift card not found");
             if (!data.is_active) throw new Error("Gift card is inactive");
 
             setGiftCardBalance(Number(data.current_balance));
@@ -506,18 +518,29 @@ export default function CloseTicketModal({
 
             const supabase = createClient();
 
-            // 1. Update Gift Card balance
+            // 1. Get Location ID from Order
+            const { data: orderData } = await (supabase
+                .from("orders") as any)
+                .select("location_id")
+                .eq("id", orderId)
+                .single();
+
+            if (!orderData?.location_id) throw new Error("Could not find location");
+            const cleanNumber = giftCardNumber.replace(/[^a-zA-Z0-9]/g, '');
+
+            // 2. Update Gift Card balance
             const { error: gcError } = await (supabase as any)
                 .from("gift_cards")
                 .update({
                     current_balance: remainingBalance,
                     last_used_at: new Date().toISOString()
                 })
-                .eq("card_number", giftCardNumber);
+                .eq("location_id", orderData.location_id)
+                .eq("card_number", cleanNumber);
 
             if (gcError) throw gcError;
 
-            // 2. Update Order
+            // 3. Update Order
             if (amountToCharge >= totalToPay) {
                 const { error: orderError } = await (supabase.from("orders") as any)
                     .update({
@@ -533,7 +556,7 @@ export default function CloseTicketModal({
                         comp_reason: compReason,
                         metadata: {
                             ...(compMeta as any || {}),
-                            gift_card_number: giftCardNumber
+                            gift_card_number: cleanNumber
                         }
                     })
                     .eq("id", orderId);
@@ -559,7 +582,7 @@ export default function CloseTicketModal({
                                 {
                                     method: "gift_card",
                                     amount: amountToCharge,
-                                    card_number: giftCardNumber,
+                                    card_number: cleanNumber,
                                     at: new Date().toISOString()
                                 }
                             ]
