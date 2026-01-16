@@ -23,6 +23,7 @@ import { toast } from "react-hot-toast";
 import { GiftCardUploadModal } from "@/components/dashboard/settings/GiftCardUploadModal";
 import { IssueGiftCardModal } from "@/components/dashboard/settings/IssueGiftCardModal";
 import { EmailGiftCardModal } from "@/components/dashboard/settings/EmailGiftCardModal";
+import { GiftCardDetailsModal } from "@/components/dashboard/settings/GiftCardDetailsModal";
 import { Mail, Trash2 } from "lucide-react";
 
 
@@ -34,8 +35,10 @@ export default function GiftCardsPage() {
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showIssueModal, setShowIssueModal] = useState(false);
     const [showEmailModal, setShowEmailModal] = useState(false);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [selectedCard, setSelectedCard] = useState<any>(null);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
 
 
     const fetchGiftCards = async () => {
@@ -67,6 +70,28 @@ export default function GiftCardsPage() {
         window.addEventListener("click", handleClickOutside);
         return () => window.removeEventListener("click", handleClickOutside);
     }, []);
+
+    const handleDeactivate = async (card: any) => {
+        if (!confirm(`Are you sure you want to deactivate card ${card.card_number}? This cannot be undone.`)) return;
+
+        setDeactivatingId(card.id);
+        try {
+            const supabase = createClient();
+            const { error } = await (supabase
+                .from("gift_cards") as any)
+                .update({ is_active: false })
+                .eq("id", card.id);
+
+            if (error) throw error;
+            toast.success("Gift card deactivated");
+            fetchGiftCards();
+        } catch (err) {
+            console.error("Deactivation error:", err);
+            toast.error("Failed to deactivate card.");
+        } finally {
+            setDeactivatingId(null);
+        }
+    };
 
     const filteredCards = giftCards.filter(card =>
         card.card_number.toLowerCase().includes(searchQuery.toLowerCase())
@@ -197,95 +222,103 @@ export default function GiftCardsPage() {
                                 </tr>
                             ) : filteredCards.length > 0 ? (
                                 filteredCards.map((card) => (
-                                    <tr key={card.id} className="hover:bg-slate-900/40 transition-colors group">
-                                        <td className="px-4 py-3 font-mono font-bold tracking-widest text-orange-400">
-                                            **** **** **** {card.card_number.slice(-4)}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {card.is_active ? (
-                                                <span className="badge bg-green-500/10 text-green-500 border-none flex items-center gap-1 w-fit">
-                                                    <CheckCircle2 className="h-3 w-3" />
-                                                    Active
-                                                </span>
-                                            ) : (
-                                                <span className="badge bg-red-500/10 text-red-500 border-none flex items-center gap-1 w-fit">
-                                                    <XCircle className="h-3 w-3" />
-                                                    Inactive
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {card.metadata?.is_digital ? (
-                                                <span className="badge bg-purple-500/10 text-purple-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
-                                                    <Smartphone className="h-3 w-3" />
-                                                    Digital
-                                                </span>
-                                            ) : (
-                                                <span className="badge bg-slate-500/10 text-slate-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
-                                                    <CreditCard className="h-3 w-3" />
-                                                    Physical
-                                                </span>
-                                            )}
-                                        </td>
-
-                                        <td className="px-4 py-3 font-bold">{formatCurrency(card.current_balance)}</td>
-                                        <td className="px-4 py-3 text-slate-500">{formatCurrency(card.original_balance)}</td>
-                                        <td className="px-4 py-3 text-sm text-slate-400">
-                                            {card.last_used_at ? new Date(card.last_used_at).toLocaleDateString() : "Never"}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div className="relative inline-block text-left">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setOpenMenuId(openMenuId === card.id ? null : card.id);
-                                                    }}
-                                                    className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors"
-                                                >
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </button>
-
-                                                {openMenuId === card.id && (
-                                                    <div className="absolute right-0 mt-2 w-48 rounded-xl bg-slate-900 border border-slate-800 shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setSelectedCard(card);
-                                                                setShowEmailModal(true);
-                                                                setOpenMenuId(null);
-                                                            }}
-                                                            className="flex items-center w-full px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-                                                        >
-                                                            <Mail className="h-4 w-4 mr-3 text-orange-500" />
-                                                            Email Customer
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                // Future implementation
-                                                                toast("Feature coming soon");
-                                                                setOpenMenuId(null);
-                                                            }}
-                                                            className="flex items-center w-full px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-                                                        >
-                                                            <History className="h-4 w-4 mr-3 text-slate-500" />
-                                                            View History
-                                                        </button>
-                                                        <div className="h-px bg-slate-800 mx-2 my-1" />
-                                                        <button
-                                                            disabled
-                                                            className="flex items-center w-full px-4 py-2.5 text-sm text-red-500/50 cursor-not-allowed transition-colors"
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-3" />
-                                                            Deactivate Card
-                                                        </button>
-                                                    </div>
+                                    filteredCards.map((card) => (
+                                        <tr
+                                            key={card.id}
+                                            onClick={() => {
+                                                setSelectedCard(card);
+                                                setShowDetailsModal(true);
+                                            }}
+                                            className="hover:bg-slate-900/40 transition-colors group cursor-pointer"
+                                        >
+                                            <td className="px-4 py-3 font-mono font-bold tracking-widest text-orange-400">
+                                                **** **** **** {card.card_number.slice(-4)}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {card.is_active ? (
+                                                    <span className="badge bg-green-500/10 text-green-500 border-none flex items-center gap-1 w-fit">
+                                                        <CheckCircle2 className="h-3 w-3" />
+                                                        Active
+                                                    </span>
+                                                ) : (
+                                                    <span className="badge bg-red-500/10 text-red-500 border-none flex items-center gap-1 w-fit">
+                                                        <XCircle className="h-3 w-3" />
+                                                        Inactive
+                                                    </span>
                                                 )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {card.metadata?.is_digital ? (
+                                                    <span className="badge bg-purple-500/10 text-purple-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
+                                                        <Smartphone className="h-3 w-3" />
+                                                        Digital
+                                                    </span>
+                                                ) : (
+                                                    <span className="badge bg-slate-500/10 text-slate-400 border-none flex items-center gap-1 w-fit text-[10px] font-bold uppercase">
+                                                        <CreditCard className="h-3 w-3" />
+                                                        Physical
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            <td className="px-4 py-3 font-bold">{formatCurrency(card.current_balance)}</td>
+                                            <td className="px-4 py-3 text-slate-500">{formatCurrency(card.original_balance)}</td>
+                                            <td className="px-4 py-3 text-sm text-slate-400">
+                                                {card.last_used_at ? new Date(card.last_used_at).toLocaleDateString() : "Never"}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="relative inline-block text-left">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenMenuId(openMenuId === card.id ? null : card.id);
+                                                        }}
+                                                        className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors"
+                                                    >
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </button>
+
+                                                    {openMenuId === card.id && (
+                                                        <div className="absolute right-0 mt-2 w-48 rounded-xl bg-slate-900 border border-slate-800 shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedCard(card);
+                                                                    setShowEmailModal(true);
+                                                                    setOpenMenuId(null);
+                                                                }}
+                                                                className="flex items-center w-full px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                                                            >
+                                                                <Mail className="h-4 w-4 mr-3 text-orange-500" />
+                                                                Email Customer
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    // Future implementation
+                                                                    toast("Feature coming soon");
+                                                                    setOpenMenuId(null);
+                                                                }}
+                                                                className="flex items-center w-full px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                                                            >
+                                                                <History className="h-4 w-4 mr-3 text-slate-500" />
+                                                                View History
+                                                            </button>
+                                                            <div className="h-px bg-slate-800 mx-2 my-1" />
+                                                            <button
+                                                                disabled
+                                                                className="flex items-center w-full px-4 py-2.5 text-sm text-red-500/50 cursor-not-allowed transition-colors"
+                                                            >
+                                                                <Trash2 className="h-4 w-4 mr-3" />
+                                                                Deactivate Card
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
                                 <tr>
                                     <td colSpan={7} className="px-4 py-20 text-center">
                                         <div className="max-w-xs mx-auto space-y-4">
@@ -318,15 +351,26 @@ export default function GiftCardsPage() {
             />
 
             {selectedCard && (
-                <EmailGiftCardModal
-                    isOpen={showEmailModal}
-                    onClose={() => {
-                        setShowEmailModal(false);
-                        setSelectedCard(null);
-                    }}
-                    card={selectedCard}
-                    locationId={currentLocation.id}
-                />
+                <>
+                    <EmailGiftCardModal
+                        isOpen={showEmailModal}
+                        onClose={() => {
+                            setShowEmailModal(false);
+                            setSelectedCard(null);
+                        }}
+                        card={selectedCard}
+                        locationId={currentLocation.id}
+                    />
+                    <GiftCardDetailsModal
+                        isOpen={showDetailsModal}
+                        onClose={() => {
+                            setShowDetailsModal(false);
+                            setSelectedCard(null);
+                        }}
+                        card={selectedCard}
+                        locationId={currentLocation.id}
+                    />
+                </>
             )}
 
         </div >
