@@ -16,7 +16,8 @@ import {
     Hourglass,
     Phone,
     Calendar,
-    ChevronRight
+    ChevronRight,
+    Mail
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { AddWaitlistModal } from "@/components/waitlist/AddWaitlistModal";
@@ -46,7 +47,7 @@ export default function WaitlistPage() {
             const supabase = createClient();
             const { data, error } = await (supabase
                 .from("waitlist") as any)
-                .select("*")
+                .select("*, customer_email")
                 .eq("location_id", currentLocation.id)
                 .order("created_at", { ascending: true });
 
@@ -329,6 +330,35 @@ export default function WaitlistPage() {
                                         <div className="flex items-center gap-2">
                                             {entry.status === 'waiting' && (
                                                 <>
+                                                    {entry.customer_email && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const handleSendEmail = async () => {
+                                                                    const toastId = toast.loading("Sending email...");
+                                                                    try {
+                                                                        const response = await fetch("/api/waitlist/email", {
+                                                                            method: "POST",
+                                                                            headers: { "Content-Type": "application/json" },
+                                                                            body: JSON.stringify({ waitlistId: entry.id }),
+                                                                        });
+
+                                                                        if (!response.ok) throw new Error("Failed to send email");
+
+                                                                        toast.success("Email sent successfully", { id: toastId });
+                                                                    } catch (err) {
+                                                                        console.error("Error sending email:", err);
+                                                                        toast.error("Failed to send email", { id: toastId });
+                                                                    }
+                                                                };
+                                                                handleSendEmail();
+                                                            }}
+                                                            className="bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white p-2 rounded-lg transition-all border border-blue-500/20"
+                                                            title="Send Table Ready Email"
+                                                        >
+                                                            <Mail className="h-4 w-4" />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
