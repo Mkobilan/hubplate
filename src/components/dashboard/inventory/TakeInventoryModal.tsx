@@ -75,9 +75,24 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
             const { data: { user } } = await supabase.auth.getUser();
 
             // 1. Create Session
-            const recorderName = currentEmployee
-                ? `${currentEmployee.first_name} ${currentEmployee.last_name}`.trim()
-                : (user?.email || 'System');
+            let recorderName = 'Staff Member';
+
+            if (currentEmployee) {
+                recorderName = `${currentEmployee.first_name} ${currentEmployee.last_name}`.trim();
+            } else if (user) {
+                // Try to find employee profile for this user ID if not in store
+                const { data: emp } = await supabase
+                    .from("employees")
+                    .select("first_name, last_name")
+                    .eq("user_id", user.id)
+                    .maybeSingle();
+
+                if (emp) {
+                    recorderName = `${emp.first_name} ${emp.last_name}`.trim();
+                } else if (user.user_metadata?.full_name) {
+                    recorderName = user.user_metadata.full_name;
+                }
+            }
 
             const { data: session, error: sessionError } = await (supabase
                 .from("physical_inventory_sessions") as any)
