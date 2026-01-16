@@ -117,7 +117,14 @@ export default function GiftCardsPage() {
                 </div>
                 <div className="card">
                     <p className="text-sm text-slate-500">Cards Issued (MTD)</p>
-                    <p className="text-2xl font-bold">12</p>
+                    <p className="text-2xl font-bold">
+                        {giftCards.filter(c => {
+                            const date = new Date(c.created_at);
+                            const now = new Date();
+                            return date.getMonth() === now.getMonth() &&
+                                date.getFullYear() === now.getFullYear();
+                        }).length}
+                    </p>
                 </div>
             </div>
 

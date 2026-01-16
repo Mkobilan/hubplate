@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
+import { useAppStore } from "@/stores";
 
 import {
     X,
@@ -137,7 +138,15 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
 
     const pushToOrder = async (cardData: any) => {
         try {
-            // 1. Fetch the active order for the selected table
+            // 1. Fetch latest location for tax rate
+            const { data: loc } = await (supabase
+                .from("locations") as any)
+                .select("tax_rate")
+                .eq("id", locationId)
+                .single();
+            const locationTaxRate = loc?.tax_rate ?? 8.75;
+
+            // 2. Fetch the active order for the selected table
             const { data: order, error: fetchError } = await (supabase
                 .from("orders") as any)
                 .select("*")
@@ -147,14 +156,9 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
                 .in("status", ["sent", "preparing", "ready", "served", "pending"])
                 .maybeSingle();
 
-
             if (fetchError) throw fetchError;
-            if (!order) {
-                toast.error(`No active order found for table ${selectedTableNumber}`);
-                return;
-            }
 
-            // 2. Prepare the new item
+            // Prepare the new item
             const newItem = {
                 id: crypto.randomUUID(),
                 menu_item_id: "gift_card_issuance",
@@ -169,34 +173,57 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
                 sent_at: new Date().toISOString()
             };
 
-            // 3. Update Order items and totals
-            const updatedItems = [...(order.items || []), newItem];
+            if (order) {
+                // 3. Update existing Order items and totals
+                const updatedItems = [...(order.items || []), newItem];
 
-            // Calculate new totals
-            const subtotal = updatedItems.reduce((sum, item) => {
-                // Simplified subtotal calculation for gift cards
-                const modsTotal = (item.modifiers || []).reduce((s: number, a: any) => s + (a.price || 0), 0);
-                return sum + ((item.price || 0) + modsTotal) * (item.quantity || 1);
-            }, 0);
+                // Calculate new totals
+                const subtotal = updatedItems.reduce((sum, item) => {
+                    const modsTotal = (item.modifiers || []).reduce((s: number, a: any) => s + (a.price || 0), 0);
+                    return sum + ((item.price || 0) + modsTotal) * (item.quantity || 1);
+                }, 0);
 
-            // Re-fetch location for tax rate to be safe, or use order's existing tax rate context
-            // For now, let's assume we can get it from the order or a default
-            const taxRate = order.tax / (order.subtotal || 1) * 100 || 8.75;
-            const tax = subtotal * (taxRate / 100);
-            const total = subtotal + tax + (order.delivery_fee || 0) - (order.discount || 0);
+                const taxRate = order.tax / (order.subtotal || 1) * 100 || locationTaxRate;
+                const tax = subtotal * (taxRate / 100);
+                const total = subtotal + tax + (order.delivery_fee || 0) - (order.discount || 0);
 
-            const { error: updateError } = await (supabase.from("orders") as any)
-                .update({
-                    items: updatedItems,
-                    subtotal,
-                    tax,
-                    total,
-                    updated_at: new Date().toISOString()
-                })
-                .eq("id", order.id);
+                const { error: updateError } = await (supabase.from("orders") as any)
+                    .update({
+                        items: updatedItems,
+                        subtotal,
+                        tax,
+                        total,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq("id", order.id);
 
-            if (updateError) throw updateError;
-            toast.success(`Added to table ${selectedTableNumber}'s ticket`);
+                if (updateError) throw updateError;
+                toast.success(`Added to table ${selectedTableNumber}'s ticket`);
+            } else {
+                // 4. Create NEW Order
+                const subtotal = newItem.price;
+                const tax = subtotal * (locationTaxRate / 100);
+                const total = subtotal + tax;
+
+                const { error: insertError } = await (supabase.from("orders") as any)
+                    .insert({
+                        location_id: locationId,
+                        table_number: selectedTableNumber,
+                        order_type: 'dine_in',
+                        status: 'sent',
+                        payment_status: 'unpaid',
+                        items: [newItem],
+                        subtotal,
+                        tax,
+                        total,
+                        server_id: useAppStore.getState().currentEmployee?.id || null,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    });
+
+                if (insertError) throw insertError;
+                toast.success(`New ticket created for table ${selectedTableNumber} with gift card`);
+            }
         } catch (err) {
             console.error("Error pushing to order:", err);
             toast.error("Failed to add gift card to order");
@@ -325,33 +352,28 @@ export function IssueGiftCardModal({ isOpen, onClose, locationId, onComplete }: 
 
                     {addToTable && (
                         <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                            <label className="text-xs font-bold text-slate-500 uppercase px-1">Select Active Table</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase px-1">Table Number</label>
                             <div className="relative">
                                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
                                     <TableIcon className="h-4 w-4" />
                                 </div>
-                                {activeTables.length > 0 ? (
-                                    <select
-                                        className="input pl-10 h-11 appearance-none bg-slate-900"
-                                        value={selectedTableNumber}
-                                        onChange={(e) => setSelectedTableNumber(e.target.value)}
-                                    >
-                                        <option value="">Choose a table...</option>
-                                        {activeTables.map(tableNum => (
-                                            <option key={tableNum} value={tableNum}>Table {tableNum}</option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <div className="input pl-10 h-11 flex items-center text-slate-500 text-sm italic">
-                                        No active tables found
-                                    </div>
-                                )}
+                                <input
+                                    type="text"
+                                    list="active-tables"
+                                    placeholder="Enter table number..."
+                                    className="input pl-10 h-11"
+                                    value={selectedTableNumber}
+                                    onChange={(e) => setSelectedTableNumber(e.target.value)}
+                                />
+                                <datalist id="active-tables">
+                                    {activeTables.map(tableNum => (
+                                        <option key={tableNum} value={tableNum}>Table {tableNum} (Active)</option>
+                                    ))}
+                                </datalist>
                             </div>
-                            {activeTables.length === 0 && (
-                                <p className="text-[10px] text-slate-500 px-1">
-                                    Only tables with open orders can be selected.
-                                </p>
-                            )}
+                            <p className="text-[10px] text-slate-500 px-1">
+                                Enter a table number. If no active order exists, a new one will be created.
+                            </p>
                         </div>
                     )}
                 </div>
