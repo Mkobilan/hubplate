@@ -1769,17 +1769,17 @@ export default function StaffPage() {
                                             });
 
                                             // Check if "Open" - all 7 days in effective week are available and have full coverage (simplified check)
-                                            const isOpen = effectiveAvailability.every(d => d.status?.is_available);
+                                            // const isOpen = effectiveAvailability.every(d => d.status?.is_available);
 
-                                            if (isOpen) {
-                                                return (
-                                                    <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-2xl text-center">
-                                                        <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                                                        <h3 className="text-xl font-bold text-white mb-1">Open Availability</h3>
-                                                        <p className="text-sm text-green-400/80">This employee has open availability this week</p>
-                                                    </div>
-                                                );
-                                            }
+                                            // if (isOpen) {
+                                            //     return (
+                                            //         <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-2xl text-center">
+                                            //             <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                                            //             <h3 className="text-xl font-bold text-white mb-1">Open Availability</h3>
+                                            //             <p className="text-sm text-green-400/80">This employee has open availability this week</p>
+                                            //         </div>
+                                            //     );
+                                            // }
 
                                             return (
                                                 <div className="grid grid-cols-1 gap-2">
