@@ -54,10 +54,14 @@ export function WaitlistSidebar({ isOpen, onClose, tables, occupiedTableLabels }
             const supabase = createClient();
             const { data, error } = await (supabase
                 .from("waitlist") as any)
-                .select("*")
+                .select("*, customer_email")
                 .eq("location_id", currentLocation.id)
                 .eq("status", "waiting")
                 .order("created_at", { ascending: true });
+
+            if (data) {
+                console.log("Waitlist entries:", data);
+            }
 
             if (error) throw error;
             setEntries(data || []);
