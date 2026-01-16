@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Stage, Layer, Rect, Circle, Text, Group, Transformer } from "react-konva";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Modal } from "@/components/ui/modal";
 import { Loader2, Plus, Save, Trash2, ArrowLeft, ZoomIn, ZoomOut, Maximize, Edit2, MousePointer2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
@@ -49,9 +50,40 @@ export default function SeatMapEditor() {
     const [newMapName, setNewMapName] = useState("");
     const [isEditingMapName, setIsEditingMapName] = useState(false);
 
+    // Unsaved changes state
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [showSavePrompt, setShowSavePrompt] = useState(false);
+    const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
     // Editor State
     const [scale, setScale] = useState(1);
     const [position, setPosition] = useState({ x: 0, y: 0 });
+
+    // Warning on browser refresh/close
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = "";
+            }
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+        };
+    }, [hasUnsavedChanges]);
+
+    // Handle navigation interception (custom function)
+    const handleNavigation = (action: () => void) => {
+        if (hasUnsavedChanges) {
+            setPendingAction(() => action);
+            setShowSavePrompt(true);
+        } else {
+            action();
+        }
+    };
 
     // Fetch initial data
     useEffect(() => {
@@ -145,8 +177,13 @@ export default function SeatMapEditor() {
             .eq("map_id", mapId)
             .eq("is_active", true);
 
-        if (data) setTables(data);
-        else setTables([]);
+        if (data) {
+            setTables(data);
+            setHasUnsavedChanges(false);
+        } else {
+            setTables([]);
+            setHasUnsavedChanges(false);
+        }
     }
 
     const handleCreateMap = async () => {
@@ -284,6 +321,14 @@ export default function SeatMapEditor() {
             }
 
             toast.success("Map saved successfully!");
+            setHasUnsavedChanges(false);
+
+            // Execute pending action if any (e.g., navigation)
+            if (pendingAction) {
+                pendingAction();
+                setPendingAction(null);
+                setShowSavePrompt(false);
+            }
         } catch (error) {
             console.error("Error saving map:", error);
             toast.error("Failed to save changes");
@@ -320,16 +365,19 @@ export default function SeatMapEditor() {
         };
         setTables([...tables, newTable]);
         selectTable(newTable.id);
+        setHasUnsavedChanges(true);
     };
 
     const updateTable = (id: string, attrs: Partial<TableConfig>) => {
         setTables(tables.map(t => t.id === id ? { ...t, ...attrs } : t));
+        setHasUnsavedChanges(true);
     };
 
     const deleteSelected = () => {
         if (selectedId) {
             setTables(tables.filter(t => t.id !== selectedId));
             selectTable(null);
+            setHasUnsavedChanges(true);
         }
     };
 
@@ -373,7 +421,7 @@ export default function SeatMapEditor() {
         <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-950">
             {/* Top Bar: Section Management */}
             <div className="bg-slate-900 border-b border-slate-800 p-3 flex items-center gap-4 z-20">
-                <button onClick={() => router.push('/dashboard/seating')} className="p-2 hover:bg-slate-800 rounded-lg">
+                <button onClick={() => handleNavigation(() => router.push('/dashboard/seating'))} className="p-2 hover:bg-slate-800 rounded-lg">
                     <ArrowLeft className="h-5 w-5 text-slate-400" />
                 </button>
 
@@ -384,8 +432,11 @@ export default function SeatMapEditor() {
                             <select
                                 value={currentMap?.id || ""}
                                 onChange={(e) => {
-                                    const m = maps.find(m => m.id === e.target.value);
-                                    if (m) setCurrentMap(m);
+                                    const newMapId = e.target.value;
+                                    handleNavigation(() => {
+                                        const m = maps.find(m => m.id === newMapId);
+                                        if (m) setCurrentMap(m);
+                                    });
                                 }}
                                 className="bg-slate-800 text-white border border-slate-700 rounded-lg px-3 py-1.5 focus:border-orange-500 outline-none"
                             >
@@ -614,6 +665,46 @@ export default function SeatMapEditor() {
                     </ResponsiveStage>
                 </div>
             </div>
+
+            {/* Unsaved Changes Warning Modal */}
+            <Modal
+                isOpen={showSavePrompt}
+                onClose={() => setShowSavePrompt(false)} /* Treat close as cancel */
+                title="Unsaved Changes"
+            >
+                <div className="space-y-4">
+                    <p>You have made changes, do you want to save these changes first?</p>
+                    <div className="flex gap-3 justify-end">
+                        <button
+                            onClick={() => setShowSavePrompt(false)}
+                            className="btn btn-secondary"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (pendingAction) {
+                                    pendingAction();
+                                    setPendingAction(null);
+                                    setShowSavePrompt(false);
+                                    setHasUnsavedChanges(false);
+                                }
+                            }}
+                            className="btn btn-secondary text-red-400 hover:bg-slate-800 border-red-900/30"
+                        >
+                            No, Discard
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="btn btn-primary gap-2"
+                        >
+                            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                            Yes, Save
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

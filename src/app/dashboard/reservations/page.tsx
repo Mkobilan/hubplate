@@ -161,6 +161,9 @@ export default function ReservationsPage() {
     // Edit mode
     const [editingReservation, setEditingReservation] = useState<ReservationWithTables | null>(null);
 
+    // Cancel confirmation state
+    const [cancelReservationId, setCancelReservationId] = useState<string | null>(null);
+
     // New reservation form
     const [newReservation, setNewReservation] = useState({
         customer_name: "",
@@ -935,7 +938,7 @@ export default function ReservationsPage() {
                                             )}
                                             {(res.status === "pending" || res.status === "confirmed") && (
                                                 <button
-                                                    onClick={() => handleStatusChange(res.id, "cancelled")}
+                                                    onClick={() => setCancelReservationId(res.id)}
                                                     className="btn btn-secondary text-xs text-red-400 hover:text-red-300"
                                                 >
                                                     <X className="h-3 w-3" />
@@ -1032,6 +1035,7 @@ export default function ReservationsPage() {
                 title={editingReservation ? "Edit Reservation" : "New Reservation"}
             >
                 <form onSubmit={handleCreateReservation} className="space-y-4">
+                    {/* ... (existing fields) ... */}
                     {/* Customer Info */}
                     <div className="space-y-3">
                         <div className="space-y-1">
@@ -1280,6 +1284,36 @@ export default function ReservationsPage() {
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Cancel Confirmation Modal */}
+            <Modal
+                isOpen={!!cancelReservationId}
+                onClose={() => setCancelReservationId(null)}
+                title="Cancel Reservation"
+            >
+                <div className="space-y-4">
+                    <p>Are you sure you want to cancel this reservation?</p>
+                    <div className="flex gap-3 justify-end">
+                        <button
+                            onClick={() => setCancelReservationId(null)}
+                            className="btn btn-secondary"
+                        >
+                            No, Keep
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (cancelReservationId) {
+                                    handleStatusChange(cancelReservationId, "cancelled");
+                                    setCancelReservationId(null);
+                                }
+                            }}
+                            className="btn btn-primary bg-red-600 hover:bg-red-700 border-red-600"
+                        >
+                            Yes, Cancel
+                        </button>
+                    </div>
+                </div>
             </Modal>
 
             {/* Settings Modal */}
