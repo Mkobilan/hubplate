@@ -81,8 +81,8 @@ export default function TakeInventoryModal({ isOpen, onClose, locationId, storag
                 recorderName = `${currentEmployee.first_name} ${currentEmployee.last_name}`.trim();
             } else if (user) {
                 // Try to find employee profile for this user ID if not in store
-                const { data: emp } = await supabase
-                    .from("employees")
+                const { data: emp } = await (supabase
+                    .from("employees") as any)
                     .select("first_name, last_name")
                     .eq("user_id", user.id)
                     .maybeSingle();
