@@ -39,6 +39,9 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
     const [sendingEmail, setSendingEmail] = useState<string | null>(null);
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [editForm, setEditForm] = useState({
+        firstName: "",
+        lastName: "",
+        email: "",
         phone: "",
         notes: ""
     });
@@ -123,8 +126,10 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
         const visitsCount = orders.length > 0 ? orders.length : (customer?.total_visits || 0);
         const avgSpend = visitsCount > 0 ? totalSpent / visitsCount : 0;
 
-        // Visit Frequency Calculation
+        // Visit Frequency & Recency Calculation
         let frequencyDays = 0;
+        let lastVisitDate = orders.length > 0 ? new Date(orders[0].created_at) : new Date(customer?.created_at || Date.now());
+
         if (orders.length >= 2) {
             const firstDate = new Date(orders[orders.length - 1].created_at);
             const lastDate = new Date(orders[0].created_at);
@@ -137,13 +142,13 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
             const daysSinceJoined = (now.getTime() - joinedDate.getTime()) / (1000 * 3600 * 24);
             frequencyDays = Math.round(daysSinceJoined / (customer.total_visits - 1));
         } else if (customer?.total_visits === 1) {
-            // Single visit, maybe show days since joined or just 0
+            // Single visit
             frequencyDays = 0;
         }
 
         const recs = [];
 
-        const daysSinceLastVisit = (new Date().getTime() - lastDate.getTime()) / (1000 * 3600 * 24);
+        const daysSinceLastVisit = (new Date().getTime() - lastVisitDate.getTime()) / (1000 * 3600 * 24);
         if (daysSinceLastVisit > 30) {
             recs.push({
                 type: "retention",
