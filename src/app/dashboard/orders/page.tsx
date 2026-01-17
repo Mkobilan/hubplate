@@ -42,6 +42,7 @@ import CloseTicketModal from "./components/CloseTicketModal";
 import SplitCheckModal from "./components/SplitCheckModal";
 import LoyaltyModal from "./components/LoyaltyModal";
 import { Modal } from "@/components/ui/modal";
+import { ManagerApprovalModal } from "@/components/dashboard/ManagerApprovalModal";
 
 
 function OrdersPageContent() {
@@ -62,6 +63,7 @@ function OrdersPageContent() {
     const [showCloseTicket, setShowCloseTicket] = useState(false);
     const [showSplitCheck, setShowSplitCheck] = useState(false);
     const [showLoyaltyModal, setShowLoyaltyModal] = useState(false);
+    const [showManagerApproval, setShowManagerApproval] = useState(false);
 
     const [linkedCustomer, setLinkedCustomer] = useState<any | null>(null);
 
@@ -485,7 +487,7 @@ function OrdersPageContent() {
     };
 
     const voidOrder = async () => {
-        if (!activeOrderId || !confirm("Are you sure you want to void this order? Inventory will be restored.")) return;
+        if (!activeOrderId) return;
 
         setLoading(true);
         try {
@@ -786,6 +788,12 @@ function OrdersPageContent() {
                                         New Order
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => setShowManagerApproval(true)}
+                                    className="btn btn-secondary flex-1 border-red-500/30 text-red-500 hover:bg-red-500/10"
+                                >
+                                    Void Order
+                                </button>
                                 <button
                                     onClick={() => setShowMyTickets(true)}
                                     className="btn btn-secondary text-xs py-0.5 px-2"
@@ -1119,6 +1127,12 @@ function OrdersPageContent() {
                     setPointsRedeemed(prev => prev + pointsUsed);
                 }}
                 currentCustomer={linkedCustomer}
+            />
+
+            <ManagerApprovalModal
+                isOpen={showManagerApproval}
+                onClose={() => setShowManagerApproval(false)}
+                onSuccess={voidOrder}
             />
 
 

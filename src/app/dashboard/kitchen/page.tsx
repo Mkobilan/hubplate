@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
 import { toast } from "react-hot-toast";
+import { ManagerApprovalModal } from "@/components/dashboard/ManagerApprovalModal";
 
 interface KitchenOrderItem {
     id: string;  // order_item id for updating
@@ -62,6 +63,7 @@ export default function KitchenPage() {
     const [dressingKdsMap, setDressingKdsMap] = useState<Map<string, string[]>>(new Map());
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
     const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
+    const [showManagerApproval, setShowManagerApproval] = useState(false);
 
     const currentLocation = useAppStore((state) => state.currentLocation);
     const currentEmployee = useAppStore((state) => state.currentEmployee);
@@ -476,13 +478,14 @@ export default function KitchenPage() {
         // Optimistic update
         const previousOrders = [...orders];
         setOrders(orders.filter(o => o.id !== orderToCancel));
+        const currentOrderToCancel = orderToCancel;
         setOrderToCancel(null);
 
         try {
             const { error } = await (supabase
                 .from("orders") as any)
                 .update({ status: 'cancelled' })
-                .eq("id", orderToCancel);
+                .eq("id", currentOrderToCancel);
 
             if (error) throw error;
 
@@ -831,8 +834,9 @@ export default function KitchenPage() {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setOrderToCancel(order.id);
+                                                setShowManagerApproval(true);
                                             }}
-                                            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/80 rounded-lg transition-colors border border-transparent hover:border-red-500/50"
+                                            className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors border border-transparent hover:border-red-500/30"
                                             title="Cancel Order"
                                         >
                                             <X className="h-4 w-4" />
@@ -1018,6 +1022,16 @@ export default function KitchenPage() {
                     )}
                 </div>
             </div>
+
+            {/* Manager Approval Modal */}
+            <ManagerApprovalModal
+                isOpen={showManagerApproval}
+                onClose={() => {
+                    setShowManagerApproval(false);
+                    setOrderToCancel(null);
+                }}
+                onSuccess={handleCancelOrder}
+            />
 
             {/* Add KDS Modal */}
             {showAddKdsModal && (
