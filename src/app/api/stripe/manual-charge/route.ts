@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
     try {
-        const { orderId, amount, tip, cardNumber, cardExpiry, cardCvc } = await request.json();
+        const { orderId, amount, tip, paymentMethodId } = await request.json();
 
         // 1. Get order and location details
         const { data: order, error } = await (supabaseAdmin
@@ -25,28 +25,13 @@ export async function POST(request: NextRequest) {
         const stripeAccountId = order.locations?.stripe_account_id;
         const totalCents = Math.round((amount + tip) * 100);
 
-        // 2. Parse Expiry (MM/YY)
-        const [expMonth, expYear] = cardExpiry.split('/').map((s: string) => s.trim());
-
-        // 3. Create Payment Method (CNP)
-        // NOTE: In production, use Stripe Elements to create this on the client.
-        const paymentMethod = await stripe.paymentMethods.create({
-            type: 'card',
-            card: {
-                number: cardNumber.replace(/\s/g, ''),
-                exp_month: parseInt(expMonth),
-                exp_year: parseInt('20' + expYear),
-                cvc: cardCvc,
-            },
-        });
-
-        // 4. Create and Confirm Payment Intent
+        // 2. Create and Confirm Payment Intent using the PaymentMethod ID
         const paymentIntentOptions: any = {
             amount: totalCents,
             currency: 'usd',
-            payment_method: paymentMethod.id,
+            payment_method: paymentMethodId,
             confirm: true,
-            confirm_method: 'manual', // Needs to be manually confirmed or set confirm: true
+            confirm_method: 'manual',
             automatic_payment_methods: {
                 enabled: true,
                 allow_redirects: 'never'

@@ -7,7 +7,14 @@ import { Capacitor } from '@capacitor/core';
 import { StripeTerminal, TerminalConnectTypes } from '@capacitor-community/stripe-terminal';
 import { formatCurrency } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
+import { createClient } from "@/lib/supabase/client";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { toast } from "react-hot-toast";
+import ReceiptPreview from "./ReceiptPreview";
+
+// Initialize Stripe
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 interface CloseTicketModalProps {
     orderId: string;
@@ -66,10 +73,6 @@ export default function CloseTicketModal({
     const [giftCardBalance, setGiftCardBalance] = useState<number | null>(null);
     const [giftCardError, setGiftCardError] = useState<string | null>(null);
 
-    // Manual Card Entry
-    const [cardNumber, setCardNumber] = useState("");
-    const [cardExpiry, setCardExpiry] = useState("");
-    const [cardCvc, setCardCvc] = useState("");
     const [isProcessingManual, setIsProcessingManual] = useState(false);
 
     useEffect(() => {
@@ -445,70 +448,7 @@ export default function CloseTicketModal({
         }
     };
 
-    const handleManualPayment = async () => {
-        setIsProcessingManual(true);
-        setPaymentStatus("Charging card...");
-        try {
-            const response = await fetch("/api/stripe/manual-charge", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    orderId,
-                    amount: total,
-                    tip,
-                    cardNumber,
-                    cardExpiry,
-                    cardCvc
-                })
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || "Payment failed");
-            }
-
-            setPaymentStatus("Manual Payment Successful!");
-            const finalTotal = total + tip;
-
-            // Update Supabase
-            const supabase = createClient();
-
-            // For delivery orders, we DO NOT mark as completed.
-            const isDelivery = orderType === "delivery";
-
-            const { error: updateError } = await (supabase.from("orders") as any)
-                .update({
-                    payment_status: "paid",
-                    payment_method: "manual_card",
-                    tip: tip,
-                    total: finalTotal,
-                    status: isDelivery ? undefined : "completed",
-                    completed_at: isDelivery ? null : new Date().toISOString(),
-                    paid_at: new Date().toISOString(),
-                    is_comped: isOrderComped,
-                    comp_meta: compMeta,
-                    comp_reason: compReason
-                })
-                .eq("id", orderId);
-
-            if (updateError) throw updateError;
-
-            await processLoyaltyPoints(finalTotal);
-
-            setTimeout(() => {
-                onPaymentComplete?.();
-                onClose();
-            }, 1000);
-
-        } catch (error: any) {
-            console.error("Manual payment failed", error);
-            setPaymentStatus("Failed: " + (error.message || "Unknown error"));
-            toast.error(error.message || "Payment failed");
-        } finally {
-            setIsProcessingManual(false);
-        }
-    };
+    // handleManualPayment moved to ManualPaymentForm sub-component
 
     const handleCashPayment = async () => {
         setProcessingCash(true);
@@ -895,68 +835,23 @@ export default function CloseTicketModal({
 
                 {/* Manual Card Entry Form */}
                 {activeOption === "manual_card" && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Card Number</label>
-                                <input
-                                    type="text"
-                                    placeholder="0000 0000 0000 0000"
-                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-orange-500 outline-none"
-                                    value={cardNumber}
-                                    onChange={(e) => setCardNumber(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex gap-4">
-                                <div className="flex-1">
-                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Expiry</label>
-                                    <input
-                                        type="text"
-                                        placeholder="MM/YY"
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-orange-500 outline-none"
-                                        value={cardExpiry}
-                                        onChange={(e) => setCardExpiry(e.target.value)}
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">CVC</label>
-                                    <input
-                                        type="text"
-                                        placeholder="123"
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-orange-500 outline-none"
-                                        value={cardCvc}
-                                        onChange={(e) => setCardCvc(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {paymentStatus && (
-                            <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-sm text-orange-200 text-center italic">
-                                {paymentStatus}
-                            </div>
-                        )}
-
-                        <div className="flex gap-3 pt-4">
-                            <button
-                                onClick={() => {
-                                    setActiveOption(null);
-                                    setPaymentStatus("");
-                                }}
-                                disabled={isProcessingManual}
-                                className="btn btn-secondary flex-1"
-                            >
-                                Back
-                            </button>
-                            <button
-                                onClick={handleManualPayment}
-                                disabled={isProcessingManual || !cardNumber || !cardExpiry || !cardCvc}
-                                className="btn btn-primary flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50"
-                            >
-                                {isProcessingManual ? <Loader2 className="h-4 w-4 animate-spin" /> : "Charge Card"}
-                            </button>
-                        </div>
-                    </div>
+                    <Elements stripe={stripePromise}>
+                        <ManualPaymentForm
+                            orderId={orderId}
+                            total={total}
+                            tip={tip}
+                            orderType={orderType}
+                            isOrderComped={isOrderComped}
+                            compMeta={compMeta}
+                            compReason={compReason}
+                            onBack={() => setActiveOption(null)}
+                            onSuccess={() => {
+                                onPaymentComplete?.();
+                                onClose();
+                            }}
+                            processLoyaltyPoints={processLoyaltyPoints}
+                        />
+                    </Elements>
                 )}
 
                 {/* Print Option */}
@@ -1259,5 +1154,142 @@ export default function CloseTicketModal({
                 </div>
             </div>
         </div>
+    );
+}
+
+function ManualPaymentForm({
+    orderId, total, tip, orderType, isOrderComped, compMeta, compReason,
+    onBack, onSuccess, processLoyaltyPoints
+}: {
+    orderId: string;
+    total: number;
+    tip: number;
+    orderType: string;
+    isOrderComped?: boolean;
+    compMeta?: any;
+    compReason?: string;
+    onBack: () => void;
+    onSuccess: () => void;
+    processLoyaltyPoints: (amount: number) => Promise<void>;
+}) {
+    const stripe = useStripe();
+    const elements = useElements();
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!stripe || !elements) return;
+
+        setIsProcessing(true);
+        setError(null);
+
+        const cardElement = elements.getElement(CardElement);
+        if (!cardElement) {
+            setIsProcessing(false);
+            return;
+        }
+
+        try {
+            // 1. Create PaymentMethod securely on the client
+            const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
+                type: 'card',
+                card: cardElement,
+            });
+
+            if (pmError) throw pmError;
+
+            // 2. Send PaymentMethod ID to backend
+            const response = await fetch("/api/stripe/manual-charge", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    orderId,
+                    amount: total,
+                    tip,
+                    paymentMethodId: paymentMethod.id
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Payment failed");
+
+            // 3. Update Supabase status (Keep consistency with existing logic)
+            const finalTotal = total + tip;
+            const supabase = createClient();
+            const isDelivery = orderType === "delivery";
+
+            const { error: updateError } = await (supabase.from("orders") as any)
+                .update({
+                    payment_status: "paid",
+                    payment_method: "manual_card",
+                    tip: tip,
+                    total: finalTotal,
+                    status: isDelivery ? undefined : "completed",
+                    completed_at: isDelivery ? null : new Date().toISOString(),
+                    paid_at: new Date().toISOString(),
+                    is_comped: isOrderComped,
+                    comp_meta: compMeta,
+                    comp_reason: compReason
+                })
+                .eq("id", orderId);
+
+            if (updateError) throw updateError;
+
+            await processLoyaltyPoints(finalTotal);
+            toast.success("Payment Successful!");
+            onSuccess();
+
+        } catch (err: any) {
+            console.error("Manual Payment Error:", err);
+            setError(err.message || "An unexpected error occurred.");
+            toast.error(err.message || "Payment failed");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Card Details</label>
+                <div className="p-3 bg-slate-950 border border-slate-700 rounded-lg">
+                    <CardElement options={{
+                        style: {
+                            base: {
+                                fontSize: '16px',
+                                color: '#f1f5f9',
+                                '::placeholder': { color: '#64748b' },
+                                iconColor: '#f97316'
+                            },
+                        }
+                    }} />
+                </div>
+            </div>
+
+            {error && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm italic">
+                    {error}
+                </div>
+            )}
+
+            <div className="flex gap-3 pt-4">
+                <button
+                    type="button"
+                    onClick={onBack}
+                    disabled={isProcessing}
+                    className="btn btn-secondary flex-1"
+                >
+                    Back
+                </button>
+                <button
+                    type="submit"
+                    disabled={!stripe || isProcessing}
+                    className="btn btn-primary flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50"
+                >
+                    {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Charge Card"}
+                </button>
+            </div>
+        </form>
     );
 }
