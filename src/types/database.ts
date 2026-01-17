@@ -475,6 +475,9 @@ export type Database = {
                     uber_quote_id: string | null;
                     delivery_address: string | null;
                     delivery_fee: number;
+                    customer_name: string | null;
+                    customer_phone: string | null;
+                    customer_email: string | null;
                     created_at: string;
                     updated_at: string;
                 };

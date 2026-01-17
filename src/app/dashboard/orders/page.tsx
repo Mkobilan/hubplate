@@ -79,6 +79,11 @@ function OrdersPageContent() {
     const [compReasonTemp, setCompReasonTemp] = useState("");
     const [compingItemId, setCompingItemId] = useState<string | null>(null);
 
+    // Delivery Specific Fields
+    const [deliveryAddress, setDeliveryAddress] = useState("");
+    const [customerName, setCustomerName] = useState("");
+    const [customerPhone, setCustomerPhone] = useState("");
+
     const [categories, setCategories] = useState<string[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
     const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
@@ -401,9 +406,10 @@ function OrdersPageContent() {
                         points_redeemed: pointsRedeemed,
                         total: total,
                         customer_id: linkedCustomer?.id || null,
-                        customer_phone: linkedCustomer?.phone || null,
+                        customer_phone: customerPhone || linkedCustomer?.phone || null,
                         customer_email: linkedCustomer?.email || null,
-                        customer_name: linkedCustomer ? `${linkedCustomer.first_name} ${linkedCustomer.last_name}` : null,
+                        customer_name: customerName || (linkedCustomer ? `${linkedCustomer.first_name} ${linkedCustomer.last_name}` : null),
+                        delivery_address: orderType === "delivery" ? deliveryAddress : null,
                         is_comped: isOrderComped,
                         comp_meta: compMeta,
                         comp_reason: compReason,
@@ -446,9 +452,10 @@ function OrdersPageContent() {
                         points_redeemed: pointsRedeemed,
                         total,
                         customer_id: linkedCustomer?.id || null,
-                        customer_phone: linkedCustomer?.phone || null,
+                        customer_phone: customerPhone || linkedCustomer?.phone || null,
                         customer_email: linkedCustomer?.email || null,
-                        customer_name: linkedCustomer ? `${linkedCustomer.first_name} ${linkedCustomer.last_name}` : null,
+                        customer_name: customerName || (linkedCustomer ? `${linkedCustomer.first_name} ${linkedCustomer.last_name}` : null),
+                        delivery_address: orderType === "delivery" ? deliveryAddress : null,
                         is_comped: isOrderComped,
                         comp_meta: compMeta,
                         comp_reason: compReason,
@@ -475,6 +482,9 @@ function OrdersPageContent() {
             setOrderItems([]);
             setActiveOrderId(null);
             setLinkedCustomer(null);
+            setCustomerName("");
+            setCustomerPhone("");
+            setDeliveryAddress("");
             setDiscount(0);
             setPointsRedeemed(0);
             setTableNumber("5");
@@ -505,6 +515,9 @@ function OrdersPageContent() {
             setOrderItems([]);
             setActiveOrderId(null);
             setLinkedCustomer(null);
+            setCustomerName("");
+            setCustomerPhone("");
+            setDeliveryAddress("");
             setDiscount(0);
             setPointsRedeemed(0);
             setTableNumber("5");
@@ -531,6 +544,9 @@ function OrdersPageContent() {
         setIsOrderComped(order.is_comped || false);
         setCompMeta(order.comp_meta || null);
         setCompReason(order.comp_reason || "");
+        setDeliveryAddress(order.delivery_address || "");
+        setCustomerName(order.customer_name || "");
+        setCustomerPhone(order.customer_phone || "");
 
         // Fetch customer if linked
         if (cId) {
@@ -778,6 +794,9 @@ function OrdersPageContent() {
                                             setActiveOrderId(null);
                                             setOrderItems([]);
                                             setLinkedCustomer(null);
+                                            setCustomerName("");
+                                            setCustomerPhone("");
+                                            setDeliveryAddress("");
                                             setDiscount(0);
                                             setPointsRedeemed(0);
                                             setTableNumber("5");
@@ -832,6 +851,43 @@ function OrdersPageContent() {
                                             {i + 1}
                                         </button>
                                     ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Row 2 (Optional): Delivery Fields */}
+                        {orderType === "delivery" && (
+                            <div className="space-y-2 bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex gap-2">
+                                    <div className="flex-1 space-y-1">
+                                        <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Customer Name</label>
+                                        <input
+                                            type="text"
+                                            value={customerName}
+                                            onChange={(e) => setCustomerName(e.target.value)}
+                                            className="w-full bg-slate-900 rounded-md border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-100 focus:border-orange-500 outline-none"
+                                            placeholder="Jane Doe"
+                                        />
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                        <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Phone Number</label>
+                                        <input
+                                            type="tel"
+                                            value={customerPhone}
+                                            onChange={(e) => setCustomerPhone(e.target.value)}
+                                            className="w-full bg-slate-900 rounded-md border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-100 focus:border-orange-500 outline-none"
+                                            placeholder="555-0123"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Delivery Address</label>
+                                    <textarea
+                                        value={deliveryAddress}
+                                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                                        className="w-full bg-slate-900 rounded-md border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-100 focus:border-orange-500 outline-none min-h-[60px] resize-none"
+                                        placeholder="123 Main St, Suite 100..."
+                                    />
                                 </div>
                             </div>
                         )}
@@ -1104,6 +1160,9 @@ function OrdersPageContent() {
                         onSuccess={() => {
                             setOrderItems([]);
                             setActiveOrderId(null);
+                            setCustomerName("");
+                            setCustomerPhone("");
+                            setDeliveryAddress("");
                             setTableNumber("5");
                         }}
                     />

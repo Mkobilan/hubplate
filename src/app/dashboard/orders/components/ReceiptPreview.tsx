@@ -125,7 +125,33 @@ export default function ReceiptPreview({
                         <span>{table_number}</span>
                     </div>
                 )}
-                {customer && (
+                {data.order_type === "delivery" && (
+                    <div className="space-y-1 pt-2 border-t border-black/5 mt-2">
+                        <div className="font-bold flex justify-between">
+                            <span>Type:</span>
+                            <span>DELIVERY</span>
+                        </div>
+                        {data.customer_name && (
+                            <div className="flex justify-between">
+                                <span>Customer:</span>
+                                <span>{data.customer_name}</span>
+                            </div>
+                        )}
+                        {data.customer_phone && (
+                            <div className="flex justify-between">
+                                <span>Phone:</span>
+                                <span>{data.customer_phone}</span>
+                            </div>
+                        )}
+                        {data.delivery_address && (
+                            <div className="mt-1">
+                                <span className="block font-bold">Delivery Address:</span>
+                                <span className="block italic text-[11px] whitespace-pre-line">{data.delivery_address}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+                {customer && data.order_type !== "delivery" && (
                     <div className="flex justify-between">
                         <span>Customer:</span>
                         <span>{customer.first_name} {customer.last_name}</span>
