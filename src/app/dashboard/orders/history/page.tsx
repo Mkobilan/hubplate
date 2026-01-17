@@ -383,6 +383,19 @@ export default function OrderHistoryPage() {
                                 <p className="text-sm"><span className="text-slate-400">Type:</span> <span className="capitalize">{selectedOrder.order_type?.replace('_', ' ')}</span></p>
                                 <p className="text-sm"><span className="text-slate-400">Table:</span> <span>{selectedOrder.table_number || "N/A"}</span></p>
                                 <p className="text-sm"><span className="text-slate-400">Server:</span> <span>{selectedOrder.server ? `${selectedOrder.server.first_name} ${selectedOrder.server.last_name}` : "Unknown"}</span></p>
+                                {selectedOrder.order_type === "delivery" && (
+                                    <div className="pt-2 mt-2 border-t border-slate-800 space-y-1">
+                                        <p className="text-[10px] text-orange-400 uppercase font-bold">Delivery Info</p>
+                                        {selectedOrder.customer_name && <p className="text-sm"><span className="text-slate-400">Name:</span> <span>{selectedOrder.customer_name}</span></p>}
+                                        {selectedOrder.customer_phone && <p className="text-sm"><span className="text-slate-400">Phone:</span> <span>{selectedOrder.customer_phone}</span></p>}
+                                        {selectedOrder.delivery_address && (
+                                            <div className="pt-1">
+                                                <p className="text-[10px] text-slate-400 font-bold">Address:</p>
+                                                <p className="text-xs text-slate-300 italic leading-relaxed">{selectedOrder.delivery_address}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <div className="space-y-1 text-right">
                                 <p className="text-[10px] text-slate-500 uppercase font-bold">Time & Status</p>
