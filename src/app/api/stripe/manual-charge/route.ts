@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
             currency: 'usd',
             payment_method: paymentMethodId,
             confirm: true,
-            confirmation_method: 'manual',
+            // Including return_url to satisfy Stripe's safety requirements for synchronous confirmation
+            return_url: `${request.headers.get('origin') || 'http://localhost:3000'}/dashboard/orders`,
             metadata: {
                 order_id: orderId,
                 type: 'manual_pos_charge'
