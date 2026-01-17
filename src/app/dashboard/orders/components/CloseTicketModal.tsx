@@ -635,524 +635,538 @@ export default function CloseTicketModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 h-[100dvh]">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative card w-full max-w-md max-h-full overflow-y-auto animate-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-100">Close Ticket</h2>
-                        <p className="text-slate-400 text-sm">
-                            {orderType === "dine_in" ? `Table ${tableNumber}` : orderType.toUpperCase()}
-                        </p>
+        <>
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 h-[100dvh] print:hidden">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+                <div className="relative card w-full max-w-md max-h-full overflow-y-auto animate-in zoom-in-95 duration-200">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-100">Close Ticket</h2>
+                            <p className="text-slate-400 text-sm">
+                                {orderType === "dine_in" ? `Table ${tableNumber}` : orderType.toUpperCase()}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-sm text-slate-400">Total Due</p>
+                            <p className="text-2xl font-bold text-orange-400">{formatCurrency(total)}</p>
+                        </div>
                     </div>
-                    <div className="text-right">
-                        <p className="text-sm text-slate-400">Total Due</p>
-                        <p className="text-2xl font-bold text-orange-400">{formatCurrency(total)}</p>
-                    </div>
-                </div>
 
-                {/* Loyalty Program */}
-                {!activeOption && !paymentStatus && (
-                    <div className="mb-6 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
-                        {!showLoyalty ? (
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-orange-500/20 text-orange-500">
-                                        <Gift className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-orange-100">Loyalty Program</h3>
-                                        <p className="text-xs text-orange-200/70">Earn points & rewards</p>
-                                    </div>
-                                </div>
-                                {loyaltySuccess ? (
-                                    <span className="text-green-400 text-sm font-bold flex items-center gap-1">
-                                        <Check className="h-4 w-4" /> {loyaltyName ? `Welcome, ${loyaltyName}!` : "Added!"}
-                                    </span>
-                                ) : (
-                                    <button
-                                        onClick={() => setShowLoyalty(true)}
-                                        className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg transition-colors"
-                                    >
-                                        Check In / Join
-                                    </button>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="space-y-3 animate-in slide-in-from-top-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="font-bold text-sm text-slate-200">
-                                        {loyaltySuccess ? "Checked In!" : hasCheckedIn ? "Complete Registration" : "Customer Check-in"}
-                                    </h3>
-                                    <button onClick={() => {
-                                        setShowLoyalty(false);
-                                        setHasCheckedIn(false);
-                                        setLoyaltyName("");
-                                    }} className="text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
-                                </div>
-
-                                {loyaltySuccess ? (
-                                    <div className="text-center py-2">
-                                        <p className="text-green-400 font-bold text-lg mb-1">Welcome back, {loyaltyName}!</p>
-                                        <p className="text-slate-400 text-sm">Points added to account</p>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="tel"
-                                                placeholder="Phone Number"
-                                                className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:border-orange-500 outline-none text-white"
-                                                value={loyaltyPhone}
-                                                onChange={(e) => setLoyaltyPhone(e.target.value)}
-                                                disabled={hasCheckedIn}
-                                            />
-                                            {!hasCheckedIn && (
-                                                <button
-                                                    onClick={() => {
-                                                        handleCheckIn();
-                                                        setHasCheckedIn(true);
-                                                    }}
-                                                    disabled={joiningLoyalty || !loyaltyPhone}
-                                                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold rounded-lg transition-colors"
-                                                >
-                                                    {joiningLoyalty ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check In"}
-                                                </button>
-                                            )}
+                    {/* Loyalty Program */}
+                    {!activeOption && !paymentStatus && (
+                        <div className="mb-6 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                            {!showLoyalty ? (
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-orange-500/20 text-orange-500">
+                                            <Gift className="h-5 w-5" />
                                         </div>
+                                        <div>
+                                            <h3 className="font-bold text-orange-100">Loyalty Program</h3>
+                                            <p className="text-xs text-orange-200/70">Earn points & rewards</p>
+                                        </div>
+                                    </div>
+                                    {loyaltySuccess ? (
+                                        <span className="text-green-400 text-sm font-bold flex items-center gap-1">
+                                            <Check className="h-4 w-4" /> {loyaltyName ? `Welcome, ${loyaltyName}!` : "Added!"}
+                                        </span>
+                                    ) : (
+                                        <button
+                                            onClick={() => setShowLoyalty(true)}
+                                            className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold rounded-lg transition-colors"
+                                        >
+                                            Check In / Join
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-3 animate-in slide-in-from-top-2">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="font-bold text-sm text-slate-200">
+                                            {loyaltySuccess ? "Checked In!" : hasCheckedIn ? "Complete Registration" : "Customer Check-in"}
+                                        </h3>
+                                        <button onClick={() => {
+                                            setShowLoyalty(false);
+                                            setHasCheckedIn(false);
+                                            setLoyaltyName("");
+                                        }} className="text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+                                    </div>
 
-                                        {hasCheckedIn && !loyaltySuccess && (
-                                            <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
-                                                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                                                    <p className="text-blue-200 text-xs">Based on this number, we need a bit more info to create your account.</p>
-                                                </div>
+                                    {loyaltySuccess ? (
+                                        <div className="text-center py-2">
+                                            <p className="text-green-400 font-bold text-lg mb-1">Welcome back, {loyaltyName}!</p>
+                                            <p className="text-slate-400 text-sm">Points added to account</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex gap-2">
                                                 <input
-                                                    type="text"
-                                                    placeholder="Name (Required)"
-                                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:border-orange-500 outline-none text-white"
-                                                    value={loyaltyName}
-                                                    onChange={(e) => setLoyaltyName(e.target.value)}
+                                                    type="tel"
+                                                    placeholder="Phone Number"
+                                                    className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:border-orange-500 outline-none text-white"
+                                                    value={loyaltyPhone}
+                                                    onChange={(e) => setLoyaltyPhone(e.target.value)}
+                                                    disabled={hasCheckedIn}
                                                 />
-                                                <div className="relative">
-                                                    <input
-                                                        type="date"
-                                                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:border-orange-500 outline-none text-slate-300"
-                                                        value={loyaltyBirthday}
-                                                        onChange={(e) => setLoyaltyBirthday(e.target.value)}
-                                                    />
-                                                    {!loyaltyBirthday && <span className="absolute right-3 top-2.5 text-xs text-slate-500 pointer-events-none">Birthday (Optional)</span>}
-                                                    {loyaltyBirthday && <span className="absolute right-3 top-2.5 text-xs text-orange-400 font-bold pointer-events-none">For Rewards! 🎉</span>}
-                                                </div>
-                                                <button
-                                                    onClick={handleJoin}
-                                                    disabled={joiningLoyalty || !loyaltyName}
-                                                    className="w-full py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
-                                                >
-                                                    {joiningLoyalty ? <Loader2 className="h-4 w-4 animate-spin" /> : "Complete & Check In"}
-                                                </button>
+                                                {!hasCheckedIn && (
+                                                    <button
+                                                        onClick={() => {
+                                                            handleCheckIn();
+                                                            setHasCheckedIn(true);
+                                                        }}
+                                                        disabled={joiningLoyalty || !loyaltyPhone}
+                                                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold rounded-lg transition-colors"
+                                                    >
+                                                        {joiningLoyalty ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check In"}
+                                                    </button>
+                                                )}
                                             </div>
+
+                                            {hasCheckedIn && !loyaltySuccess && (
+                                                <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
+                                                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                                        <p className="text-blue-200 text-xs">Based on this number, we need a bit more info to create your account.</p>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Name (Required)"
+                                                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:border-orange-500 outline-none text-white"
+                                                        value={loyaltyName}
+                                                        onChange={(e) => setLoyaltyName(e.target.value)}
+                                                    />
+                                                    <div className="relative">
+                                                        <input
+                                                            type="date"
+                                                            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:border-orange-500 outline-none text-slate-300"
+                                                            value={loyaltyBirthday}
+                                                            onChange={(e) => setLoyaltyBirthday(e.target.value)}
+                                                        />
+                                                        {!loyaltyBirthday && <span className="absolute right-3 top-2.5 text-xs text-slate-500 pointer-events-none">Birthday (Optional)</span>}
+                                                        {loyaltyBirthday && <span className="absolute right-3 top-2.5 text-xs text-orange-400 font-bold pointer-events-none">For Rewards! 🎉</span>}
+                                                    </div>
+                                                    <button
+                                                        onClick={handleJoin}
+                                                        disabled={joiningLoyalty || !loyaltyName}
+                                                        className="w-full py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                                                    >
+                                                        {joiningLoyalty ? <Loader2 className="h-4 w-4 animate-spin" /> : "Complete & Check In"}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Payment Options */}
+                    {!activeOption && (
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => setActiveOption("print")}
+                                className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
+                            >
+                                <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
+                                    <Printer className="h-6 w-6 text-slate-300" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-semibold text-slate-100">Print Ticket</p>
+                                    <p className="text-sm text-slate-400">Print check for the table</p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveOption("card")}
+                                className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
+                            >
+                                <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
+                                    <CreditCard className="h-6 w-6 text-slate-300" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-semibold text-slate-100">Use Card</p>
+                                    <p className="text-sm text-slate-400">
+                                        {isNative ? "Tap to Pay on Phone" : "NFC or card reader"}
+                                    </p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveOption("qr")}
+                                className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
+                            >
+                                <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
+                                    <QrCode className="h-6 w-6 text-slate-300" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-semibold text-slate-100">Use QR Code</p>
+                                    <p className="text-sm text-slate-400">Customer scans to pay</p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveOption("cash")}
+                                className="w-full flex items-center gap-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl hover:border-green-500/50 hover:bg-green-500/20 transition-all group"
+                            >
+                                <div className="p-3 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
+                                    <Banknote className="h-6 w-6 text-green-400" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-semibold text-green-400">Paid Cash</p>
+                                    <p className="text-sm text-slate-400">Mark as paid with cash</p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveOption("manual_card")}
+                                className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
+                            >
+                                <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
+                                    <Copy className="h-6 w-6 text-slate-300" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-semibold text-slate-100">Manual Card</p>
+                                    <p className="text-sm text-slate-400">Type in card details manually</p>
+                                </div>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Manual Card Entry Form */}
+                    {activeOption === "manual_card" && (
+                        <Elements stripe={stripePromise}>
+                            <ManualPaymentForm
+                                orderId={orderId}
+                                total={total}
+                                tip={tip}
+                                orderType={orderType}
+                                isOrderComped={isOrderComped}
+                                compMeta={compMeta}
+                                compReason={compReason}
+                                onBack={() => setActiveOption(null)}
+                                onSuccess={() => {
+                                    onPaymentComplete?.();
+                                    onClose();
+                                }}
+                                processLoyaltyPoints={processLoyaltyPoints}
+                            />
+                        </Elements>
+                    )}
+
+                    {/* Print Option */}
+                    {activeOption === "print" && (
+                        <div className="flex flex-col h-full">
+                            <div className="flex-1 overflow-y-auto mb-4 bg-white rounded-lg p-4 custom-scrollbar">
+                                <div className="max-w-[300px] mx-auto shadow-lg scale-90 origin-top">
+                                    <ReceiptPreview
+                                        orderId={orderId}
+                                        subtotal={subtotal}
+                                        tax={tax}
+                                        total={total}
+                                        isComped={isOrderComped}
+                                        compMeta={compMeta}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-3 mt-auto pt-4 border-t border-slate-800">
+                                <button onClick={() => setActiveOption(null)} className="btn btn-secondary flex-1">
+                                    Back
+                                </button>
+                                <button
+                                    onClick={() => window.print()}
+                                    className="btn btn-primary flex-1 bg-orange-500 hover:bg-orange-600"
+                                >
+                                    <Printer className="h-4 w-4 mr-2" />
+                                    Print Receipt
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Card Option */}
+                    {activeOption === "card" && (
+                        <div className="py-4">
+                            {!paymentStatus && (
+                                <div className="mb-6 animate-in fade-in slide-in-from-bottom-2">
+                                    <p className="text-sm text-slate-400 mb-3 text-center">Add a tip?</p>
+                                    <div className="grid grid-cols-5 gap-2 mb-4">
+                                        {[0, 15, 18, 20].map(percent => {
+                                            const tipAmount = percent === 0 ? 0 : Math.round(total * percent) / 100;
+                                            const isSelected = !isCustomTip && tip === tipAmount;
+                                            return (
+                                                <button
+                                                    key={percent}
+                                                    onClick={() => {
+                                                        setTip(tipAmount);
+                                                        setIsCustomTip(false);
+                                                        setCustomTipValue("");
+                                                    }}
+                                                    className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${isSelected
+                                                        ? "bg-orange-500 border-orange-500 text-white"
+                                                        : "bg-slate-800 border-slate-700 text-slate-300"
+                                                        }`}
+                                                >
+                                                    {percent === 0 ? "No" : `${percent}%`}
+                                                </button>
+                                            );
+                                        })}
+                                        <button
+                                            onClick={() => setIsCustomTip(true)}
+                                            className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${isCustomTip
+                                                ? "bg-orange-500 border-orange-500 text-white"
+                                                : "bg-slate-800 border-slate-700 text-slate-300"
+                                                }`}
+                                        >
+                                            Custom
+                                        </button>
+                                    </div>
+                                    {isCustomTip && (
+                                        <div className="relative animate-in fade-in slide-in-from-top-2 mb-4">
+                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</div>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                className="w-full bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded-xl pl-7 pr-4 py-2 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                                value={customTipValue}
+                                                onChange={(e) => {
+                                                    setCustomTipValue(e.target.value);
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    setTip(val);
+                                                }}
+                                                autoFocus
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 mb-6">
+                                        <div className="flex justify-between text-sm text-slate-400 mb-1">
+                                            <span>Order Total</span>
+                                            <span>{formatCurrency(total)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm text-slate-400 mb-2">
+                                            <span>Tip</span>
+                                            <span className="text-orange-400">+{formatCurrency(tip)}</span>
+                                        </div>
+                                        <div className="flex justify-between font-bold text-lg text-slate-100 pt-2 border-t border-slate-700">
+                                            <span>Total Charge</span>
+                                            <span className="text-orange-400">{formatCurrency(total + tip)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="text-center">
+                                {isNative ? (
+                                    <>
+                                        <Smartphone className="h-16 w-16 mx-auto text-blue-500 mb-4 animate-pulse" />
+                                        <h3 className="text-lg font-semibold text-slate-300 mb-2">Tap to Pay</h3>
+                                        <p className="text-slate-400 text-sm mb-6 px-4">
+                                            {paymentStatus || "Ready to accept payment"}
+                                        </p>
+
+                                        {paymentStatus === "" && (
+                                            <button
+                                                onClick={handleNativePayment}
+                                                className="btn btn-primary w-full max-w-xs mx-auto mb-4"
+                                            >
+                                                Start Transaction
+                                            </button>
+                                        )}
+
+                                        {paymentStatus.includes("Failed") && (
+                                            <button
+                                                onClick={handleNativePayment}
+                                                className="btn btn-primary w-full max-w-xs mx-auto mb-4"
+                                            >
+                                                Try Again
+                                            </button>
                                         )}
                                     </>
+                                ) : (
+                                    <>
+                                        <CreditCard className="h-16 w-16 mx-auto text-slate-500 mb-4" />
+                                        <h3 className="text-lg font-semibold text-slate-300 mb-2">Card Reader Required</h3>
+                                        <p className="text-slate-400 text-sm mb-6">
+                                            Use the Mobile App for Tap to Pay.<br />
+                                            Or connect a physical reader.
+                                        </p>
+                                    </>
+                                )}
+
+                                {!paymentStatus && (
+                                    <button onClick={() => setActiveOption(null)} className="btn btn-secondary w-full">
+                                        Back to Options
+                                    </button>
                                 )}
                             </div>
-                        )}
-                    </div>
-                )}
+                        </div>
+                    )}
 
-                {/* Payment Options */}
-                {!activeOption && (
-                    <div className="space-y-3">
-                        <button
-                            onClick={() => setActiveOption("print")}
-                            className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
-                        >
-                            <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
-                                <Printer className="h-6 w-6 text-slate-300" />
-                            </div>
-                            <div className="text-left">
-                                <p className="font-semibold text-slate-100">Print Ticket</p>
-                                <p className="text-sm text-slate-400">Print check for the table</p>
-                            </div>
-                        </button>
-
-                        <button
-                            onClick={() => setActiveOption("card")}
-                            className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
-                        >
-                            <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
-                                <CreditCard className="h-6 w-6 text-slate-300" />
-                            </div>
-                            <div className="text-left">
-                                <p className="font-semibold text-slate-100">Use Card</p>
-                                <p className="text-sm text-slate-400">
-                                    {isNative ? "Tap to Pay on Phone" : "NFC or card reader"}
-                                </p>
-                            </div>
-                        </button>
-
-                        <button
-                            onClick={() => setActiveOption("qr")}
-                            className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
-                        >
-                            <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
-                                <QrCode className="h-6 w-6 text-slate-300" />
-                            </div>
-                            <div className="text-left">
-                                <p className="font-semibold text-slate-100">Use QR Code</p>
-                                <p className="text-sm text-slate-400">Customer scans to pay</p>
-                            </div>
-                        </button>
-
-                        <button
-                            onClick={() => setActiveOption("cash")}
-                            className="w-full flex items-center gap-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl hover:border-green-500/50 hover:bg-green-500/20 transition-all group"
-                        >
-                            <div className="p-3 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
-                                <Banknote className="h-6 w-6 text-green-400" />
-                            </div>
-                            <div className="text-left">
-                                <p className="font-semibold text-green-400">Paid Cash</p>
-                                <p className="text-sm text-slate-400">Mark as paid with cash</p>
-                            </div>
-                        </button>
-
-                        <button
-                            onClick={() => setActiveOption("manual_card")}
-                            className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
-                        >
-                            <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
-                                <Copy className="h-6 w-6 text-slate-300" />
-                            </div>
-                            <div className="text-left">
-                                <p className="font-semibold text-slate-100">Manual Card</p>
-                                <p className="text-sm text-slate-400">Type in card details manually</p>
-                            </div>
-                        </button>
-                    </div>
-                )}
-
-                {/* Manual Card Entry Form */}
-                {activeOption === "manual_card" && (
-                    <Elements stripe={stripePromise}>
-                        <ManualPaymentForm
-                            orderId={orderId}
-                            total={total}
-                            tip={tip}
-                            orderType={orderType}
-                            isOrderComped={isOrderComped}
-                            compMeta={compMeta}
-                            compReason={compReason}
-                            onBack={() => setActiveOption(null)}
-                            onSuccess={() => {
-                                onPaymentComplete?.();
-                                onClose();
-                            }}
-                            processLoyaltyPoints={processLoyaltyPoints}
-                        />
-                    </Elements>
-                )}
-
-                {/* Print Option */}
-                {activeOption === "print" && (
-                    <div className="flex flex-col h-full">
-                        <div className="flex-1 overflow-y-auto mb-4 bg-white rounded-lg p-4 custom-scrollbar">
-                            <div className="max-w-[300px] mx-auto shadow-lg scale-90 origin-top">
-                                <ReceiptPreview
-                                    orderId={orderId}
-                                    subtotal={subtotal}
-                                    tax={tax}
-                                    total={total}
-                                    isComped={isOrderComped}
-                                    compMeta={compMeta}
+                    {/* QR Code Option */}
+                    {activeOption === "qr" && (
+                        <div className="text-center">
+                            <p className="text-slate-400 text-sm mb-4">
+                                Customer scans this code to pay
+                            </p>
+                            <div className="bg-white p-4 rounded-xl inline-block mb-4">
+                                <QRCodeSVG
+                                    value={paymentUrl}
+                                    size={200}
+                                    level="H"
+                                    includeMargin={false}
                                 />
                             </div>
-                        </div>
-                        <div className="flex gap-3 mt-auto pt-4 border-t border-slate-800">
-                            <button onClick={() => setActiveOption(null)} className="btn btn-secondary flex-1">
-                                Back
+                            <div className="flex items-center justify-center gap-2 mb-6">
+                                <code className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
+                                    {paymentUrl.slice(0, 40)}...
+                                </code>
+                                <button
+                                    onClick={copyPaymentLink}
+                                    className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded transition-colors"
+                                    title="Copy link"
+                                >
+                                    {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                                </button>
+                            </div>
+                            <button onClick={() => setActiveOption(null)} className="btn btn-secondary">
+                                Back to Options
                             </button>
-                            <button
-                                onClick={() => window.print()}
-                                className="btn btn-primary flex-1 bg-orange-500 hover:bg-orange-600"
-                            >
-                                <Printer className="h-4 w-4 mr-2" />
-                                Print Receipt
-                            </button>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Card Option */}
-                {activeOption === "card" && (
-                    <div className="py-4">
-                        {!paymentStatus && (
-                            <div className="mb-6 animate-in fade-in slide-in-from-bottom-2">
-                                <p className="text-sm text-slate-400 mb-3 text-center">Add a tip?</p>
-                                <div className="grid grid-cols-5 gap-2 mb-4">
-                                    {[0, 15, 18, 20].map(percent => {
-                                        const tipAmount = percent === 0 ? 0 : Math.round(total * percent) / 100;
-                                        const isSelected = !isCustomTip && tip === tipAmount;
-                                        return (
+                    {/* Cash Payment Confirmation */}
+                    {activeOption === "cash" && (
+                        <div className="text-center py-6">
+                            <Banknote className="h-16 w-16 mx-auto text-green-400 mb-4" />
+                            <h3 className="text-lg font-semibold text-slate-300 mb-2">Confirm Cash Payment</h3>
+                            <p className="text-slate-400 text-sm mb-2">
+                                Mark this ticket as paid with cash?
+                            </p>
+                            <p className="text-2xl font-bold text-green-400 mb-6">{formatCurrency(total)}</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setActiveOption(null)}
+                                    className="btn btn-secondary flex-1"
+                                    disabled={processingCash}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleCashPayment}
+                                    className="btn btn-primary flex-1 bg-green-600 hover:bg-green-700"
+                                    disabled={processingCash}
+                                >
+                                    {processingCash ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                                    ) : (
+                                        "Confirm Payment"
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Gift Card Payment */}
+                    {activeOption === "gift" && (
+                        <div className="space-y-6 py-4 animate-in slide-in-from-bottom-2">
+                            <div className="text-center">
+                                <Gift className="h-16 w-16 mx-auto text-purple-400 mb-4" />
+                                <h3 className="text-lg font-semibold text-slate-300">Gift Card Payment</h3>
+                            </div>
+
+                            {!giftCardBalance ? (
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase px-1">Card Number</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Enter card number"
+                                                className="flex-1 input"
+                                                value={giftCardNumber}
+                                                onChange={(e) => setGiftCardNumber(e.target.value)}
+                                            />
                                             <button
-                                                key={percent}
-                                                onClick={() => {
-                                                    setTip(tipAmount);
-                                                    setIsCustomTip(false);
-                                                    setCustomTipValue("");
-                                                }}
-                                                className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${isSelected
-                                                    ? "bg-orange-500 border-orange-500 text-white"
-                                                    : "bg-slate-800 border-slate-700 text-slate-300"
-                                                    }`}
+                                                onClick={handleGiftCardCheck}
+                                                disabled={checkingGiftCard || !giftCardNumber}
+                                                className="btn btn-primary bg-purple-600 hover:bg-purple-700 border-none shrink-0"
                                             >
-                                                {percent === 0 ? "No" : `${percent}%`}
+                                                {checkingGiftCard ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
                                             </button>
-                                        );
-                                    })}
+                                            <button
+                                                onClick={() => toast("Camera scanning would open here (Camera API inhibited in this environment)")}
+                                                className="p-3 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition-colors text-slate-300"
+
+                                                title="Scan barcode"
+                                            >
+                                                <Camera className="h-5 w-5" />
+                                            </button>
+                                        </div>
+
+                                        {giftCardError && <p className="text-xs text-red-400 px-1 font-medium">{giftCardError}</p>}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-sm text-purple-200">Current Balance</span>
+                                            <span className="text-lg font-bold text-purple-400">{formatCurrency(giftCardBalance)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-purple-200">Amount to Pay</span>
+                                            <span className="text-lg font-bold text-white">{formatCurrency(total + tip)}</span>
+                                        </div>
+                                    </div>
+
                                     <button
-                                        onClick={() => setIsCustomTip(true)}
-                                        className={`py-2 px-1 rounded-lg border text-xs font-medium transition-all ${isCustomTip
-                                            ? "bg-orange-500 border-orange-500 text-white"
-                                            : "bg-slate-800 border-slate-700 text-slate-300"
-                                            }`}
+                                        onClick={handleGiftCardPayment}
+                                        disabled={checkingGiftCard}
+                                        className="w-full btn btn-primary bg-purple-600 hover:bg-purple-700 border-none font-bold"
                                     >
-                                        Custom
+                                        {checkingGiftCard ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Confirm & Pay"}
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setGiftCardBalance(null);
+                                            setGiftCardNumber("");
+                                        }}
+                                        className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                                    >
+                                        Use different card
                                     </button>
                                 </div>
-                                {isCustomTip && (
-                                    <div className="relative animate-in fade-in slide-in-from-top-2 mb-4">
-                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</div>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className="w-full bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded-xl pl-7 pr-4 py-2 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-                                            value={customTipValue}
-                                            onChange={(e) => {
-                                                setCustomTipValue(e.target.value);
-                                                const val = parseFloat(e.target.value) || 0;
-                                                setTip(val);
-                                            }}
-                                            autoFocus
-                                        />
-                                    </div>
-                                )}
-                                <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 mb-6">
-                                    <div className="flex justify-between text-sm text-slate-400 mb-1">
-                                        <span>Order Total</span>
-                                        <span>{formatCurrency(total)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm text-slate-400 mb-2">
-                                        <span>Tip</span>
-                                        <span className="text-orange-400">+{formatCurrency(tip)}</span>
-                                    </div>
-                                    <div className="flex justify-between font-bold text-lg text-slate-100 pt-2 border-t border-slate-700">
-                                        <span>Total Charge</span>
-                                        <span className="text-orange-400">{formatCurrency(total + tip)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="text-center">
-                            {isNative ? (
-                                <>
-                                    <Smartphone className="h-16 w-16 mx-auto text-blue-500 mb-4 animate-pulse" />
-                                    <h3 className="text-lg font-semibold text-slate-300 mb-2">Tap to Pay</h3>
-                                    <p className="text-slate-400 text-sm mb-6 px-4">
-                                        {paymentStatus || "Ready to accept payment"}
-                                    </p>
-
-                                    {paymentStatus === "" && (
-                                        <button
-                                            onClick={handleNativePayment}
-                                            className="btn btn-primary w-full max-w-xs mx-auto mb-4"
-                                        >
-                                            Start Transaction
-                                        </button>
-                                    )}
-
-                                    {paymentStatus.includes("Failed") && (
-                                        <button
-                                            onClick={handleNativePayment}
-                                            className="btn btn-primary w-full max-w-xs mx-auto mb-4"
-                                        >
-                                            Try Again
-                                        </button>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    <CreditCard className="h-16 w-16 mx-auto text-slate-500 mb-4" />
-                                    <h3 className="text-lg font-semibold text-slate-300 mb-2">Card Reader Required</h3>
-                                    <p className="text-slate-400 text-sm mb-6">
-                                        Use the Mobile App for Tap to Pay.<br />
-                                        Or connect a physical reader.
-                                    </p>
-                                </>
                             )}
 
-                            {!paymentStatus && (
-                                <button onClick={() => setActiveOption(null)} className="btn btn-secondary w-full">
-                                    Back to Options
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* QR Code Option */}
-                {activeOption === "qr" && (
-                    <div className="text-center">
-                        <p className="text-slate-400 text-sm mb-4">
-                            Customer scans this code to pay
-                        </p>
-                        <div className="bg-white p-4 rounded-xl inline-block mb-4">
-                            <QRCodeSVG
-                                value={paymentUrl}
-                                size={200}
-                                level="H"
-                                includeMargin={false}
-                            />
-                        </div>
-                        <div className="flex items-center justify-center gap-2 mb-6">
-                            <code className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
-                                {paymentUrl.slice(0, 40)}...
-                            </code>
-                            <button
-                                onClick={copyPaymentLink}
-                                className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded transition-colors"
-                                title="Copy link"
-                            >
-                                {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                            <button onClick={() => setActiveOption(null)} className="w-full btn btn-secondary">
+                                Back
                             </button>
                         </div>
-                        <button onClick={() => setActiveOption(null)} className="btn btn-secondary">
-                            Back to Options
+                    )}
+
+                    {/* Close button */}
+                    <div className="mt-6 pt-4 border-t border-slate-800">
+                        <button onClick={onClose} className="btn btn-ghost w-full">
+                            Cancel
                         </button>
                     </div>
-                )}
-
-                {/* Cash Payment Confirmation */}
-                {activeOption === "cash" && (
-                    <div className="text-center py-6">
-                        <Banknote className="h-16 w-16 mx-auto text-green-400 mb-4" />
-                        <h3 className="text-lg font-semibold text-slate-300 mb-2">Confirm Cash Payment</h3>
-                        <p className="text-slate-400 text-sm mb-2">
-                            Mark this ticket as paid with cash?
-                        </p>
-                        <p className="text-2xl font-bold text-green-400 mb-6">{formatCurrency(total)}</p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setActiveOption(null)}
-                                className="btn btn-secondary flex-1"
-                                disabled={processingCash}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleCashPayment}
-                                className="btn btn-primary flex-1 bg-green-600 hover:bg-green-700"
-                                disabled={processingCash}
-                            >
-                                {processingCash ? (
-                                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                                ) : (
-                                    "Confirm Payment"
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Gift Card Payment */}
-                {activeOption === "gift" && (
-                    <div className="space-y-6 py-4 animate-in slide-in-from-bottom-2">
-                        <div className="text-center">
-                            <Gift className="h-16 w-16 mx-auto text-purple-400 mb-4" />
-                            <h3 className="text-lg font-semibold text-slate-300">Gift Card Payment</h3>
-                        </div>
-
-                        {!giftCardBalance ? (
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase px-1">Card Number</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            placeholder="Enter card number"
-                                            className="flex-1 input"
-                                            value={giftCardNumber}
-                                            onChange={(e) => setGiftCardNumber(e.target.value)}
-                                        />
-                                        <button
-                                            onClick={handleGiftCardCheck}
-                                            disabled={checkingGiftCard || !giftCardNumber}
-                                            className="btn btn-primary bg-purple-600 hover:bg-purple-700 border-none shrink-0"
-                                        >
-                                            {checkingGiftCard ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
-                                        </button>
-                                        <button
-                                            onClick={() => toast("Camera scanning would open here (Camera API inhibited in this environment)")}
-                                            className="p-3 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition-colors text-slate-300"
-
-                                            title="Scan barcode"
-                                        >
-                                            <Camera className="h-5 w-5" />
-                                        </button>
-                                    </div>
-
-                                    {giftCardError && <p className="text-xs text-red-400 px-1 font-medium">{giftCardError}</p>}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <span className="text-sm text-purple-200">Current Balance</span>
-                                        <span className="text-lg font-bold text-purple-400">{formatCurrency(giftCardBalance)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm text-purple-200">Amount to Pay</span>
-                                        <span className="text-lg font-bold text-white">{formatCurrency(total + tip)}</span>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={handleGiftCardPayment}
-                                    disabled={checkingGiftCard}
-                                    className="w-full btn btn-primary bg-purple-600 hover:bg-purple-700 border-none font-bold"
-                                >
-                                    {checkingGiftCard ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Confirm & Pay"}
-                                </button>
-
-                                <button
-                                    onClick={() => {
-                                        setGiftCardBalance(null);
-                                        setGiftCardNumber("");
-                                    }}
-                                    className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors"
-                                >
-                                    Use different card
-                                </button>
-                            </div>
-                        )}
-
-                        <button onClick={() => setActiveOption(null)} className="w-full btn btn-secondary">
-                            Back
-                        </button>
-                    </div>
-                )}
-
-                {/* Close button */}
-                <div className="mt-6 pt-4 border-t border-slate-800">
-                    <button onClick={onClose} className="btn btn-ghost w-full">
-                        Cancel
-                    </button>
                 </div>
             </div>
-        </div>
+
+            {/* Dedicated Print-Only Receipt Container */}
+            <div className="hidden print:block fixed inset-0 bg-white z-[200]">
+                <ReceiptPreview
+                    orderId={orderId}
+                    subtotal={subtotal}
+                    tax={tax}
+                    total={total}
+                    isComped={isOrderComped}
+                    compMeta={compMeta}
+                />
+            </div>
+        </>
     );
 }
 

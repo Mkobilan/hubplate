@@ -372,206 +372,211 @@ export default function OrderHistoryPage() {
             </div>
 
             {/* Order Detail Modal */}
-            <Modal
-                isOpen={showDetailModal}
-                onClose={() => setShowDetailModal(false)}
-                title={`Order Details #${selectedOrder?.id?.slice(0, 8)}`}
-            >
-                {selectedOrder && (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
-                            <div className="space-y-1">
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">Details</p>
-                                <p className="text-sm"><span className="text-slate-400">Type:</span> <span className="capitalize">{selectedOrder.order_type?.replace('_', ' ')}</span></p>
-                                <p className="text-sm"><span className="text-slate-400">Table:</span> <span>{selectedOrder.table_number || "N/A"}</span></p>
-                                <p className="text-sm"><span className="text-slate-400">Server:</span> <span>{selectedOrder.server ? `${selectedOrder.server.first_name} ${selectedOrder.server.last_name}` : "Unknown"}</span></p>
-                                {selectedOrder.order_type === "delivery" && (
-                                    <div className="pt-2 mt-2 border-t border-slate-800 space-y-1">
-                                        <p className="text-[10px] text-orange-400 uppercase font-bold">Delivery Info</p>
-                                        {selectedOrder.customer_name && <p className="text-sm"><span className="text-slate-400">Name:</span> <span>{selectedOrder.customer_name}</span></p>}
-                                        {selectedOrder.customer_phone && <p className="text-sm"><span className="text-slate-400">Phone:</span> <span>{selectedOrder.customer_phone}</span></p>}
-                                        {selectedOrder.delivery_address && (
-                                            <div className="pt-1">
-                                                <p className="text-[10px] text-slate-400 font-bold">Address:</p>
-                                                <p className="text-xs text-slate-300 italic leading-relaxed break-words">{selectedOrder.delivery_address}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="space-y-1 text-right">
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">Time & Status</p>
-                                <p className="text-sm text-slate-400">{format(new Date(selectedOrder.created_at), 'MMM d, h:mm a')}</p>
-                                <span className={cn("badge text-[10px] ml-auto block w-fit capitalize", statusStyles[selectedOrder.status] || "badge-secondary")}>
-                                    {selectedOrder.status}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-[10px] text-slate-500 uppercase font-bold flex items-center gap-2">
-                                <ClipboardList className="h-3 w-3" /> Items
-                            </p>
-                            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2">
-                                {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                                    (selectedOrder.items || []).map((item: any) => {
-                                        const isItemComped = selectedOrder.comp_meta?.comped_items?.[item.id];
-                                        return (
-                                            <div key={item.id} className={cn(
-                                                "flex justify-between items-center bg-slate-800/30 p-3 rounded-lg border border-slate-700/50",
-                                                (selectedOrder.is_comped || isItemComped) && "opacity-60 grayscale-[0.5] border-orange-500/20"
-                                            )}>
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="font-medium text-sm">
-                                                            {item.name} <span className="text-slate-500">x{item.quantity}</span>
-                                                        </p>
-                                                        {isItemComped && (
-                                                            <div className="flex flex-col">
-                                                                <span className="badge badge-warning text-[8px] py-0 px-1 uppercase w-fit">Comped</span>
-                                                                <p className="text-[9px] text-slate-500 italic">"{selectedOrder.comp_meta?.comped_items?.[item.id]}"</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {item.notes && <p className="text-xs text-orange-400 mt-0.5 italic">{item.notes}</p>}
-                                                    {item.modifiers && (
-                                                        <div className="flex flex-wrap gap-1 mt-1">
-                                                            {(item.modifiers as any[]).map((mod: any, idx: number) => (
-                                                                <span key={idx} className={cn(
-                                                                    "text-[9px] px-1.5 py-0.5 rounded border",
-                                                                    typeof mod === 'object' && mod.type === 'upsell' ? "bg-green-500/10 border-green-500/30 text-green-400" :
-                                                                        typeof mod === 'object' && mod.type === 'side' ? "bg-blue-500/10 border-blue-500/30 text-blue-400" :
-                                                                            "bg-slate-800 border-slate-700 text-slate-400"
-                                                                )}>
-                                                                    {typeof mod === 'string' ? mod : mod.name}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
+            <div className="print:hidden">
+                <Modal
+                    isOpen={showDetailModal}
+                    onClose={() => setShowDetailModal(false)}
+                    title={`Order Details #${selectedOrder?.id?.slice(0, 8)}`}
+                >
+                    {selectedOrder && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold">Details</p>
+                                    <p className="text-sm"><span className="text-slate-400">Type:</span> <span className="capitalize">{selectedOrder.order_type?.replace('_', ' ')}</span></p>
+                                    <p className="text-sm"><span className="text-slate-400">Table:</span> <span>{selectedOrder.table_number || "N/A"}</span></p>
+                                    <p className="text-sm"><span className="text-slate-400">Server:</span> <span>{selectedOrder.server ? `${selectedOrder.server.first_name} ${selectedOrder.server.last_name}` : "Unknown"}</span></p>
+                                    {selectedOrder.order_type === "delivery" && (
+                                        <div className="pt-2 mt-2 border-t border-slate-800 space-y-1">
+                                            <p className="text-[10px] text-orange-400 uppercase font-bold">Delivery Info</p>
+                                            {selectedOrder.customer_name && <p className="text-sm"><span className="text-slate-400">Name:</span> <span>{selectedOrder.customer_name}</span></p>}
+                                            {selectedOrder.customer_phone && <p className="text-sm"><span className="text-slate-400">Phone:</span> <span>{selectedOrder.customer_phone}</span></p>}
+                                            {selectedOrder.delivery_address && (
+                                                <div className="pt-1">
+                                                    <p className="text-[10px] text-slate-400 font-bold">Address:</p>
+                                                    <p className="text-xs text-slate-300 italic leading-relaxed break-words">{selectedOrder.delivery_address}</p>
                                                 </div>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="text-right">
-                                                        <p className={cn("text-sm font-bold", (selectedOrder.is_comped || isItemComped) && "line-through text-slate-500")}>
-                                                            {formatCurrency(((item.unit_price || item.price || 0)) * item.quantity)}
-                                                        </p>
-                                                        {(selectedOrder.is_comped || isItemComped) && (
-                                                            <p className="text-xs font-bold text-green-400">$0.00</p>
-                                                        )}
-                                                    </div>
-
-                                                    {canComp && (
-                                                        <button
-                                                            onClick={() => handleCompClick(item)}
-                                                            className={cn(
-                                                                "p-1.5 rounded-lg transition-colors",
-                                                                isItemComped ? "bg-orange-500/20 text-orange-400" : "hover:bg-slate-700 text-slate-400 hover:text-white"
-                                                            )}
-                                                            disabled={selectedOrder.is_comped}
-                                                            title={isItemComped ? "Update Item Comp" : "Comp Just This Item"}
-                                                        >
-                                                            <Pencil className="h-3.5 w-3.5" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                ) : (
-                                    <p className="text-center text-slate-500 text-sm py-4">No items recorded</p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="pt-3 border-t border-slate-800 space-y-1">
-                            <div className="flex justify-between text-xs text-slate-400">
-                                <span>Subtotal</span>
-                                <span>{formatCurrency(selectedOrder.subtotal)}</span>
-                            </div>
-                            <div className="flex justify-between text-xs text-slate-400">
-                                <span>Tax</span>
-                                <span>{formatCurrency(selectedOrder.tax)}</span>
-                            </div>
-                            {selectedOrder.tip > 0 && (
-                                <div className="flex justify-between text-xs text-slate-400">
-                                    <div className="flex items-center gap-2">
-                                        <span>Tip</span>
-                                        {canComp && (
-                                            <button
-                                                onClick={() => setShowTipModal(true)}
-                                                className="p-1 hover:text-white transition-colors"
-                                                title="Adjust Tip"
-                                            >
-                                                <Pencil className="h-3 w-3" />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <span>{formatCurrency(selectedOrder.tip)}</span>
-                                </div>
-                            )}
-                            {selectedOrder.tip === 0 && canComp && (
-                                <div className="flex justify-between text-xs text-slate-400">
-                                    <button
-                                        onClick={() => setShowTipModal(true)}
-                                        className="text-orange-400/70 hover:text-orange-400 transition-colors flex items-center gap-1"
-                                    >
-                                        <Plus className="h-3 w-3" /> Add Tip
-                                    </button>
-                                    <span>$0.00</span>
-                                </div>
-                            )}
-                            <div className="flex justify-between items-center text-lg font-bold pt-1 border-t border-slate-700">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-orange-400">Total</span>
-                                    {selectedOrder.is_comped && (
-                                        <div className="flex flex-col">
-                                            <span className="badge badge-warning text-[8px] py-0 px-1 uppercase w-fit">Comped</span>
-                                            {selectedOrder.comp_reason && (
-                                                <p className="text-[9px] text-slate-500 italic font-normal">"{selectedOrder.comp_reason}"</p>
                                             )}
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-orange-400">{formatCurrency(selectedOrder.total)}</span>
-                                    {canComp && (
-                                        <button
-                                            onClick={() => handleCompClick()}
-                                            className={cn(
-                                                "p-1.5 rounded-lg transition-colors",
-                                                selectedOrder.is_comped ? "bg-orange-500/20 text-orange-400" : "bg-slate-800 text-slate-400 hover:text-white"
-                                            )}
-                                            title={selectedOrder.is_comped ? "Update Comp Reason" : "Comp Entire Order (Make Free)"}
-                                        >
-                                            <Pencil className="h-3.5 w-3.5" />
-                                        </button>
+                                <div className="space-y-1 text-right">
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold">Time & Status</p>
+                                    <p className="text-sm text-slate-400">{format(new Date(selectedOrder.created_at), 'MMM d, h:mm a')}</p>
+                                    <span className={cn("badge text-[10px] ml-auto block w-fit capitalize", statusStyles[selectedOrder.status] || "badge-secondary")}>
+                                        {selectedOrder.status}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <p className="text-[10px] text-slate-500 uppercase font-bold flex items-center gap-2">
+                                    <ClipboardList className="h-3 w-3" /> Items
+                                </p>
+                                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2">
+                                    {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                                        (selectedOrder.items || []).map((item: any) => {
+                                            const isItemComped = selectedOrder.comp_meta?.comped_items?.[item.id];
+                                            return (
+                                                <div key={item.id} className={cn(
+                                                    "flex justify-between items-center bg-slate-800/30 p-3 rounded-lg border border-slate-700/50",
+                                                    (selectedOrder.is_comped || isItemComped) && "opacity-60 grayscale-[0.5] border-orange-500/20"
+                                                )}>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-medium text-sm">
+                                                                {item.name} <span className="text-slate-500">x{item.quantity}</span>
+                                                            </p>
+                                                            {isItemComped && (
+                                                                <div className="flex flex-col">
+                                                                    <span className="badge badge-warning text-[8px] py-0 px-1 uppercase w-fit">Comped</span>
+                                                                    <p className="text-[9px] text-slate-500 italic">"{selectedOrder.comp_meta?.comped_items?.[item.id]}"</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {item.notes && <p className="text-xs text-orange-400 mt-0.5 italic">{item.notes}</p>}
+                                                        {item.modifiers && (
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {(item.modifiers as any[]).map((mod: any, idx: number) => (
+                                                                    <span key={idx} className={cn(
+                                                                        "text-[9px] px-1.5 py-0.5 rounded border",
+                                                                        typeof mod === 'object' && mod.type === 'upsell' ? "bg-green-500/10 border-green-500/30 text-green-400" :
+                                                                            typeof mod === 'object' && mod.type === 'side' ? "bg-blue-500/10 border-blue-500/30 text-blue-400" :
+                                                                                "bg-slate-800 border-slate-700 text-slate-400"
+                                                                    )}>
+                                                                        {typeof mod === 'string' ? mod : mod.name}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="text-right">
+                                                            <p className={cn("text-sm font-bold", (selectedOrder.is_comped || isItemComped) && "line-through text-slate-500")}>
+                                                                {formatCurrency(((item.unit_price || item.price || 0)) * item.quantity)}
+                                                            </p>
+                                                            {(selectedOrder.is_comped || isItemComped) && (
+                                                                <p className="text-xs font-bold text-green-400">$0.00</p>
+                                                            )}
+                                                        </div>
+
+                                                        {canComp && (
+                                                            <button
+                                                                onClick={() => handleCompClick(item)}
+                                                                className={cn(
+                                                                    "p-1.5 rounded-lg transition-colors",
+                                                                    isItemComped ? "bg-orange-500/20 text-orange-400" : "hover:bg-slate-700 text-slate-400 hover:text-white"
+                                                                )}
+                                                                disabled={selectedOrder.is_comped}
+                                                                title={isItemComped ? "Update Item Comp" : "Comp Just This Item"}
+                                                            >
+                                                                <Pencil className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <p className="text-center text-slate-500 text-sm py-4">No items recorded</p>
                                     )}
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="flex gap-2 pt-2 print:hidden">
-                            <button
-                                onClick={() => setShowDetailModal(false)}
-                                className="btn btn-secondary flex-1 py-1.5 text-sm"
-                            >
-                                Close
-                            </button>
-                            <button
-                                className="btn btn-primary flex-1 gap-2 py-1.5 text-sm"
-                                onClick={() => window.print()}
-                            >
-                                <Receipt className="h-4 w-4" />
-                                Print Receipt
-                            </button>
-                        </div>
+                            <div className="pt-3 border-t border-slate-800 space-y-1">
+                                <div className="flex justify-between text-xs text-slate-400">
+                                    <span>Subtotal</span>
+                                    <span>{formatCurrency(selectedOrder.subtotal)}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-slate-400">
+                                    <span>Tax</span>
+                                    <span>{formatCurrency(selectedOrder.tax)}</span>
+                                </div>
+                                {selectedOrder.tip > 0 && (
+                                    <div className="flex justify-between text-xs text-slate-400">
+                                        <div className="flex items-center gap-2">
+                                            <span>Tip</span>
+                                            {canComp && (
+                                                <button
+                                                    onClick={() => setShowTipModal(true)}
+                                                    className="p-1 hover:text-white transition-colors"
+                                                    title="Adjust Tip"
+                                                >
+                                                    <Pencil className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <span>{formatCurrency(selectedOrder.tip)}</span>
+                                    </div>
+                                )}
+                                {selectedOrder.tip === 0 && canComp && (
+                                    <div className="flex justify-between text-xs text-slate-400">
+                                        <button
+                                            onClick={() => setShowTipModal(true)}
+                                            className="text-orange-400/70 hover:text-orange-400 transition-colors flex items-center gap-1"
+                                        >
+                                            <Plus className="h-3 w-3" /> Add Tip
+                                        </button>
+                                        <span>$0.00</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center text-lg font-bold pt-1 border-t border-slate-700">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-orange-400">Total</span>
+                                        {selectedOrder.is_comped && (
+                                            <div className="flex flex-col">
+                                                <span className="badge badge-warning text-[8px] py-0 px-1 uppercase w-fit">Comped</span>
+                                                {selectedOrder.comp_reason && (
+                                                    <p className="text-[9px] text-slate-500 italic font-normal">"{selectedOrder.comp_reason}"</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-orange-400">{formatCurrency(selectedOrder.total)}</span>
+                                        {canComp && (
+                                            <button
+                                                onClick={() => handleCompClick()}
+                                                className={cn(
+                                                    "p-1.5 rounded-lg transition-colors",
+                                                    selectedOrder.is_comped ? "bg-orange-500/20 text-orange-400" : "bg-slate-800 text-slate-400 hover:text-white"
+                                                )}
+                                                title={selectedOrder.is_comped ? "Update Comp Reason" : "Comp Entire Order (Make Free)"}
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
 
-                        {/* Hidden Receipt Preview for Printing */}
-                        <div className="hidden print:block fixed inset-0 bg-white z-[100]">
-                            <ReceiptPreview orderId={selectedOrder.id} />
+                            <div className="flex gap-2 pt-2 print:hidden">
+                                <button
+                                    onClick={() => setShowDetailModal(false)}
+                                    className="btn btn-secondary flex-1 py-1.5 text-sm"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    className="btn btn-primary flex-1 gap-2 py-1.5 text-sm"
+                                    onClick={() => window.print()}
+                                >
+                                    <Receipt className="h-4 w-4" />
+                                    Print Receipt
+                                </button>
+                            </div>
+
                         </div>
-                    </div>
-                )}
-            </Modal>
+                    )}
+                </Modal>
+            </div>
+
+            {/* Dedicated Print-Only Receipt Container */}
+            {showDetailModal && selectedOrder && (
+                <div className="hidden print:block fixed inset-0 bg-white z-[200]">
+                    <ReceiptPreview orderId={selectedOrder.id} />
+                </div>
+            )}
 
             {/* Comp Confirmation Modal */}
             <Modal
