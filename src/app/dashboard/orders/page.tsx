@@ -789,12 +789,6 @@ function OrdersPageContent() {
                                     </button>
                                 )}
                                 <button
-                                    onClick={() => setShowManagerApproval(true)}
-                                    className="btn btn-secondary flex-1 border-red-500/30 text-red-500 hover:bg-red-500/10"
-                                >
-                                    Void Order
-                                </button>
-                                <button
                                     onClick={() => setShowMyTickets(true)}
                                     className="btn btn-secondary text-xs py-0.5 px-2"
                                 >
@@ -1026,7 +1020,7 @@ function OrdersPageContent() {
                     )}
                     {activeOrderId && (
                         <button
-                            onClick={voidOrder}
+                            onClick={() => setShowManagerApproval(true)}
                             className="btn btn-secondary w-full py-2 text-sm text-red-500 border-red-500/20 hover:bg-red-500/10"
                         >
                             <Trash2 className="h-4 w-4" />
