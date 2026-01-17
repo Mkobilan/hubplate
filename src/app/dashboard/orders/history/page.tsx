@@ -77,6 +77,8 @@ export default function OrderHistoryPage() {
             const { data, error } = await query;
             if (error) throw error;
 
+            // Enhance orders with items if we need to fetch them separately
+            // But since the user is now saving a JSON 'items' column, we check that first
             setOrders(data || []);
         } catch (err) {
             console.error("Error fetching order history:", err);
@@ -391,7 +393,7 @@ export default function OrderHistoryPage() {
                                         {selectedOrder.delivery_address && (
                                             <div className="pt-1">
                                                 <p className="text-[10px] text-slate-400 font-bold">Address:</p>
-                                                <p className="text-xs text-slate-300 italic leading-relaxed">{selectedOrder.delivery_address}</p>
+                                                <p className="text-xs text-slate-300 italic leading-relaxed break-words">{selectedOrder.delivery_address}</p>
                                             </div>
                                         )}
                                     </div>
@@ -450,7 +452,7 @@ export default function OrderHistoryPage() {
                                                 <div className="flex items-center gap-4">
                                                     <div className="text-right">
                                                         <p className={cn("text-sm font-bold", (selectedOrder.is_comped || isItemComped) && "line-through text-slate-500")}>
-                                                            {formatCurrency((item.unit_price || item.price) * item.quantity)}
+                                                            {formatCurrency(((item.unit_price || item.price || 0)) * item.quantity)}
                                                         </p>
                                                         {(selectedOrder.is_comped || isItemComped) && (
                                                             <p className="text-xs font-bold text-green-400">$0.00</p>

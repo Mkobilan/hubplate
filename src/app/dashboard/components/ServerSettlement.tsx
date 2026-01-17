@@ -42,6 +42,11 @@ interface TicketSummary {
     payment_status: string;
     status: string;
     created_at: string;
+    customer_id: string | null;
+    customer_name: string | null;
+    customer_phone: string | null;
+    delivery_address: string | null;
+    items?: any[];
 }
 
 export default function ServerSettlement() {
@@ -77,7 +82,7 @@ export default function ServerSettlement() {
                 // Fetch today's orders for this server
                 const { data: orders, error: ordersError } = await (supabase
                     .from("orders") as any)
-                    .select("id, table_number, order_type, total, tip, payment_method, payment_status, status, created_at")
+                    .select("id, table_number, order_type, total, tip, payment_method, payment_status, status, created_at, customer_id, customer_name, customer_phone, delivery_address, items")
                     .eq("server_id", currentEmployee.id)
                     .eq("location_id", currentLocation.id)
                     .gte("created_at", start)
@@ -176,6 +181,13 @@ export default function ServerSettlement() {
         setLoadingTicketItems(true);
 
         try {
+            // First check if items are already on the ticket object (JSON column)
+            if (ticket.items && ticket.items.length > 0) {
+                setTicketItems(ticket.items);
+                setLoadingTicketItems(false);
+                return;
+            }
+
             const supabase = createClient();
             const { data, error } = await supabase
                 .from("order_items")
@@ -310,14 +322,29 @@ export default function ServerSettlement() {
             >
                 {selectedTicket && (
                     <div className="space-y-4">
-                        <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                            <div>
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">Time</p>
-                                <p className="text-sm">{format(new Date(selectedTicket.created_at), 'MMM d, h:mm a')}</p>
+                        <div className="grid grid-cols-2 gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                            <div className="space-y-1">
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Details</p>
+                                <p className="text-sm"><span className="text-slate-400">Type:</span> <span className="capitalize">{selectedTicket.order_type?.replace('_', ' ')}</span></p>
+                                <p className="text-sm"><span className="text-slate-400">Table:</span> <span>{selectedTicket.table_number || "N/A"}</span></p>
+                                {selectedTicket.order_type === "delivery" && (
+                                    <div className="pt-2 mt-2 border-t border-slate-800 space-y-1">
+                                        <p className="text-[10px] text-orange-400 uppercase font-bold">Delivery Info</p>
+                                        {selectedTicket.customer_name && <p className="text-sm"><span className="text-slate-400">Name:</span> <span>{selectedTicket.customer_name}</span></p>}
+                                        {selectedTicket.customer_phone && <p className="text-sm"><span className="text-slate-400">Phone:</span> <span>{selectedTicket.customer_phone}</span></p>}
+                                        {selectedTicket.delivery_address && (
+                                            <div className="pt-1">
+                                                <p className="text-[10px] text-slate-400 font-bold">Address:</p>
+                                                <p className="text-xs text-slate-300 italic leading-relaxed break-words">{selectedTicket.delivery_address}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            <div className="text-right">
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">Status</p>
-                                <span className={`badge text-[10px] capitalize ${selectedTicket.payment_status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
+                            <div className="space-y-1 text-right">
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Time & Status</p>
+                                <p className="text-sm text-slate-400">{format(new Date(selectedTicket.created_at), 'MMM d, h:mm a')}</p>
+                                <span className={`badge text-[10px] capitalize ml-auto block w-fit ${selectedTicket.payment_status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
                                     {selectedTicket.payment_status}
                                 </span>
                             </div>
@@ -337,7 +364,7 @@ export default function ServerSettlement() {
                                                 <span className="font-medium">{item.name}</span>
                                                 <span className="text-slate-500 ml-2">x{item.quantity}</span>
                                             </div>
-                                            <p className="text-sm font-bold">{formatCurrency(item.unit_price * item.quantity)}</p>
+                                            <p className="text-sm font-bold">{formatCurrency((item.unit_price || item.price || 0) * item.quantity)}</p>
                                         </div>
                                     ))
                                 ) : (
@@ -349,7 +376,7 @@ export default function ServerSettlement() {
                         <div className="pt-3 border-t border-slate-800 space-y-1">
                             <div className="flex justify-between text-xs text-slate-400">
                                 <span>Subtotal + Tax</span>
-                                <span>{formatCurrency(selectedTicket.total - selectedTicket.tip)}</span>
+                                <span>{formatCurrency(Number(selectedTicket.total || 0) - Number(selectedTicket.tip || 0))}</span>
                             </div>
                             <div className="flex justify-between items-center text-xs text-slate-400">
                                 <div className="flex items-center gap-2">
