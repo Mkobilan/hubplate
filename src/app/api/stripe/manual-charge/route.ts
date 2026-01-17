@@ -32,10 +32,6 @@ export async function POST(request: NextRequest) {
             payment_method: paymentMethodId,
             confirm: true,
             confirmation_method: 'manual',
-            automatic_payment_methods: {
-                enabled: true,
-                allow_redirects: 'never'
-            },
             metadata: {
                 order_id: orderId,
                 type: 'manual_pos_charge'
