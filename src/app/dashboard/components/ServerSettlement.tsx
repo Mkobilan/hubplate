@@ -10,13 +10,18 @@ import {
     Gift,
     ChevronDown,
     ChevronUp,
-    Loader2
+    Loader2,
+    Pencil,
+    Plus,
+    X as CloseIcon
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
 import { formatCurrency } from "@/lib/utils";
 import { startOfDay, endOfDay, format } from "date-fns";
 import Link from "next/link";
+import { Modal } from "@/components/ui/modal";
+import TipAdjustmentModal from "../orders/history/../components/TipAdjustmentModal";
 
 interface SettlementStats {
     totalTickets: number;
@@ -53,6 +58,10 @@ export default function ServerSettlement() {
     const [tickets, setTickets] = useState<TicketSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState(false);
+    const [selectedTicket, setSelectedTicket] = useState<TicketSummary | null>(null);
+    const [showTipModal, setShowTipModal] = useState(false);
+    const [loadingTicketItems, setLoadingTicketItems] = useState(false);
+    const [ticketItems, setTicketItems] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchSettlementData = async () => {
@@ -161,6 +170,27 @@ export default function ServerSettlement() {
         };
     }, [currentEmployee?.id, currentLocation?.id]);
 
+    const handleTicketClick = async (ticket: TicketSummary) => {
+        setSelectedTicket(ticket);
+        setTicketItems([]);
+        setLoadingTicketItems(true);
+
+        try {
+            const supabase = createClient();
+            const { data, error } = await supabase
+                .from("order_items")
+                .select("*")
+                .eq("order_id", ticket.id);
+
+            if (error) throw error;
+            setTicketItems(data || []);
+        } catch (err) {
+            console.error("Error fetching ticket items:", err);
+        } finally {
+            setLoadingTicketItems(false);
+        }
+    };
+
     if (!currentEmployee) return null;
 
     return (
@@ -233,12 +263,13 @@ export default function ServerSettlement() {
                     {expanded && (
                         <div className="space-y-2 max-h-64 overflow-y-auto">
                             {tickets.map((ticket) => (
-                                <div
+                                <button
                                     key={ticket.id}
-                                    className="flex items-center justify-between py-2 px-3 bg-slate-800/30 rounded-lg text-sm"
+                                    onClick={() => handleTicketClick(ticket)}
+                                    className="w-full flex items-center justify-between py-2 px-3 bg-slate-800/30 hover:bg-slate-800/50 rounded-lg text-sm transition-colors text-left group"
                                 >
                                     <div>
-                                        <p className="font-medium">
+                                        <p className="font-medium group-hover:text-orange-400 transition-colors">
                                             {ticket.order_type === "dine_in"
                                                 ? `Table ${ticket.table_number || "N/A"}`
                                                 : ticket.order_type?.replace("_", " ").toUpperCase()}
@@ -264,12 +295,114 @@ export default function ServerSettlement() {
                                             </span>
                                         </div>
                                     </div>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     )}
                 </>
             )}
+
+            {/* Ticket Detail Modal */}
+            <Modal
+                isOpen={!!selectedTicket}
+                onClose={() => setSelectedTicket(null)}
+                title={`Ticket Details - ${selectedTicket?.order_type === 'dine_in' ? 'Table ' + selectedTicket.table_number : selectedTicket?.order_type?.toUpperCase()}`}
+            >
+                {selectedTicket && (
+                    <div className="space-y-4">
+                        <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                            <div>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Time</p>
+                                <p className="text-sm">{format(new Date(selectedTicket.created_at), 'MMM d, h:mm a')}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Status</p>
+                                <span className={`badge text-[10px] capitalize ${selectedTicket.payment_status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
+                                    {selectedTicket.payment_status}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold">Items</p>
+                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                {loadingTicketItems ? (
+                                    <div className="flex justify-center py-4 text-slate-500">
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                    </div>
+                                ) : ticketItems.length > 0 ? (
+                                    ticketItems.map((item: any) => (
+                                        <div key={item.id} className="flex justify-between items-center bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
+                                            <div className="text-sm">
+                                                <span className="font-medium">{item.name}</span>
+                                                <span className="text-slate-500 ml-2">x{item.quantity}</span>
+                                            </div>
+                                            <p className="text-sm font-bold">{formatCurrency(item.unit_price * item.quantity)}</p>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-center text-slate-500 text-sm py-4">No items found</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-800 space-y-1">
+                            <div className="flex justify-between text-xs text-slate-400">
+                                <span>Subtotal + Tax</span>
+                                <span>{formatCurrency(selectedTicket.total - selectedTicket.tip)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-slate-400">
+                                <div className="flex items-center gap-2">
+                                    <span>Tip</span>
+                                    <button
+                                        onClick={() => setShowTipModal(true)}
+                                        className="p-1 hover:text-white transition-colors"
+                                        title="Adjust Tip"
+                                    >
+                                        <Pencil className="h-3 w-3" />
+                                    </button>
+                                </div>
+                                <span className="text-green-400">{formatCurrency(selectedTicket.tip)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-lg font-bold pt-1 border-t border-slate-700">
+                                <span className="text-orange-400">Total</span>
+                                <span className="text-orange-400">{formatCurrency(selectedTicket.total)}</span>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setSelectedTicket(null)}
+                            className="btn btn-secondary w-full py-2 text-sm"
+                        >
+                            Close
+                        </button>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Tip Adjustment Modal */}
+            <TipAdjustmentModal
+                isOpen={showTipModal}
+                onClose={() => setShowTipModal(false)}
+                order={{
+                    ...selectedTicket,
+                    subtotal: (selectedTicket?.total || 0) - (selectedTicket?.tip || 0),
+                    tax: 0 // We don't have separate tax in TicketSummary, so we bundle it in subtotal for the modal's math
+                }}
+                onSuccess={(updatedOrder) => {
+                    setSelectedTicket({
+                        ...selectedTicket!,
+                        tip: updatedOrder.tip,
+                        total: updatedOrder.total
+                    });
+                    // Refresh data
+                    const today = new Date();
+                    const start = startOfDay(today).toISOString();
+                    const end = endOfDay(today).toISOString();
+                    // This is hacky because we don't have a shared fetch function, but the settlement data 
+                    // should refresh via the supabase subscription anyway.
+                }}
+            />
 
             {tickets.length === 0 && !loading && (
                 <div className="text-center py-6 text-slate-500">

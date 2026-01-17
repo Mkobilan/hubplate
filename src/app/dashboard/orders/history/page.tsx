@@ -16,13 +16,15 @@ import {
     X,
     ChevronDown,
     ChevronUp,
-    Pencil
+    Pencil,
+    Plus
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/stores";
 import { startOfDay, endOfDay, format, addDays } from "date-fns";
 import { Modal } from "@/components/ui/modal";
+import TipAdjustmentModal from "../components/TipAdjustmentModal";
 
 type OrderStatus = "all" | "pending" | "preparing" | "ready" | "served" | "completed" | "cancelled";
 
@@ -42,6 +44,8 @@ export default function OrderHistoryPage() {
     const [compingItem, setCompingItem] = useState<any>(null);
     const [compReason, setCompReason] = useState("");
     const [showCompModal, setShowCompModal] = useState(false);
+
+    const [showTipModal, setShowTipModal] = useState(false);
 
     const isTerminalMode = useAppStore((state) => state.isTerminalMode);
     const canComp = isTerminalMode
@@ -473,8 +477,30 @@ export default function OrderHistoryPage() {
                             </div>
                             {selectedOrder.tip > 0 && (
                                 <div className="flex justify-between text-xs text-slate-400">
-                                    <span>Tip</span>
+                                    <div className="flex items-center gap-2">
+                                        <span>Tip</span>
+                                        {canComp && (
+                                            <button
+                                                onClick={() => setShowTipModal(true)}
+                                                className="p-1 hover:text-white transition-colors"
+                                                title="Adjust Tip"
+                                            >
+                                                <Pencil className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </div>
                                     <span>{formatCurrency(selectedOrder.tip)}</span>
+                                </div>
+                            )}
+                            {selectedOrder.tip === 0 && canComp && (
+                                <div className="flex justify-between text-xs text-slate-400">
+                                    <button
+                                        onClick={() => setShowTipModal(true)}
+                                        className="text-orange-400/70 hover:text-orange-400 transition-colors flex items-center gap-1"
+                                    >
+                                        <Plus className="h-3 w-3" /> Add Tip
+                                    </button>
+                                    <span>$0.00</span>
                                 </div>
                             )}
                             <div className="flex justify-between items-center text-lg font-bold pt-1 border-t border-slate-700">
@@ -576,6 +602,17 @@ export default function OrderHistoryPage() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Tip Adjustment Modal */}
+            <TipAdjustmentModal
+                isOpen={showTipModal}
+                onClose={() => setShowTipModal(false)}
+                order={selectedOrder}
+                onSuccess={(updatedOrder) => {
+                    setSelectedOrder(updatedOrder);
+                    fetchOrders();
+                }}
+            />
         </div>
     );
 }
