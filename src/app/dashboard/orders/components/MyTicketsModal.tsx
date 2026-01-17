@@ -29,10 +29,8 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
         try {
             const { data, error } = await supabase
                 .from("orders")
-                .select("id, location_id, server_id, table_number, seat_number, status, order_type, subtotal, tax, delivery_fee, discount, points_redeemed, total, items, customer_id, customer_name, customer_phone, customer_email, created_at, is_comped, comp_meta, comp_reason")
+                .select("id, location_id, server_id, table_number, seat_number, status, order_type, subtotal, tax, delivery_fee, delivery_address, discount, points_redeemed, total, items, customer_id, customer_name, customer_phone, customer_email, created_at, is_comped, comp_meta, comp_reason")
                 .eq("location_id", currentLocation.id)
-                .eq("server_id", currentEmployee.id)
-                .or('payment_status.neq.paid,payment_status.is.null')
                 .neq("status", "completed")
                 .neq("status", "cancelled")
                 .order("created_at", { ascending: false });
@@ -106,9 +104,14 @@ export default function MyTicketsModal({ onClose, onSelectOrder }: MyTicketsModa
                                         </span>
                                     </div>
                                     {order.customer_name && (
-                                        <div className="flex items-center gap-1.5 text-xs text-orange-400 font-bold mb-2 italic">
+                                        <div className="flex items-center gap-1.5 text-xs text-orange-400 font-bold mb-1 italic">
                                             <Star className="h-3 w-3 fill-orange-400" />
                                             {order.customer_name}
+                                        </div>
+                                    )}
+                                    {order.order_type === 'delivery' && order.delivery_address && (
+                                        <div className="text-[10px] text-slate-400 line-clamp-1 mb-2">
+                                            {order.delivery_address}
                                         </div>
                                     )}
                                     <div className="flex items-center gap-4 mt-auto">

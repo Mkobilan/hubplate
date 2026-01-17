@@ -398,6 +398,7 @@ function OrdersPageContent() {
                         table_number: orderType === "dine_in" ? tableNumber : null,
                         seat_number: orderType === "dine_in" ? selectedSeat : null,
                         status: "sent",
+                        payment_status: "unpaid",
                         order_type: orderType,
                         subtotal: subtotal,
                         tax: tax,

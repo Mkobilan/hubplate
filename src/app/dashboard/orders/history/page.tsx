@@ -25,6 +25,7 @@ import { useAppStore } from "@/stores";
 import { startOfDay, endOfDay, format, addDays } from "date-fns";
 import { Modal } from "@/components/ui/modal";
 import TipAdjustmentModal from "../components/TipAdjustmentModal";
+import ReceiptPreview from "../components/ReceiptPreview";
 
 type OrderStatus = "all" | "pending" | "preparing" | "ready" | "served" | "completed" | "cancelled";
 
@@ -533,7 +534,7 @@ export default function OrderHistoryPage() {
                             </div>
                         </div>
 
-                        <div className="flex gap-2 pt-2">
+                        <div className="flex gap-2 pt-2 print:hidden">
                             <button
                                 onClick={() => setShowDetailModal(false)}
                                 className="btn btn-secondary flex-1 py-1.5 text-sm"
@@ -547,6 +548,11 @@ export default function OrderHistoryPage() {
                                 <Receipt className="h-4 w-4" />
                                 Print Receipt
                             </button>
+                        </div>
+
+                        {/* Hidden Receipt Preview for Printing */}
+                        <div className="hidden print:block fixed inset-0 bg-white z-[100]">
+                            <ReceiptPreview orderId={selectedOrder.id} />
                         </div>
                     </div>
                 )}
