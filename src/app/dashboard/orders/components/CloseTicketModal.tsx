@@ -31,8 +31,7 @@ interface CloseTicketModalProps {
     compReason?: string;
 }
 
-import { createClient } from "@/lib/supabase/client";
-import ReceiptPreview from "./ReceiptPreview";
+
 
 export default function CloseTicketModal({
     orderId,
