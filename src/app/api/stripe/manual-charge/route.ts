@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
             currency: 'usd',
             payment_method: paymentMethodId,
             confirm: true,
-            confirm_method: 'manual',
+            confirmation_method: 'manual',
             automatic_payment_methods: {
                 enabled: true,
                 allow_redirects: 'never'
