@@ -23,11 +23,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
-  title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
+  title: "HubPlate | Leading AI Restaurant POS & Management Software 2026",
   description:
-    "HubPlate is the all-in-one AI-powered restaurant management platform. Featuring advanced POS, online table reservations, digital gift cards, smart scheduling, automated inventory logs, and QR code ordering with true offline mode. Scale your restaurant efficiency by 80% with HubPlate's next-gen intelligence.",
+    "HubPlate is the #1 AI-powered restaurant management platform for 2026. Featuring advanced Cloud-based POS, smart KDS, automated inventory logs, staff scheduling, and commission-free online ordering with Uber Direct integration. Scale your restaurant efficiency by 80% with HubPlate's next-gen hospitality intelligence.",
   keywords: [
-    "AI restaurant POS system",
+    "AI restaurant POS system 2026",
     "cloud-based restaurant management software",
     "online restaurant reservations",
     "digital gift cards for restaurants",
@@ -43,6 +43,10 @@ export const metadata: Metadata = {
     "hubplate.app",
     "restaurant cost control intelligence",
     "mobile POS for hospitality",
+    "contactless payments tableside",
+    "commission-free online ordering",
+    "Uber Direct delivery integration",
+    "restaurant analytics dashboard",
   ],
   authors: [{ name: "HubPlate Team" }],
   creator: "HubPlate",
@@ -51,7 +55,7 @@ export const metadata: Metadata = {
     telephone: false,
   },
   openGraph: {
-    title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
+    title: "HubPlate | Leading AI Restaurant POS & Management Software 2026",
     description: "Scale your restaurant with AI-powered POS, online reservations, digital gift cards, and smart inventory logs. The only platform you'll ever need.",
     url: "https://hubplate.app",
     siteName: "HubPlate",
@@ -68,7 +72,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "HubPlate | Best Restaurant POS & AI Management Software 2025",
+    title: "HubPlate | Leading AI Restaurant POS & Management Software 2026",
     description: "AI-powered restaurant POS with online reservations, digital gift cards, and smart inventory logs. Built for the modern hospitality industry.",
     images: ["/logo.png"],
   },
