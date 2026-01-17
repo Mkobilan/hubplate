@@ -39,11 +39,11 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
     const [sendingEmail, setSendingEmail] = useState<string | null>(null);
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [editForm, setEditForm] = useState({
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: ""
+        phone: "",
+        notes: ""
     });
+    const [isEditingNotes, setIsEditingNotes] = useState(false);
+    const [tempNotes, setTempNotes] = useState("");
 
     useEffect(() => {
         if (isOpen && customerId) {
@@ -75,12 +75,14 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
                 firstName: customer.first_name || "",
                 lastName: customer.last_name || "",
                 email: customer.email || "",
-                phone: customer.phone || ""
+                phone: customer.phone || "",
+                notes: customer.notes || ""
             });
+            setTempNotes(customer.notes || "");
 
             const { data: orderData, error: orderError } = await supabase
                 .from("orders")
-                .select("*")
+                .select("*, order_items(*)")
                 .eq("customer_id", customerId)
                 .order("created_at", { ascending: false });
 
@@ -100,7 +102,7 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
 
         const itemCounts: Record<string, number> = {};
         orders.forEach(order => {
-            const items = (order as any).items || [];
+            const items = (order as any).order_items || (order as any).items || [];
             items.forEach((item: any) => {
                 const name = item.name || item.menu_item_name;
                 if (name) {
@@ -114,13 +116,30 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
             .slice(0, 5)
             .map(([name]) => name);
 
-        const totalSpent = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-        const avgSpend = totalSpent / orders.length;
+        const totalSpent = orders.length > 0
+            ? orders.reduce((sum, o) => sum + (o.total || 0), 0)
+            : (customer?.total_spent || 0);
 
-        const firstDate = new Date(orders[orders.length - 1].created_at);
-        const lastDate = new Date(orders[0].created_at);
-        const daysDiff = (lastDate.getTime() - firstDate.getTime()) / (1000 * 3600 * 24);
-        const frequencyDays = daysDiff > 0 ? Math.round(daysDiff / orders.length) : 0;
+        const visitsCount = orders.length > 0 ? orders.length : (customer?.total_visits || 0);
+        const avgSpend = visitsCount > 0 ? totalSpent / visitsCount : 0;
+
+        // Visit Frequency Calculation
+        let frequencyDays = 0;
+        if (orders.length >= 2) {
+            const firstDate = new Date(orders[orders.length - 1].created_at);
+            const lastDate = new Date(orders[0].created_at);
+            const daysDiff = (lastDate.getTime() - firstDate.getTime()) / (1000 * 3600 * 24);
+            frequencyDays = Math.round(daysDiff / (orders.length - 1));
+        } else if (customer?.total_visits && customer.total_visits > 1) {
+            // Fallback: (Now - JoinedDate) / (Visits - 1)
+            const joinedDate = new Date(customer.created_at);
+            const now = new Date();
+            const daysSinceJoined = (now.getTime() - joinedDate.getTime()) / (1000 * 3600 * 24);
+            frequencyDays = Math.round(daysSinceJoined / (customer.total_visits - 1));
+        } else if (customer?.total_visits === 1) {
+            // Single visit, maybe show days since joined or just 0
+            frequencyDays = 0;
+        }
 
         const recs = [];
 
@@ -217,7 +236,8 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
                     first_name: editForm.firstName,
                     last_name: editForm.lastName,
                     email: editForm.email,
-                    phone: editForm.phone
+                    phone: editForm.phone,
+                    notes: editForm.notes
                 })
                 .eq("id", customerId);
 
@@ -228,13 +248,36 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
                 first_name: editForm.firstName,
                 last_name: editForm.lastName,
                 email: editForm.email,
-                phone: editForm.phone
+                phone: editForm.phone,
+                notes: editForm.notes
             });
             setIsEditingProfile(false);
+            setIsEditingNotes(false);
             toast.success("Profile updated successfully");
         } catch (err: any) {
             console.error("Error saving profile:", err);
             toast.error(err.message || "Failed to update profile");
+        }
+    };
+
+    const handleSaveNotes = async () => {
+        if (!customerId) return;
+        try {
+            const supabase = createClient();
+            const { error } = await (supabase as any)
+                .from("customers")
+                .update({ notes: tempNotes })
+                .eq("id", customerId);
+
+            if (error) throw error;
+
+            setCustomer({ ...customer, notes: tempNotes });
+            setEditForm({ ...editForm, notes: tempNotes });
+            setIsEditingNotes(false);
+            toast.success("Notes updated");
+        } catch (err: any) {
+            console.error("Error saving notes:", err);
+            toast.error("Failed to update notes");
         }
     };
 
@@ -494,10 +537,48 @@ export function CustomerDetailModal({ isOpen, onClose, customerId }: CustomerDet
                                                 </div>
                                             </div>
                                             <div className="col-span-2 space-y-1">
-                                                <p className="text-slate-500">Notes</p>
-                                                <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 min-h-[80px]">
-                                                    {customer.notes || "No notes available."}
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-slate-500">Notes</p>
+                                                    {!isEditingNotes ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                setTempNotes(customer.notes || "");
+                                                                setIsEditingNotes(true);
+                                                            }}
+                                                            className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1"
+                                                        >
+                                                            <Pencil className="h-3 w-3" /> Edit
+                                                        </button>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={handleSaveNotes}
+                                                                className="text-xs text-green-400 hover:text-green-300 flex items-center gap-1"
+                                                            >
+                                                                <Check className="h-3 w-3" /> Save
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setIsEditingNotes(false)}
+                                                                className="text-xs text-slate-500 hover:text-slate-400 flex items-center gap-1"
+                                                            >
+                                                                <X className="h-3 w-3" /> Cancel
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
+                                                {isEditingNotes ? (
+                                                    <textarea
+                                                        value={tempNotes}
+                                                        onChange={(e) => setTempNotes(e.target.value)}
+                                                        className="w-full h-24 p-3 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 focus:border-orange-500 outline-none transition-colors resize-none text-sm"
+                                                        placeholder="Add customer notes here..."
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 min-h-[80px] text-sm">
+                                                        {customer.notes || "No notes available."}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
