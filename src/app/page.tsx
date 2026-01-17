@@ -649,8 +649,8 @@ export default function HomePage() {
           </div>
 
           <div className="flex gap-10 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
-            <a href="#" className="hover:text-white transition-colors">Terms</a>
-            <a href="#" className="hover:text-white transition-colors">Privacy</a>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
             <a href="#" className="hover:text-white transition-colors">Support</a>
             <a href="#" className="hover:text-white transition-colors">Contact</a>
           </div>

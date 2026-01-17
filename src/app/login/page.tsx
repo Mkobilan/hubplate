@@ -156,15 +156,6 @@ export default function LoginPage() {
                     </div>
                 </div>
 
-                {/* Staff PIN Login Link */}
-                <div className="mt-6 text-center">
-                    <Link
-                        href="/pin-login"
-                        className="text-sm text-slate-400 hover:text-slate-300"
-                    >
-                        Staff? Login with PIN instead →
-                    </Link>
-                </div>
             </div>
         </div>
     );

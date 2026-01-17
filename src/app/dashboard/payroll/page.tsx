@@ -275,7 +275,7 @@ export default function PayrollPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold">Payroll Dashboard</h1>
-                    <p className="text-slate-400 mt-1">Manage labor costs and process payments</p>
+                    <p className="text-slate-400 mt-1">Manage labor costs</p>
                 </div>
                 <button
                     onClick={() => setShowRunModal(true)}
