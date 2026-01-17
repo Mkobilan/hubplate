@@ -43,7 +43,7 @@ export default function CloseTicketModal({
 }: CloseTicketModalProps) {
     const [paymentStatus, setPaymentStatus] = useState<string>("");
     const [isNative, setIsNative] = useState(false);
-    const [activeOption, setActiveOption] = useState<"print" | "card" | "qr" | "cash" | "gift" | null>(null);
+    const [activeOption, setActiveOption] = useState<"print" | "card" | "qr" | "cash" | "gift" | "manual_card" | null>(null);
     const [copied, setCopied] = useState(false);
     const [processingCash, setProcessingCash] = useState(false);
     const [tip, setTip] = useState<number>(0);
@@ -65,6 +65,12 @@ export default function CloseTicketModal({
     const [checkingGiftCard, setCheckingGiftCard] = useState(false);
     const [giftCardBalance, setGiftCardBalance] = useState<number | null>(null);
     const [giftCardError, setGiftCardError] = useState<string | null>(null);
+
+    // Manual Card Entry
+    const [cardNumber, setCardNumber] = useState("");
+    const [cardExpiry, setCardExpiry] = useState("");
+    const [cardCvc, setCardCvc] = useState("");
+    const [isProcessingManual, setIsProcessingManual] = useState(false);
 
     useEffect(() => {
         setIsNative(Capacitor.isNativePlatform());
@@ -407,7 +413,8 @@ export default function CloseTicketModal({
 
             const finalTotal = total + tip;
 
-            // Update Supabase to mark as paid
+            // For delivery orders, we DO NOT mark as completed.
+            const isDelivery = orderType === "delivery";
             const supabase = createClient();
             await (supabase.from("orders") as any)
                 .update({
@@ -415,8 +422,8 @@ export default function CloseTicketModal({
                     payment_method: "card",
                     tip: tip,
                     total: finalTotal,
-                    status: "completed",
-                    completed_at: new Date().toISOString(),
+                    status: isDelivery ? undefined : "completed",
+                    completed_at: isDelivery ? null : new Date().toISOString(),
                     paid_at: new Date().toISOString(),
                     is_comped: isOrderComped,
                     comp_meta: compMeta,
@@ -438,9 +445,75 @@ export default function CloseTicketModal({
         }
     };
 
+    const handleManualPayment = async () => {
+        setIsProcessingManual(true);
+        setPaymentStatus("Charging card...");
+        try {
+            const response = await fetch("/api/stripe/manual-charge", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    orderId,
+                    amount: total,
+                    tip,
+                    cardNumber,
+                    cardExpiry,
+                    cardCvc
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || "Payment failed");
+            }
+
+            setPaymentStatus("Manual Payment Successful!");
+            const finalTotal = total + tip;
+
+            // Update Supabase
+            const supabase = createClient();
+
+            // For delivery orders, we DO NOT mark as completed.
+            const isDelivery = orderType === "delivery";
+
+            const { error: updateError } = await (supabase.from("orders") as any)
+                .update({
+                    payment_status: "paid",
+                    payment_method: "manual_card",
+                    tip: tip,
+                    total: finalTotal,
+                    status: isDelivery ? undefined : "completed",
+                    completed_at: isDelivery ? null : new Date().toISOString(),
+                    paid_at: new Date().toISOString(),
+                    is_comped: isOrderComped,
+                    comp_meta: compMeta,
+                    comp_reason: compReason
+                })
+                .eq("id", orderId);
+
+            if (updateError) throw updateError;
+
+            await processLoyaltyPoints(finalTotal);
+
+            setTimeout(() => {
+                onPaymentComplete?.();
+                onClose();
+            }, 1000);
+
+        } catch (error: any) {
+            console.error("Manual payment failed", error);
+            setPaymentStatus("Failed: " + (error.message || "Unknown error"));
+            toast.error(error.message || "Payment failed");
+        } finally {
+            setIsProcessingManual(false);
+        }
+    };
+
     const handleCashPayment = async () => {
         setProcessingCash(true);
         try {
+            const isDelivery = orderType === "delivery";
             const supabase = createClient();
             const { error } = await (supabase
                 .from("orders") as any)
@@ -449,8 +522,8 @@ export default function CloseTicketModal({
                     payment_method: "cash",
                     tip: tip,
                     total: total + tip,
-                    status: "completed",
-                    completed_at: new Date().toISOString(),
+                    status: isDelivery ? undefined : "completed",
+                    completed_at: isDelivery ? null : new Date().toISOString(),
                     paid_at: new Date().toISOString(),
                     is_comped: isOrderComped,
                     comp_meta: compMeta,
@@ -806,17 +879,83 @@ export default function CloseTicketModal({
                         </button>
 
                         <button
-                            onClick={() => setActiveOption("gift")}
-                            className="w-full flex items-center gap-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl hover:border-purple-500/50 hover:bg-purple-500/20 transition-all group"
+                            onClick={() => setActiveOption("manual_card")}
+                            className="w-full flex items-center gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 hover:bg-slate-800 transition-all group"
                         >
-                            <div className="p-3 bg-purple-500/20 rounded-lg group-hover:bg-purple-500/30 transition-colors">
-                                <Gift className="h-6 w-6 text-purple-400" />
+                            <div className="p-3 bg-slate-700 rounded-lg group-hover:bg-slate-600 transition-colors">
+                                <Copy className="h-6 w-6 text-slate-300" />
                             </div>
                             <div className="text-left">
-                                <p className="font-semibold text-purple-400">Gift Card</p>
-                                <p className="text-sm text-slate-400">Use existing gift card</p>
+                                <p className="font-semibold text-slate-100">Manual Card</p>
+                                <p className="text-sm text-slate-400">Type in card details manually</p>
                             </div>
                         </button>
+                    </div>
+                )}
+
+                {/* Manual Card Entry Form */}
+                {activeOption === "manual_card" && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Card Number</label>
+                                <input
+                                    type="text"
+                                    placeholder="0000 0000 0000 0000"
+                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-orange-500 outline-none"
+                                    value={cardNumber}
+                                    onChange={(e) => setCardNumber(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Expiry</label>
+                                    <input
+                                        type="text"
+                                        placeholder="MM/YY"
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-orange-500 outline-none"
+                                        value={cardExpiry}
+                                        onChange={(e) => setCardExpiry(e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">CVC</label>
+                                    <input
+                                        type="text"
+                                        placeholder="123"
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-orange-500 outline-none"
+                                        value={cardCvc}
+                                        onChange={(e) => setCardCvc(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {paymentStatus && (
+                            <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-sm text-orange-200 text-center italic">
+                                {paymentStatus}
+                            </div>
+                        )}
+
+                        <div className="flex gap-3 pt-4">
+                            <button
+                                onClick={() => {
+                                    setActiveOption(null);
+                                    setPaymentStatus("");
+                                }}
+                                disabled={isProcessingManual}
+                                className="btn btn-secondary flex-1"
+                            >
+                                Back
+                            </button>
+                            <button
+                                onClick={handleManualPayment}
+                                disabled={isProcessingManual || !cardNumber || !cardExpiry || !cardCvc}
+                                className="btn btn-primary flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50"
+                            >
+                                {isProcessingManual ? <Loader2 className="h-4 w-4 animate-spin" /> : "Charge Card"}
+                            </button>
+                        </div>
                     </div>
                 )}
 

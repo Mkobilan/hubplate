@@ -617,6 +617,71 @@ function OrdersPageContent() {
         setShowMyTickets(false);
     };
 
+    const handleOpenCloseTicket = async () => {
+        if (!activeOrderId && orderType === "delivery" && orderItems.length > 0) {
+            // Auto-save delivery order before opening payment modal
+            setLoading(true);
+            try {
+                // Prepare items for storage
+                const itemsToSave = orderItems.map(item => ({
+                    id: item.id,
+                    menu_item_id: item.menuItemId,
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.price,
+                    notes: item.notes || null,
+                    status: item.status || "pending", // Keep as pending for prepayment
+                    seat_number: item.seatNumber,
+                    is_upsell: item.isUpsell || false,
+                    category_name: item.category_name,
+                    modifiers: item.modifiers || [],
+                    sent_at: item.sent_at || null,
+                    started_at: item.started_at,
+                    ready_at: item.ready_at,
+                    served_at: item.served_at
+                }));
+
+                const { data: order, error: orderError } = await (supabase
+                    .from("orders") as any)
+                    .insert({
+                        location_id: currentLocation?.id,
+                        server_id: currentEmployee?.id || useAppStore.getState().currentEmployee?.id || null,
+                        status: "pending",
+                        payment_status: "unpaid",
+                        order_type: orderType,
+                        subtotal: subtotal,
+                        tax: tax,
+                        delivery_fee: deliveryFee,
+                        discount: discount,
+                        points_redeemed: pointsRedeemed,
+                        total: total,
+                        customer_id: linkedCustomer?.id || null,
+                        customer_phone: customerPhone || linkedCustomer?.phone || null,
+                        customer_email: linkedCustomer?.email || null,
+                        customer_name: customerName || (linkedCustomer ? `${linkedCustomer.first_name} ${linkedCustomer.last_name}` : null),
+                        delivery_address: deliveryAddress,
+                        is_comped: isOrderComped,
+                        comp_meta: compMeta,
+                        comp_reason: compReason,
+                        items: itemsToSave
+                    })
+                    .select("id")
+                    .single();
+
+                if (orderError) throw orderError;
+                setActiveOrderId(order.id);
+                setShowCloseTicket(true);
+            } catch (err) {
+                console.error("Error auto-saving order for payment:", err);
+                toast.error("Could not save order. Please try sending to kitchen first.");
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            setShowCloseTicket(true);
+        }
+    };
+
     const handleConfirmComp = async () => {
         if (!compingItemId) return;
 
@@ -1040,8 +1105,8 @@ function OrdersPageContent() {
                         {t("pos.sendToKitchen")}
                     </button>
                     <button
-                        onClick={() => setShowCloseTicket(true)}
-                        disabled={!activeOrderId}
+                        onClick={handleOpenCloseTicket}
+                        disabled={!activeOrderId && (orderType !== "delivery" || orderItems.length === 0)}
                         className="btn btn-secondary w-full py-2 text-sm"
                     >
                         <Receipt className="h-4 w-4" />
