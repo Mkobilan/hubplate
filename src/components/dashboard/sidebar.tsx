@@ -104,12 +104,6 @@ export function DashboardSidebar() {
             label: t("nav.orders"),
         },
         {
-            href: "/dashboard/menu",
-            icon: <UtensilsCrossed className="h-5 w-5" />,
-            label: t("nav.menu"),
-            requiresManager: true,
-        },
-        {
             href: "/dashboard/kitchen",
             icon: <ChefHat className="h-5 w-5" />,
             label: t("nav.kitchen"),
@@ -140,6 +134,12 @@ export function DashboardSidebar() {
             href: "/dashboard/profile",
             icon: <User className="h-5 w-5" />,
             label: t("nav.profile"),
+        },
+        {
+            href: "/dashboard/menu",
+            icon: <UtensilsCrossed className="h-5 w-5" />,
+            label: t("nav.menu"),
+            requiresManager: true,
         },
         {
             href: "/dashboard/recipes",
