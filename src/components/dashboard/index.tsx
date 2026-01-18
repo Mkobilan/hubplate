@@ -54,7 +54,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     // Wait for hydration AND session check before showing Access Denied.
     // This gives SessionHandler time to re-validate the session with Supabase.
     // We trust persisted isManager state during the check to prevent flickers.
-    const isUnauthorized = isRestrictedPath && !isManager && isHydrated && isSessionChecked;
+    // In Terminal Mode, we enforce strict immediate blocking without waiting for session check
+    // because permissions are derived entirely from the persisted currentEmployee.
+    const isUnauthorized = isRestrictedPath && !isManager && isHydrated && (isSessionChecked || isTerminalMode);
 
     // Optional: Add a small delay or check for 'isHydrated' if using zustand persist
     // For now, if we have NO employee and NOT an owner, but we ARE logged into Supabase (checked by SessionHandler),
