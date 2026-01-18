@@ -436,6 +436,63 @@ export default function SettingsPage() {
                 </div>
             </div>
 
+            {/* Community & Socials */}
+            <div className="card space-y-6">
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
+                    <div className="p-2 bg-blue-500/10 rounded-xl">
+                        <Users className="h-6 w-6 text-blue-500" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Join the Community</h2>
+                        <p className="text-xs text-slate-500">Connect with us on social media</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <a
+                        href="https://tiktok.com/@hubplate"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-4 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-white/20 hover:bg-slate-800 transition-all group"
+                    >
+                        <div className="p-2 bg-black rounded-lg text-white group-hover:scale-110 transition-transform">
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                            </svg>
+                        </div>
+                        <span className="font-bold text-white">TikTok</span>
+                    </a>
+
+                    <a
+                        href="https://www.facebook.com/profile.php?id=61585726323317"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-4 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-blue-500/50 hover:bg-blue-900/10 transition-all group"
+                    >
+                        <div className="p-2 bg-blue-600 rounded-lg text-white group-hover:scale-110 transition-transform">
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                <path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036c-2.148 0-2.791 1.657-2.791 3.593v.38h4.214l-.538 3.667h-3.676v7.98H9.101z" />
+                            </svg>
+                        </div>
+                        <span className="font-bold text-white">Facebook</span>
+                    </a>
+
+                    <a
+                        href="https://www.youtube.com/channel/UCkCrtYTJQken4XOQ3jxaeTw"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-4 bg-slate-900/50 rounded-xl border border-slate-800 hover:border-red-500/50 hover:bg-red-900/10 transition-all group"
+                    >
+                        <div className="p-2 bg-red-600 rounded-lg text-white group-hover:scale-110 transition-transform">
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                            </svg>
+                        </div>
+                        <span className="font-bold text-white">YouTube</span>
+                    </a>
+                </div>
+            </div>
+
             {/* Organization Info */}
             <div className="card space-y-4 bg-slate-900/30">
                 <div className="flex items-center gap-3">

@@ -641,11 +641,30 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="py-12 px-4 border-t border-white/5 bg-slate-900/50">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 bg-orange-500 rounded-lg overflow-hidden shrink-0">
-              <img src="/logo.png" alt="HubPlate" className="h-full w-full object-cover" />
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 bg-orange-500 rounded-lg overflow-hidden shrink-0">
+                <img src="/logo.png" alt="HubPlate" className="h-full w-full object-cover" />
+              </div>
+              <span className="text-xl font-black tracking-tighter">HubPlate</span>
             </div>
-            <span className="text-xl font-black tracking-tighter">HubPlate</span>
+            <div className="flex gap-4">
+              <a href="https://tiktok.com/@hubplate" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="text-slate-500 hover:text-white transition-colors">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                </svg>
+              </a>
+              <a href="https://www.facebook.com/profile.php?id=61585726323317" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-slate-500 hover:text-blue-500 transition-colors">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                  <path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036c-2.148 0-2.791 1.657-2.791 3.593v.38h4.214l-.538 3.667h-3.676v7.98H9.101z" />
+                </svg>
+              </a>
+              <a href="https://www.youtube.com/channel/UCkCrtYTJQken4XOQ3jxaeTw" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="text-slate-500 hover:text-red-500 transition-colors">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                </svg>
+              </a>
+            </div>
           </div>
 
           <div className="flex gap-10 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
