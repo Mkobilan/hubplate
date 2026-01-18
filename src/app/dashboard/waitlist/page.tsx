@@ -19,7 +19,7 @@ import {
     ChevronRight,
     Mail
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, isToday } from "date-fns";
 import { AddWaitlistModal } from "@/components/waitlist/AddWaitlistModal";
 import { SeatWaitlistModal, Table } from "@/components/waitlist/SeatWaitlistModal";
 import { toast } from "react-hot-toast";
@@ -220,7 +220,7 @@ export default function WaitlistPage() {
                     <div>
                         <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Seated Today</p>
                         <p className="text-2xl font-bold text-white">
-                            {entries.filter(e => e.status === 'seated').length}
+                            {entries.filter(e => e.status === 'seated' && e.seated_at && isToday(new Date(e.seated_at))).length}
                         </p>
                     </div>
                 </div>

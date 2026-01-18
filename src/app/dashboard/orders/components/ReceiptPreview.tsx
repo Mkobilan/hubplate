@@ -100,7 +100,7 @@ export default function ReceiptPreview({
     const date = new Date(created_at).toLocaleString();
 
     return (
-        <div className="w-full bg-white text-black p-4 font-mono text-sm sm:shadow-xl print:shadow-none mx-auto print:mx-0 max-w-[300px] print:max-w-none leading-tight print-content">
+        <div className="w-full bg-white text-black p-4 font-mono text-sm sm:shadow-xl print:shadow-none mx-auto print:mx-0 max-w-[300px] print:max-w-[80mm] print:w-[80mm] leading-tight print-content">
             {/* Header */}
             <div className="text-center mb-4 border-b border-black/10 pb-4">
                 <h1 className="text-xl font-bold uppercase mb-1">{location.name}</h1>

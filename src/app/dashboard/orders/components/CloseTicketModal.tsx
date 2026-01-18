@@ -415,22 +415,36 @@ export default function CloseTicketModal({
 
             const finalTotal = total + tip;
 
-            // For delivery orders, we DO NOT mark as completed.
-            const isDelivery = orderType === "delivery";
             const supabase = createClient();
+
+            // Logic to keep Takeout/Delivery open (and ensure they are sent to kitchen if pending)
+            const shouldKeepOpen = orderType === "delivery" || orderType === "takeout";
+            const { data: currentOrder } = await (supabase.from("orders") as any).select("status").eq("id", orderId).single();
+            const currentStatus = currentOrder?.status;
+
+            const updatePayload: any = {
+                payment_status: "paid",
+                payment_method: "card",
+                tip: tip,
+                total: finalTotal,
+                paid_at: new Date().toISOString(),
+                is_comped: isOrderComped,
+                comp_meta: compMeta,
+                comp_reason: compReason
+            };
+
+            if (shouldKeepOpen) {
+                updatePayload.completed_at = null;
+                if (currentStatus === "pending" || !currentStatus) {
+                    updatePayload.status = "sent";
+                }
+            } else {
+                updatePayload.status = "completed";
+                updatePayload.completed_at = new Date().toISOString();
+            }
+
             await (supabase.from("orders") as any)
-                .update({
-                    payment_status: "paid",
-                    payment_method: "card",
-                    tip: tip,
-                    total: finalTotal,
-                    status: isDelivery ? undefined : "completed",
-                    completed_at: isDelivery ? null : new Date().toISOString(),
-                    paid_at: new Date().toISOString(),
-                    is_comped: isOrderComped,
-                    comp_meta: compMeta,
-                    comp_reason: compReason
-                })
+                .update(updatePayload)
                 .eq("id", orderId);
 
             // Process Loyalty Points
@@ -452,22 +466,35 @@ export default function CloseTicketModal({
     const handleCashPayment = async () => {
         setProcessingCash(true);
         try {
-            const isDelivery = orderType === "delivery";
             const supabase = createClient();
+            const shouldKeepOpen = orderType === "delivery" || orderType === "takeout";
+            const { data: currentOrder } = await (supabase.from("orders") as any).select("status").eq("id", orderId).single();
+            const currentStatus = currentOrder?.status;
+
+            const updatePayload: any = {
+                payment_status: "paid",
+                payment_method: "cash",
+                tip: tip,
+                total: total + tip,
+                paid_at: new Date().toISOString(),
+                is_comped: isOrderComped,
+                comp_meta: compMeta,
+                comp_reason: compReason
+            };
+
+            if (shouldKeepOpen) {
+                updatePayload.completed_at = null;
+                if (currentStatus === "pending" || !currentStatus) {
+                    updatePayload.status = "sent";
+                }
+            } else {
+                updatePayload.status = "completed";
+                updatePayload.completed_at = new Date().toISOString();
+            }
+
             const { error } = await (supabase
                 .from("orders") as any)
-                .update({
-                    payment_status: "paid",
-                    payment_method: "cash",
-                    tip: tip,
-                    total: total + tip,
-                    status: isDelivery ? undefined : "completed",
-                    completed_at: isDelivery ? null : new Date().toISOString(),
-                    paid_at: new Date().toISOString(),
-                    is_comped: isOrderComped,
-                    comp_meta: compMeta,
-                    comp_reason: compReason
-                })
+                .update(updatePayload)
                 .eq("id", orderId);
 
             if (error) throw error;
@@ -554,23 +581,38 @@ export default function CloseTicketModal({
 
             // 3. Update Order
             if (amountToCharge >= totalToPay) {
+                // Logic to keep Takeout/Delivery open
+                const shouldKeepOpen = orderType === "delivery" || orderType === "takeout";
+                const { data: currentOrder } = await (supabase.from("orders") as any).select("status").eq("id", orderId).single();
+                const currentStatus = currentOrder?.status;
+
+                const updatePayload: any = {
+                    payment_status: "paid",
+                    payment_method: "gift_card",
+                    tip: tip,
+                    total: totalToPay,
+                    paid_at: new Date().toISOString(),
+                    is_comped: isOrderComped,
+                    comp_meta: compMeta,
+                    comp_reason: compReason,
+                    metadata: {
+                        ...(compMeta as any || {}),
+                        gift_card_number: cleanNumber
+                    }
+                };
+
+                if (shouldKeepOpen) {
+                    updatePayload.completed_at = null;
+                    if (currentStatus === "pending" || !currentStatus) {
+                        updatePayload.status = "sent";
+                    }
+                } else {
+                    updatePayload.status = "completed";
+                    updatePayload.completed_at = new Date().toISOString();
+                }
+
                 const { error: orderError } = await (supabase.from("orders") as any)
-                    .update({
-                        payment_status: "paid",
-                        payment_method: "gift_card",
-                        tip: tip,
-                        total: totalToPay,
-                        status: "completed",
-                        completed_at: new Date().toISOString(),
-                        paid_at: new Date().toISOString(),
-                        is_comped: isOrderComped,
-                        comp_meta: compMeta,
-                        comp_reason: compReason,
-                        metadata: {
-                            ...(compMeta as any || {}),
-                            gift_card_number: cleanNumber
-                        }
-                    })
+                    .update(updatePayload)
                     .eq("id", orderId);
 
                 if (orderError) throw orderError;
@@ -1230,21 +1272,34 @@ function ManualPaymentForm({
             // 3. Update Supabase status (Keep consistency with existing logic)
             const finalTotal = total + tip;
             const supabase = createClient();
-            const isDelivery = orderType === "delivery";
+
+            const shouldKeepOpen = orderType === "delivery" || orderType === "takeout";
+            const { data: currentOrder } = await (supabase.from("orders") as any).select("status").eq("id", orderId).single();
+            const currentStatus = currentOrder?.status;
+
+            const updatePayload: any = {
+                payment_status: "paid",
+                payment_method: "manual_card",
+                tip: tip,
+                total: finalTotal,
+                paid_at: new Date().toISOString(),
+                is_comped: isOrderComped,
+                comp_meta: compMeta,
+                comp_reason: compReason
+            };
+
+            if (shouldKeepOpen) {
+                updatePayload.completed_at = null;
+                if (currentStatus === "pending" || !currentStatus) {
+                    updatePayload.status = "sent";
+                }
+            } else {
+                updatePayload.status = "completed";
+                updatePayload.completed_at = new Date().toISOString();
+            }
 
             const { error: updateError } = await (supabase.from("orders") as any)
-                .update({
-                    payment_status: "paid",
-                    payment_method: "manual_card",
-                    tip: tip,
-                    total: finalTotal,
-                    status: isDelivery ? undefined : "completed",
-                    completed_at: isDelivery ? null : new Date().toISOString(),
-                    paid_at: new Date().toISOString(),
-                    is_comped: isOrderComped,
-                    comp_meta: compMeta,
-                    comp_reason: compReason
-                })
+                .update(updatePayload)
                 .eq("id", orderId);
 
             if (updateError) throw updateError;

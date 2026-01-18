@@ -618,7 +618,7 @@ function OrdersPageContent() {
     };
 
     const handleOpenCloseTicket = async () => {
-        if (!activeOrderId && orderType === "delivery" && orderItems.length > 0) {
+        if (!activeOrderId && (orderType === "delivery" || orderType === "takeout") && orderItems.length > 0) {
             // Auto-save delivery order before opening payment modal
             setLoading(true);
             try {
