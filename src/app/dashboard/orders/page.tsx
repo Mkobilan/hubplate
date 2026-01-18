@@ -1106,7 +1106,7 @@ function OrdersPageContent() {
                     </button>
                     <button
                         onClick={handleOpenCloseTicket}
-                        disabled={!activeOrderId && (orderType !== "delivery" || orderItems.length === 0)}
+                        disabled={!activeOrderId && ((orderType !== "delivery" && orderType !== "takeout") || orderItems.length === 0)}
                         className="btn btn-secondary w-full py-2 text-sm"
                     >
                         <Receipt className="h-4 w-4" />
