@@ -33,7 +33,8 @@ import {
   X,
   Scan,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Laptop } from "lucide-react";
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -118,10 +119,11 @@ export default function HomePage() {
             <Link href="/signup" className="btn btn-primary text-xl px-12 py-5 shadow-2xl shadow-orange-500/40 hover:scale-105 transition-all duration-300 font-black tracking-tight">
               GET STARTED IN 60 SECONDS
             </Link>
-            <a href="/hubplate.apk" download className="btn btn-secondary text-xl px-10 py-5 hover:bg-slate-800 transition-all flex items-center gap-3 font-bold">
+            <a href="/hubplate.apk" download className="btn btn-secondary text-lg sm:text-xl px-8 py-5 hover:bg-slate-800 transition-all flex items-center gap-3 font-bold border border-white/10">
               <Smartphone className="h-6 w-6" />
-              <span>Download Mobile App</span>
+              <span>Download for Android</span>
             </a>
+            <InstallPWAButton />
           </div>
 
           <div className="pt-12 border-t border-white/5">
@@ -772,4 +774,52 @@ function StatCard({ icon, title, value, desc }: { icon: React.ReactNode; title: 
     </div>
   );
 }
+function InstallPWAButton() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
 
+  useEffect(() => {
+    // Check if valid PWA install is possible
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+      // Fallback for when no prompt is available (e.g., iOS or already installed)
+      if (isInstalled) {
+        alert("App is already installed! You can open it from your home screen.");
+      } else {
+        alert("To install: \n1. Tap the Share button\n2. Select 'Add to Home Screen'");
+      }
+      return;
+    }
+
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleInstallClick}
+      className="btn btn-secondary text-lg sm:text-xl px-8 py-5 hover:bg-slate-800 transition-all flex items-center gap-3 font-bold border border-white/10"
+    >
+      <Laptop className="h-6 w-6" />
+      <span>Install Web App</span>
+    </button>
+  );
+}
