@@ -712,16 +712,27 @@ export default function AnalyticsPage() {
                                     {salesData.hourly.length > 0 ? (
                                         salesData.hourly.map((h: any, i: number) => {
                                             const maxSales = Math.max(...salesData.hourly.map((d: any) => d.sales), 1);
+                                            // Ensure we don't divide by zero
+                                            const percentage = maxSales > 0 ? (h.sales / maxSales) * 100 : 0;
+
                                             return (
-                                                <div key={i} className="flex-1 flex flex-col items-center group relative">
-                                                    <div
-                                                        className="w-full bg-orange-500/30 rounded-t hover:bg-orange-500/50 transition-colors cursor-pointer"
-                                                        style={{ height: `${(h.sales / maxSales) * 100}%`, minHeight: h.sales > 0 ? 4 : 0 }}
-                                                    />
-                                                    <span className="text-[10px] text-slate-500 mt-1">{h.hour}</span>
-                                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                                        {formatCurrency(h.sales)}
+                                                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+
+                                                    {/* Bar Container - Takes available space */}
+                                                    <div className="w-full flex-1 flex items-end justify-center relative">
+                                                        <div
+                                                            className="w-full bg-orange-500/30 rounded-t hover:bg-orange-500/50 transition-colors cursor-pointer relative"
+                                                            style={{ height: `${percentage}%`, minHeight: h.sales > 0 ? '4px' : '0px' }}
+                                                        >
+                                                            {/* Tooltip */}
+                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none border border-slate-700 shadow-xl">
+                                                                {formatCurrency(h.sales)}
+                                                                <div className="text-[10px] text-slate-400 text-center">{h.orders} orders</div>
+                                                            </div>
+                                                        </div>
                                                     </div>
+
+                                                    <span className="text-[10px] text-slate-500 mt-1 h-4">{h.hour}</span>
                                                 </div>
                                             );
                                         })
