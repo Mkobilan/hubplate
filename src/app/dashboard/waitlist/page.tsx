@@ -171,9 +171,12 @@ export default function WaitlistPage() {
         return matchesSearch && matchesStatus;
     });
 
-    const activeEntries = entries.filter(e => e.status === 'waiting');
-    const avgWait = activeEntries.length > 0
-        ? Math.round(activeEntries.reduce((acc, curr) => acc + curr.estimated_wait_minutes, 0) / activeEntries.length)
+    const seatedToday = entries.filter(e => e.seated_at && isToday(new Date(e.seated_at)));
+    const avgWait = seatedToday.length > 0
+        ? Math.round(seatedToday.reduce((acc, curr) => {
+            const waitTime = new Date(curr.seated_at!).getTime() - new Date(curr.created_at).getTime();
+            return acc + (waitTime / 60000);
+        }, 0) / seatedToday.length)
         : 0;
 
     return (
@@ -201,7 +204,7 @@ export default function WaitlistPage() {
                     </div>
                     <div>
                         <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Waiting Parties</p>
-                        <p className="text-2xl font-bold text-white">{activeEntries.length}</p>
+                        <p className="text-2xl font-bold text-white">{entries.filter(e => e.status === 'waiting').length}</p>
                     </div>
                 </div>
                 <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl flex items-center gap-4">
@@ -220,7 +223,7 @@ export default function WaitlistPage() {
                     <div>
                         <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Seated Today</p>
                         <p className="text-2xl font-bold text-white">
-                            {entries.filter(e => e.status === 'seated' && e.seated_at && isToday(new Date(e.seated_at))).length}
+                            {seatedToday.length}
                         </p>
                     </div>
                 </div>
