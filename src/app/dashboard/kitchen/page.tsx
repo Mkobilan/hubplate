@@ -721,9 +721,9 @@ export default function KitchenPage() {
 
             {/* KDS Screen Tabs, Stats, & Clock */}
             {kdsScreens.length > 0 && (
-                <div className="flex items-center border-b border-slate-700 pb-2 justify-between gap-4">
+                <div className="flex flex-col md:flex-row items-start md:items-center border-b border-slate-700 pb-2 justify-between gap-4">
                     {/* LEFT: Tabs */}
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full md:w-auto md:flex-1">
                         {kdsScreens.map((screen) => (
                             <button
                                 key={screen.id}
@@ -741,30 +741,33 @@ export default function KitchenPage() {
                         ))}
                     </div>
 
-                    {/* CENTER: Stats */}
-                    <div className="flex items-center gap-6 px-6 bg-slate-800/30 rounded-lg mx-auto">
-                        <div className="flex flex-col items-center">
-                            <span className="text-2xl font-bold text-blue-400 leading-none">{sentOrders.length}</span>
-                            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">{t("kitchen.newOrders")}</span>
+                    {/* RIGHT: Stats & Clock Wrapper */}
+                    <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end overflow-x-auto no-scrollbar">
+                        {/* CENTER: Stats */}
+                        <div className="flex items-center gap-6 px-6 bg-slate-800/30 rounded-lg whitespace-nowrap">
+                            <div className="flex flex-col items-center">
+                                <span className="text-2xl font-bold text-blue-400 leading-none">{sentOrders.length}</span>
+                                <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">{t("kitchen.newOrders")}</span>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700/50"></div>
+                            <div className="flex flex-col items-center">
+                                <span className="text-2xl font-bold text-amber-400 leading-none">{preparingOrders.length}</span>
+                                <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">{t("kitchen.preparing")}</span>
+                            </div>
+                            <div className="h-8 w-px bg-slate-700/50"></div>
+                            <div className="flex flex-col items-center">
+                                <span className="text-2xl font-bold text-green-400 leading-none">{readyOrders.length}</span>
+                                <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">{t("kitchen.ready")}</span>
+                            </div>
                         </div>
-                        <div className="h-8 w-px bg-slate-700/50"></div>
-                        <div className="flex flex-col items-center">
-                            <span className="text-2xl font-bold text-amber-400 leading-none">{preparingOrders.length}</span>
-                            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">{t("kitchen.preparing")}</span>
-                        </div>
-                        <div className="h-8 w-px bg-slate-700/50"></div>
-                        <div className="flex flex-col items-center">
-                            <span className="text-2xl font-bold text-green-400 leading-none">{readyOrders.length}</span>
-                            <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">{t("kitchen.ready")}</span>
-                        </div>
-                    </div>
 
-                    {/* RIGHT: Clock */}
-                    <div className="flex items-center gap-3 px-4 text-slate-400 font-medium bg-slate-800/50 py-1.5 rounded-lg border border-slate-700/50 ml-auto">
-                        <Clock className="h-4 w-4 text-orange-500" />
-                        <span className="text-lg font-mono tracking-wide text-slate-200">
-                            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </span>
+                        {/* RIGHT: Clock */}
+                        <div className="flex items-center gap-3 px-4 text-slate-400 font-medium bg-slate-800/50 py-1.5 rounded-lg border border-slate-700/50 whitespace-nowrap ml-auto md:ml-0">
+                            <Clock className="h-4 w-4 text-orange-500" />
+                            <span className="text-lg font-mono tracking-wide text-slate-200">
+                                {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                        </div>
                     </div>
                 </div>
             )}
